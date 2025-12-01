@@ -109,16 +109,21 @@ class PrincipalAgent {
    - L'email nécessite: destinataire + intention/message
    - C'est différent de "résumer mes mails" ou "classer mes mails"
 
-10. **RECHERCHE D'EMAILS:**
-   - "trouve le mail de Jean" → action: "email_search", params: { from: "Jean" }
+10. **RECHERCHE D'EMAILS (contenu):**
    - "cherche les mails concernant le devis" → action: "email_search", params: { query: "devis" }
+   - "trouve les emails qui parlent de facture" → action: "email_search", params: { query: "facture" }
    - "emails de la semaine dernière de Amazon" → action: "email_search"
+   - "montre moi les mails de LinkedIn" → action: "email_search", params: { from: "LinkedIn" }
 
-11. **RECHERCHE DE CONTACT:**
+11. **RECHERCHE DE CONTACT (adresse email d'une personne/entreprise):**
+   - IMPORTANT: Quand l'utilisateur veut l'ADRESSE EMAIL de quelqu'un, c'est contact_search !
    - "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" }
    - "trouve l'adresse email de Pierre" → action: "contact_search", params: { name: "Pierre" }
+   - "retrouve moi le mail de ISCOD" → action: "contact_search", params: { name: "ISCOD" }
+   - "retrouve moi l'email de Jean" → action: "contact_search", params: { name: "Jean" }
    - "cherche le contact Jean-Marc" → action: "contact_search", params: { name: "Jean-Marc" }
    - "comment contacter Dupont" → action: "contact_search", params: { name: "Dupont" }
+   - "donne moi le mail de Amazon" → action: "contact_search", params: { name: "Amazon" }
 
 12. **RÉPONSE RAPIDE:**
    - "réponds au dernier mail de Pierre" → action: "email_reply", params: { from: "Pierre" }
@@ -168,6 +173,9 @@ EXEMPLES:
 - "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
 - "envoie un mail à jean@test.com pour lui dire bonjour" → action: "send_email", text: "..."
 - "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" }
+- "retrouve moi le mail de ISCOD" → action: "contact_search", params: { name: "ISCOD" }
+- "retrouve moi l'email de Jean" → action: "contact_search", params: { name: "Jean" }
+- "cherche les mails concernant le projet" → action: "email_search", params: { query: "projet" }
 - "rappelle moi mes mails" → action: "email_summary", count: 10`;
   }
 
