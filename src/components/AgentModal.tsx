@@ -326,70 +326,98 @@ Tu es professionnel, efficace et tu communiques en français.`
                       <span className="capability-icon">📧</span>
                       <div className="capability-info">
                         <span className="capability-name">Résumé emails</span>
-                        <span className="capability-example">"Résume mes 10 derniers mails"</span>
+                        <span className="capability-example">"Résume mes 10 derniers mails reçus aujourd'hui"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">📬</span>
                       <div className="capability-info">
-                        <span className="capability-name">Non-lus</span>
-                        <span className="capability-example">"Emails non lus"</span>
+                        <span className="capability-name">Emails non-lus</span>
+                        <span className="capability-example">"Quels sont mes emails non lus ?"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">📂</span>
                       <div className="capability-info">
                         <span className="capability-name">Classification</span>
-                        <span className="capability-example">"Classe mes emails"</span>
+                        <span className="capability-example">"Classe mes 20 derniers emails dans les bons dossiers"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">🔍</span>
                       <div className="capability-info">
                         <span className="capability-name">Recherche</span>
-                        <span className="capability-example">"Cherche les mails d'Amazon"</span>
+                        <span className="capability-example">"Cherche tous les mails d'Amazon des 7 derniers jours"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">📤</span>
                       <div className="capability-info">
-                        <span className="capability-name">Envoi</span>
-                        <span className="capability-example">"Envoie un mail à x@email.com"</span>
+                        <span className="capability-name">Envoi d'email</span>
+                        <span className="capability-example">"Envoie un mail à pierre@email.com pour lui dire bonjour"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">✉️</span>
                       <div className="capability-info">
                         <span className="capability-name">Réponse rapide</span>
-                        <span className="capability-example">"Réponds au mail de Jean"</span>
+                        <span className="capability-example">"Réponds au dernier mail de Marie pour accepter sa proposition"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">⏰</span>
                       <div className="capability-info">
                         <span className="capability-name">Rappels</span>
-                        <span className="capability-example">"Rappelle-moi dans 1h"</span>
+                        <span className="capability-example">"Rappelle-moi dans 2h de répondre au mail du client"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">🗑️</span>
                       <div className="capability-info">
-                        <span className="capability-name">Nettoyage</span>
-                        <span className="capability-example">"Nettoie les vieux mails"</span>
+                        <span className="capability-name">Suppr. par expéditeur</span>
+                        <span className="capability-example">"Supprime tous les mails LinkedIn reçus aujourd'hui"</span>
                       </div>
                     </div>
                     <div className="capability-item">
-                      <span className="capability-icon">⚙️</span>
+                      <span className="capability-icon">📅</span>
                       <div className="capability-info">
-                        <span className="capability-name">Règles auto</span>
-                        <span className="capability-example">"LinkedIn → Newsletter"</span>
+                        <span className="capability-name">Suppr. par période</span>
+                        <span className="capability-example">"Supprime les emails Amazon de cette semaine"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">📁</span>
                       <div className="capability-info">
-                        <span className="capability-name">Dossiers</span>
-                        <span className="capability-example">"Crée le dossier Projets"</span>
+                        <span className="capability-name">Suppr. par dossier</span>
+                        <span className="capability-example">"Vide le dossier Courrier indésirable"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">🔄</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Suppr. combinée</span>
+                        <span className="capability-example">"Supprime les mails LinkedIn du dossier Newsletter"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">⚙️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Règles automatiques</span>
+                        <span className="capability-example">"Mets automatiquement les mails LinkedIn dans Newsletter"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📁</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Gestion dossiers</span>
+                        <span className="capability-example">"Crée un nouveau dossier appelé Projets Client"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📊</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Résumé quotidien</span>
+                        <span className="capability-example">"Donne-moi un résumé de ma journée email"</span>
                       </div>
                     </div>
                   </div>

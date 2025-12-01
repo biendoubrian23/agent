@@ -1195,73 +1195,150 @@ EXEMPLES:
    * Message d'aide
    */
   getHelpMessage() {
-    return `🤖 **Services de James**
+    return `🤖 **Tous les services de James - Assistant Email**
 
-📧 *Emails*
-→ "Résume mes 10 derniers mails"
-→ "Emails non lus"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📂 *Classification*
-→ "Classe mes emails"
-→ "Reclasse le dossier Newsletter"
+📧 **LECTURE & RÉSUMÉ D'EMAILS**
+• "Résume mes 10 derniers mails reçus aujourd'hui"
+• "Donne-moi un résumé de mes 5 derniers emails"
+• "Quels sont mes emails non lus ?"
+• "Montre-moi les mails importants de la semaine"
+• "Résumé de ma journée email"
 
-🔍 *Recherche*
-→ "Cherche les mails d'Amazon"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📤 *Envoi*
-→ "Envoie un mail à x@email.com pour..."
+📂 **CLASSIFICATION AUTOMATIQUE**
+• "Classe mes 20 derniers emails dans les bons dossiers"
+• "Reclasse les mails du dossier Newsletter"
+• "Analyse et trie mes emails de la semaine"
 
-✉️ *Réponse rapide*
-→ "Réponds au mail de Jean pour accepter"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⏰ *Rappels*
-→ "Rappelle-moi dans 1h de..."
-→ "Mes rappels" (voir la liste)
+🔍 **RECHERCHE INTELLIGENTE**
+• "Cherche tous les mails d'Amazon des 7 derniers jours"
+• "Trouve les emails qui parlent de facture"
+• "Recherche les mails de Jean Dupont"
 
-🗑️ *Nettoyage*
-→ "Nettoie les mails +30j dans Newsletter"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚙️ *Règles*
-→ "Mets les mails LinkedIn dans Newsletter"
-→ "Voir mes règles"
-→ "Supprime la règle 2"
+📤 **ENVOI D'EMAILS**
+• "Envoie un mail à pierre@email.com pour lui dire que je serai en retard demain"
+• "Écris un email professionnel à mon chef pour demander un jour de congé"
 
-📁 *Dossiers*
-→ "Crée le dossier Projets"
-→ "Supprime le dossier Pub"
-→ "Liste mes dossiers"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 *Résumé quotidien*
-→ "Résumé de ma journée"
+✉️ **RÉPONSE RAPIDE**
+• "Réponds au dernier mail de Marie pour accepter sa proposition"
+• "Envoie une réponse au mail de LinkedIn pour décliner poliment"
 
-🔧 *Status*
-→ "Status" ou "Connexion"`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏰ **RAPPELS & NOTIFICATIONS**
+• "Rappelle-moi dans 2 heures de répondre au mail de mon client"
+• "Préviens-moi demain à 9h de vérifier mes emails"
+• "Quels sont mes rappels en attente ?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🗑️ **SUPPRESSION PAR EXPÉDITEUR**
+• "Supprime tous les mails LinkedIn reçus aujourd'hui"
+• "Supprime les emails venant d'Amazon de cette semaine"
+• "Nettoie les mails de Facebook d'hier"
+
+🗑️ **SUPPRESSION PAR DOSSIER**
+• "Vide le dossier Courrier indésirable"
+• "Supprime les mails du dossier Newsletter de plus de 30 jours"
+• "Nettoie la corbeille"
+
+🗑️ **SUPPRESSION COMBINÉE**
+• "Supprime les mails LinkedIn du dossier Newsletter"
+• "Supprime les emails Google du dossier Spam d'aujourd'hui"
+• "Nettoie les mails Amazon du dossier Shopping de la semaine"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ **RÈGLES DE CLASSIFICATION**
+• "Mets automatiquement les mails LinkedIn dans le dossier Newsletter"
+• "Crée une règle : les mails de mon chef vont dans Urgent"
+• "Affiche toutes mes règles de classification"
+• "Supprime la règle numéro 3"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 **GESTION DES DOSSIERS**
+• "Crée un nouveau dossier appelé Projets Client"
+• "Supprime le dossier Publicités"
+• "Liste tous mes dossiers emails"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 **STATUS & CONNEXION**
+• "Quel est le status de ma connexion Outlook ?"
+• "Reconnecte mon compte email"`;
   }
 
   /**
    * Décrire toutes les capacités de James
    */
   getJamesCapabilities() {
-    return `🤖 **James - Assistant Mail**
+    return `🤖 **James - Assistant Email Intelligent**
 
-📧 *Lecture* → "Résume mes 10 mails"
-📂 *Classification* → "Classe mes emails"
-🔄 *Reclassement* → "Reclasse Newsletter"
-🔍 *Recherche* → "Cherche mails d'Amazon"
-📤 *Envoi* → "Envoie mail à x@email.com"
-✉️ *Réponse* → "Réponds au mail de Jean"
-⏰ *Rappels* → "Rappelle-moi dans 1h"
-📋 *Mes rappels* → "Mes rappels"
-🗑️ *Nettoyage* → "Nettoie +30j dans Spam"
-⚙️ *Règles* → "Mets LinkedIn dans Newsletter"
-🗑️ *Suppr règle* → "Supprime la règle 2"
-📁 *Créer dossier* → "Crée dossier Projets"
-🗑️ *Suppr dossier* → "Supprime dossier Pub"
-📋 *Liste dossiers* → "Mes dossiers"
-📊 *Résumé* → "Résumé de ma journée"
-🔧 *Status* → "Status"
+━━━━━ 📧 EMAILS ━━━━━
+• "Résume mes 10 derniers mails reçus"
+• "Quels sont mes emails non lus ?"
+• "Montre les mails importants d'aujourd'hui"
 
-📂 Dossiers: 🔴Urgent 💼Pro 🛒Shopping 📰Newsletter 🏦Finance 🤝Social`;
+━━━━━ 📂 CLASSIFICATION ━━━━━
+• "Classe mes 20 derniers emails"
+• "Reclasse le dossier Newsletter"
+• "Analyse et trie mes emails"
+
+━━━━━ 🔍 RECHERCHE ━━━━━
+• "Cherche les mails d'Amazon"
+• "Trouve les emails de facture"
+• "Recherche les mails de Jean"
+
+━━━━━ 📤 ENVOI ━━━━━
+• "Envoie un mail à pierre@email.com pour dire..."
+• "Écris un email à mon chef pour demander..."
+
+━━━━━ ✉️ RÉPONSE ━━━━━
+• "Réponds au mail de Marie pour accepter"
+• "Envoie une réponse à LinkedIn pour décliner"
+
+━━━━━ ⏰ RAPPELS ━━━━━
+• "Rappelle-moi dans 2h de répondre au client"
+• "Préviens-moi demain à 9h"
+• "Quels sont mes rappels ?"
+
+━━━━━ 🗑️ SUPPRESSION ━━━━━
+
+*Par expéditeur:*
+• "Supprime les mails LinkedIn d'aujourd'hui"
+• "Supprime les emails Amazon de la semaine"
+• "Nettoie les mails Facebook d'hier"
+
+*Par dossier:*
+• "Vide le dossier Spam"
+• "Supprime les mails Newsletter +30 jours"
+• "Nettoie la corbeille"
+
+*Combinée:*
+• "Supprime les mails LinkedIn du dossier Newsletter"
+• "Supprime les Google du Spam d'aujourd'hui"
+
+━━━━━ ⚙️ RÈGLES ━━━━━
+• "Mets les mails LinkedIn dans Newsletter"
+• "Affiche mes règles"
+• "Supprime la règle 3"
+
+━━━━━ 📁 DOSSIERS ━━━━━
+• "Crée le dossier Projets"
+• "Supprime le dossier Pub"
+• "Liste mes dossiers"
+
+📂 **Dossiers par défaut:** 🔴Urgent 💼Pro 🛒Shopping 📰Newsletter 🏦Finance 🤝Social`;
   }
 
   /**
