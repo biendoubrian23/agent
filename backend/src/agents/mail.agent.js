@@ -70,8 +70,9 @@ class MailAgent {
    * Récupérer et résumer les derniers emails
    * @param {number} count - Nombre d'emails à récupérer
    * @param {string} filter - Filtre optionnel (today, yesterday, week, important)
+   * @param {boolean} allFolders - Si true, récupère depuis tous les dossiers (pas juste Inbox)
    */
-  async getEmailSummary(count = 50, filter = null) {
+  async getEmailSummary(count = 50, filter = null, allFolders = true) {
     try {
       if (!outlookService.isConnected()) {
         statsService.logConnectionCheck('outlook', false);
@@ -85,7 +86,14 @@ class MailAgent {
       
       // Si on a un filtre temporel, on récupère plus d'emails pour filtrer ensuite
       const fetchCount = filter ? Math.max(count * 3, 100) : count;
-      let emails = await outlookService.getEmails(fetchCount);
+      
+      // Récupérer depuis TOUS les dossiers (Inbox + classifiés) par défaut
+      let emails;
+      if (allFolders) {
+        emails = await outlookService.getAllRecentEmails(fetchCount);
+      } else {
+        emails = await outlookService.getEmails(fetchCount);
+      }
       
       // Appliquer le filtre
       if (filter) {
@@ -115,7 +123,8 @@ class MailAgent {
       // Logger l'activité
       statsService.logSummarySent();
       const filterInfo = filter ? ` (filtre: ${filter})` : '';
-      statsService.addActivity('james', `Résumé de ${emails.length} emails envoyé${filterInfo}`);
+      const folderInfo = allFolders ? ' (tous dossiers)' : '';
+      statsService.addActivity('james', `Résumé de ${emails.length} emails envoyé${filterInfo}${folderInfo}`);
       
       return {
         success: true,

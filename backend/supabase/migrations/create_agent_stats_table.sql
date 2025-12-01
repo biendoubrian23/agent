@@ -1,9 +1,12 @@
 -- Table pour stocker les statistiques des agents
 -- À exécuter dans Supabase SQL Editor
 
-CREATE TABLE IF NOT EXISTS agent_stats (
+-- Supprimer la table si elle existe (pour un fresh start)
+DROP TABLE IF EXISTS agent_stats;
+
+CREATE TABLE agent_stats (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  agent_name TEXT NOT NULL UNIQUE,
+  agent_name TEXT NOT NULL,
   
   -- Stats James
   emails_processed INTEGER DEFAULT 0,
@@ -24,19 +27,21 @@ CREATE TABLE IF NOT EXISTS agent_stats (
   -- Timestamps
   last_sync TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Contrainte unique sur agent_name
+  CONSTRAINT agent_stats_agent_name_key UNIQUE (agent_name)
 );
 
 -- Index pour les recherches par agent
-CREATE INDEX IF NOT EXISTS idx_agent_stats_agent_name ON agent_stats(agent_name);
+CREATE INDEX idx_agent_stats_agent_name ON agent_stats(agent_name);
 
 -- Insérer les agents par défaut
 INSERT INTO agent_stats (agent_name) VALUES 
   ('james'),
   ('magali'),
   ('kiara'),
-  ('brian')
-ON CONFLICT (agent_name) DO NOTHING;
+  ('brian');
 
 -- Politique RLS (désactivée pour le service_role)
 ALTER TABLE agent_stats ENABLE ROW LEVEL SECURITY;
@@ -47,5 +52,4 @@ CREATE POLICY "Allow public read access" ON agent_stats
 
 -- Permettre les updates depuis le backend (service_role)
 CREATE POLICY "Allow service role full access" ON agent_stats
-  USING (true)
-  WITH CHECK (true);
+  FOR ALL USING (true) WITH CHECK (true);

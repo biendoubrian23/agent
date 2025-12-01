@@ -803,7 +803,102 @@ class OutlookService {
   // ==================== EMAILS ====================
 
   /**
-   * Récupérer les derniers emails
+   * Récupérer les emails les plus récents de TOUS les dossiers (Inbox + classifiés)
+   * Triés par date de réception (du plus récent au plus ancien)
+   * @param {number} count - Nombre total d'emails à retourner
+   */
+  async getAllRecentEmails(count = 50) {
+    const accessToken = await this.ensureValidToken();
+    const allEmails = [];
+    
+    try {
+      // 1. Récupérer les emails de l'Inbox principal
+      const inboxResponse = await axios.get(
+        `${this.graphBaseUrl}/me/mailFolders/inbox/messages`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+          params: {
+            '$top': count,
+            '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance,parentFolderId',
+            '$orderby': 'receivedDateTime desc'
+          }
+        }
+      );
+      
+      const inboxEmails = (inboxResponse.data.value || []).map(email => ({
+        id: email.id,
+        subject: email.subject,
+        from: email.from?.emailAddress?.address || 'Inconnu',
+        fromName: email.from?.emailAddress?.name || 'Inconnu',
+        receivedAt: email.receivedDateTime,
+        preview: email.bodyPreview,
+        isRead: email.isRead,
+        importance: email.importance,
+        folder: 'Inbox'
+      }));
+      allEmails.push(...inboxEmails);
+      
+      // 2. Récupérer les sous-dossiers de Inbox (dossiers de classification)
+      const childFoldersResponse = await axios.get(
+        `${this.graphBaseUrl}/me/mailFolders/inbox/childFolders`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+          params: { '$top': 50 }
+        }
+      );
+      
+      const classificationFolders = childFoldersResponse.data.value || [];
+      
+      // 3. Pour chaque dossier, récupérer les emails récents
+      for (const folder of classificationFolders) {
+        try {
+          const folderResponse = await axios.get(
+            `${this.graphBaseUrl}/me/mailFolders/${folder.id}/messages`,
+            {
+              headers: { 'Authorization': `Bearer ${accessToken}` },
+              params: {
+                '$top': Math.ceil(count / 2), // Limiter par dossier
+                '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance',
+                '$orderby': 'receivedDateTime desc'
+              }
+            }
+          );
+          
+          const folderEmails = (folderResponse.data.value || []).map(email => ({
+            id: email.id,
+            subject: email.subject,
+            from: email.from?.emailAddress?.address || 'Inconnu',
+            fromName: email.from?.emailAddress?.name || 'Inconnu',
+            receivedAt: email.receivedDateTime,
+            preview: email.bodyPreview,
+            isRead: email.isRead,
+            importance: email.importance,
+            folder: folder.displayName
+          }));
+          allEmails.push(...folderEmails);
+        } catch (folderError) {
+          // Ignorer les erreurs de dossiers individuels
+        }
+      }
+      
+      // 4. Trier TOUS les emails par date (du plus récent au plus ancien)
+      allEmails.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
+      
+      // 5. Retourner seulement le nombre demandé
+      const result = allEmails.slice(0, count);
+      console.log(`📬 getAllRecentEmails: ${result.length} emails récents (tous dossiers confondus)`);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Erreur getAllRecentEmails:', error.response?.data || error.message);
+      // Fallback: retourner juste l'Inbox
+      return this.getEmails(count);
+    }
+  }
+
+  /**
+   * Récupérer les derniers emails (INBOX uniquement - ancienne méthode)
    */
   async getEmails(count = 50) {
     const accessToken = await this.ensureValidToken();
