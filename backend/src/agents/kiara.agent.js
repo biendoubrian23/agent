@@ -304,29 +304,29 @@ Réponds toujours de manière professionnelle et utile.`;
 
     const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
 
-    const articlePrompt = `Tu es un EXCELLENT rédacteur web français avec un style ENGAGEANT et une touche d'HUMOUR. 
-Rédige un article de blog captivant EN FRANÇAIS qui traite de ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
+    const articlePrompt = `Tu es un EXCELLENT rédacteur web FRANÇAIS. Tu écris UNIQUEMENT en français.
+Rédige un article de blog captivant qui traite de ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
 
-🔍 SUJETS/SOURCES À ANALYSER:
+🔍 SUJETS/SOURCES À ANALYSER (les titres sont en anglais, TRADUIS-LES en français):
 ${sourcesForPrompt}
 
 📝 TON STYLE:
 - **HUMOUR**: Ajoute des touches d'humour, des jeux de mots dans le titre et le contenu
-- **ACCROCHEUR**: Le titre doit donner envie de lire (avec un clin d'œil humoristique si possible)
+- **ACCROCHEUR**: Le titre DOIT être EN FRANÇAIS avec un clin d'œil humoristique
 - **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
 - **ACCESSIBLE**: Explique les concepts complexes simplement
-${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets si possible, sinon traite-les séparément' : ''}
+${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets si possible' : ''}
 
 ⚠️ RÈGLES STRICTES:
-1. **100% FRANÇAIS** - Tout l'article en français
-2. **PERTINENCE** - Base-toi sur les actualités fournies
+1. **TITRE EN FRANÇAIS** - TRADUIS le sujet en français, crée un titre accrocheur FR
+2. **100% FRANÇAIS** - Tout l'article en français, pas un mot d'anglais
 3. **RÉÉCRITURE** - Reformule avec tes mots, analyse, donne ton avis
 4. **SOURCES** - Mets les URLs des sources à la fin
 
-📏 LONGUEUR: 800-1000 mots (3-4 pages PDF)
+📏 LONGUEUR: 600-800 mots (2-3 pages PDF maximum)
 
 📋 STRUCTURE:
-1. **Titre FUN** (avec jeu de mots ou référence pop culture si possible) - MAX 60 caractères
+1. **Titre FUN EN FRANÇAIS** - MAX 55 caractères
 2. **Meta description** (150 car.)
 3. **Contenu Markdown**:
    - Intro accrocheuse (2-3 phrases qui captent l'attention)
@@ -371,15 +371,17 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
         }
       } catch (parseError) {
         console.error('Erreur parsing JSON, création article depuis le texte brut...');
+        // Créer un titre français basique à partir du sujet
+        const frenchTitle = await this.translateToFrench(subject);
         article = {
-          title: subject.substring(0, 60),
-          meta_description: `Découvrez les dernières actualités sur ${subject}`,
-          keywords: subject.split(' ').filter(w => w.length > 2),
-          excerpt: `Un article complet sur ${subject}.`,
-          content: `# ${subject}\n\n${response}`,
+          title: frenchTitle.substring(0, 55),
+          meta_description: `Découvrez les dernières actualités tech du moment`,
+          keywords: ['actualités', 'tech', 'news'],
+          excerpt: `Un article complet sur l'actualité tech.`,
+          content: `# ${frenchTitle}\n\n${response}`,
           category: category,
           reading_time_minutes: 5,
-          tags: subject.split(' ').filter(w => w.length > 3).slice(0, 5),
+          tags: ['actualités', 'tech'],
           sources: sources.map(s => s.link)
         };
       }
@@ -1132,6 +1134,23 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
     return data;
   }
 
+  /**
+   * Traduit un texte en français (pour les titres anglais)
+   */
+  async translateToFrench(text) {
+    try {
+      const response = await openaiService.chat(
+        'Tu es un traducteur. Réponds UNIQUEMENT avec la traduction, sans explication.',
+        `Traduis ce titre en français de manière naturelle et accrocheuse (max 55 caractères): "${text}"`,
+        { maxTokens: 100 }
+      );
+      return response.trim().replace(/^["']|["']$/g, ''); // Enlever les guillemets
+    } catch (error) {
+      // Fallback: garder le texte original tronqué
+      return text.substring(0, 55);
+    }
+  }
+
   generateSlug(title) {
     // Sécuriser le slug même si le titre est undefined ou vide
     const safeTitle = title || `article-${Date.now()}`;
@@ -1497,9 +1516,13 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
     const whatsappNumber = context.from || this.currentContext?.from || process.env.MY_PHONE_NUMBER;
     
     // Vérifier si l'utilisateur veut l'envoyer sur WhatsApp
+    // "recevoir" implique qu'on veut le recevoir sur WhatsApp
     const wantWhatsApp = message.toLowerCase().includes('whatsapp') || 
                          message.toLowerCase().includes('envoie') ||
-                         message.toLowerCase().includes('envoi');
+                         message.toLowerCase().includes('envoi') ||
+                         message.toLowerCase().includes('recevoir') ||
+                         message.toLowerCase().includes('reçois') ||
+                         (whatsappNumber && !message.toLowerCase().includes('lien'));  // Par défaut on envoie si on a le numéro
     
     // Extraire le titre de l'article demandé
     const titleMatch = message.match(/pdf\s+(?:de\s+)?(?:l'article\s+)?["']?(.+?)["']?$/i) ||
@@ -1760,8 +1783,8 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       const content = this.parseMarkdownForPdf(article.content);
       
       content.forEach(block => {
-        // Vérifier si on a besoin d'une nouvelle page
-        if (doc.y > 700) {
+        // Vérifier si on a besoin d'une nouvelle page (seulement si vraiment en bas)
+        if (doc.y > 750) {
           doc.addPage();
           doc.y = 60;
         }
@@ -1822,8 +1845,8 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
 
       // === SECTION SOURCES ===
       if (article.sources && article.sources.length > 0) {
-        // Nouvelle page si pas assez de place
-        if (doc.y > 600) {
+        // Nouvelle page seulement si vraiment en bas de page
+        if (doc.y > 720) {
           doc.addPage();
           doc.y = 60;
         }
@@ -1859,7 +1882,7 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
 
       // === SECTION IMAGES (crédits) ===
       if (article.images && article.images.length > 0) {
-        if (doc.y > 650) {
+        if (doc.y > 740) {
           doc.addPage();
           doc.y = 60;
         }
@@ -1879,7 +1902,7 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       }
 
       // === SIGNATURE / À PROPOS ===
-      if (doc.y > 620) {
+      if (doc.y > 700) {
         doc.addPage();
         doc.y = 60;
       }
