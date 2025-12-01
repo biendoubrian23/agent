@@ -1503,21 +1503,23 @@ class OutlookService {
         return { success: true, message: 'Aucun email correspondant aux critères', deleted: 0 };
       }
       
-      // Supprimer les emails (déplacer vers Deleted Items)
+      // Déplacer les emails vers "Éléments supprimés" (pas suppression définitive)
       let deletedCount = 0;
       for (const email of emailsToDelete) {
         try {
-          await axios.delete(
-            `${this.graphBaseUrl}/me/messages/${email.id}`,
-            { headers: { 'Authorization': `Bearer ${accessToken}` } }
+          // Déplacer vers le dossier "deleteditems" (Éléments supprimés)
+          await axios.post(
+            `${this.graphBaseUrl}/me/messages/${email.id}/move`,
+            { destinationId: 'deleteditems' },
+            { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
           );
           deletedCount++;
         } catch (err) {
-          console.error(`Erreur suppression email ${email.id}:`, err.message);
+          console.error(`Erreur déplacement email ${email.id}:`, err.message);
         }
       }
       
-      console.log(`🗑️ ${deletedCount} emails supprimés`);
+      console.log(`🗑️ ${deletedCount} emails déplacés vers Éléments supprimés`);
       
       return {
         success: true,
