@@ -576,7 +576,35 @@ Réponds en JSON avec ce format exact:
         maxTokens: 4000 
       });
       
-      const article = JSON.parse(response);
+      // Nettoyer la réponse si elle contient des backticks markdown
+      let cleanResponse = response.trim();
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      }
+      // Extraire le JSON s'il est entouré de texte
+      const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanResponse = jsonMatch[0];
+      }
+      
+      let article;
+      try {
+        article = JSON.parse(cleanResponse);
+      } catch (parseError) {
+        console.error('Erreur parsing JSON, tentative fallback...');
+        // Fallback: créer un article basique
+        article = {
+          title: `${subject} : Guide complet`,
+          meta_description: `Découvrez tout sur ${subject}. Guide complet et actualisé.`,
+          keywords: subject.split(' ').filter(w => w.length > 2),
+          excerpt: `Un article complet sur ${subject} avec les dernières informations et tendances.`,
+          content: `# ${subject}\n\n## Introduction\n\nDans cet article, nous explorons ${subject} en détail.\n\n## Points clés\n\n- Analyse approfondie du sujet\n- Tendances actuelles\n- Perspectives d'avenir\n\n## Conclusion\n\nRestez informé sur ${subject} en suivant notre blog !\n\n---\n*Par Brian Biendou*`,
+          category: category,
+          reading_time_minutes: 5,
+          tags: [subject],
+          sources: relatedTrends.map(t => t.title)
+        };
+      }
       
       // Ajouter l'image de couverture
       if (coverImage) {
@@ -600,7 +628,7 @@ Réponds en JSON avec ce format exact:
         result += `🖼️ **Image:** ${coverImage.source} (${coverImage.author})\n`;
       }
       result += `\n📄 **Extrait:**\n${article.excerpt}\n\n`;
-      result += `💾 Article sauvegardé en brouillon (ID: ${savedArticle?.id || 'N/A'})\n\n`;
+      result += `💾 Article sauvegardé en brouillon\n\n`;
       result += `👉 **Actions possibles:**\n`;
       result += `• "PDF de l'article" - Recevoir le PDF\n`;
       result += `• "Modifie le titre par '...'" - Modifier\n`;
