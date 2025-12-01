@@ -1314,6 +1314,16 @@ class OutlookService {
       const nameLower = name.toLowerCase();
       const contactsMap = new Map(); // email -> {name, email, count, lastSeen}
       
+      // Fonction pour vérifier si c'est une vraie adresse email
+      const isValidEmail = (email) => {
+        if (!email) return false;
+        // Filtrer les adresses Exchange internes et autres formats invalides
+        if (email.startsWith('/o=') || email.startsWith('/ou=')) return false;
+        if (!email.includes('@')) return false;
+        if (email.includes('/cn=')) return false;
+        return true;
+      };
+      
       // 1. Chercher dans les emails récents (expéditeurs)
       const emailsResponse = await axios.get(
         `${this.graphBaseUrl}/me/messages?$top=200&$select=from,receivedDateTime&$orderby=receivedDateTime desc`,
@@ -1327,8 +1337,8 @@ class OutlookService {
         const fromName = email.from?.emailAddress?.name || '';
         const fromNameLower = fromName.toLowerCase();
         
-        // Vérifier si le nom correspond
-        if (fromNameLower.includes(nameLower) || fromEmail.includes(nameLower)) {
+        // Vérifier si c'est une vraie adresse email et si le nom correspond
+        if (isValidEmail(fromEmail) && (fromNameLower.includes(nameLower) || fromEmail.includes(nameLower))) {
           if (!contactsMap.has(fromEmail)) {
             contactsMap.set(fromEmail, {
               name: fromName,
@@ -1359,7 +1369,8 @@ class OutlookService {
             const toName = recipient.emailAddress?.name || '';
             const toNameLower = toName.toLowerCase();
             
-            if (toNameLower.includes(nameLower) || toEmail.includes(nameLower)) {
+            // Vérifier si c'est une vraie adresse email et si le nom correspond
+            if (isValidEmail(toEmail) && (toNameLower.includes(nameLower) || toEmail.includes(nameLower))) {
               if (!contactsMap.has(toEmail)) {
                 contactsMap.set(toEmail, {
                   name: toName,
