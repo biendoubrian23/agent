@@ -728,6 +728,7 @@ Réponds en JSON avec ce format exact:
     const { data, error } = await supabaseService.client
       .from('blog_posts')
       .insert({
+        user_id: supabaseService.defaultUserId,
         title: article.title,
         slug: slug,
         excerpt: article.excerpt,
