@@ -675,6 +675,21 @@ Réponds en JSON avec ce format exact:
   async saveArticleDraft(article) {
     const slug = this.generateSlug(article.title);
     
+    // Formater les sources pour le blog (array d'objets avec title, url, date)
+    let formattedSources = null;
+    if (article.sources && Array.isArray(article.sources)) {
+      formattedSources = article.sources.map(s => {
+        if (typeof s === 'string') {
+          return { title: s, url: '', date: new Date().toISOString() };
+        }
+        return {
+          title: s.title || 'Source',
+          url: s.url || s.link || '',
+          date: s.pubDate || s.date || new Date().toISOString()
+        };
+      });
+    }
+
     const { data, error } = await supabaseService.supabase
       .from('blog_posts')
       .insert({
@@ -682,16 +697,21 @@ Réponds en JSON avec ce format exact:
         slug: slug,
         excerpt: article.excerpt,
         content: article.content,
-        meta_title: article.title,
+        meta_title: article.meta_title || article.title,
         meta_description: article.meta_description,
         keywords: article.keywords,
+        canonical_url: null,
+        sources: formattedSources,
         category: article.category,
         tags: article.tags,
         author_name: 'Brian Biendou',
+        author_avatar_url: null,
         status: 'draft',
-        reading_time_minutes: article.reading_time_minutes,
+        published_at: null,
+        scheduled_for: null,
+        reading_time_minutes: article.reading_time_minutes || 5,
         views_count: 0,
-        cover_image: article.cover_image || null
+        cover_image_url: article.cover_image || article.cover_image_url || null
       })
       .select()
       .single();
@@ -722,30 +742,53 @@ Réponds en JSON avec ce format exact:
     // Chercher l'article par titre ou ID
     const titleMatch = message.match(/(?:publie|publier)\s+(?:l'article\s+)?["']?(.+?)["']?$/i);
     
-    if (!titleMatch) {
-      // Lister les brouillons
-      return await this.listDrafts();
-    }
-
-    const searchTerm = titleMatch[1].trim();
+    let article = null;
     
-    // Chercher le brouillon
-    const { data: drafts, error } = await supabaseService.supabase
-      .from('blog_posts')
-      .select('*')
-      .eq('status', 'draft');
+    // Si pas de titre spécifié, utiliser le dernier article généré
+    if (!titleMatch || titleMatch[1].trim() === 'article' || titleMatch[1].trim() === "l'article") {
+      if (this.lastGeneratedArticle?.id) {
+        // Récupérer le dernier article généré
+        const { data, error } = await supabaseService.supabase
+          .from('blog_posts')
+          .select('*')
+          .eq('id', this.lastGeneratedArticle.id)
+          .single();
+        
+        if (!error && data) {
+          article = data;
+        }
+      }
+      
+      // Si toujours pas d'article, lister les brouillons
+      if (!article) {
+        return await this.listDrafts();
+      }
+    } else {
+      const searchTerm = titleMatch[1].trim();
+      
+      // Chercher le brouillon
+      const { data: drafts, error } = await supabaseService.supabase
+        .from('blog_posts')
+        .select('*')
+        .eq('status', 'draft');
 
-    if (error || !drafts) {
-      return `❌ Erreur lors de la recherche: ${error?.message || 'Aucun brouillon trouvé'}`;
+      if (error || !drafts) {
+        return `❌ Erreur lors de la recherche: ${error?.message || 'Aucun brouillon trouvé'}`;
+      }
+
+      article = drafts.find(d => 
+        d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.slug.includes(searchTerm.toLowerCase())
+      );
+
+      if (!article) {
+        return `❌ Brouillon "${searchTerm}" non trouvé.\n\nBrouillons disponibles:\n${drafts.map(d => `• ${d.title}`).join('\n')}`;
+      }
     }
 
-    const article = drafts.find(d => 
-      d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.slug.includes(searchTerm.toLowerCase())
-    );
-
-    if (!article) {
-      return `❌ Brouillon "${searchTerm}" non trouvé.\n\nBrouillons disponibles:\n${drafts.map(d => `• ${d.title}`).join('\n')}`;
+    // Vérifier que l'article n'est pas déjà publié
+    if (article.status === 'published') {
+      return `ℹ️ L'article "${article.title}" est déjà publié sur le blog !`;
     }
 
     // Publier l'article
@@ -753,7 +796,8 @@ Réponds en JSON avec ce format exact:
       .from('blog_posts')
       .update({
         status: 'published',
-        published_at: new Date().toISOString()
+        published_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .eq('id', article.id);
 
@@ -761,7 +805,7 @@ Réponds en JSON avec ce format exact:
       return `❌ Erreur lors de la publication: ${updateError.message}`;
     }
 
-    return `✅ **Article publié avec succès !**\n\n📝 "${article.title}"\n🔗 Slug: ${article.slug}\n📂 Catégorie: ${article.category}\n\n🌐 L'article est maintenant visible sur le blog !`;
+    return `✅ **Article publié avec succès !**\n\n📝 **"${article.title}"**\n🔗 Slug: ${article.slug}\n📂 Catégorie: ${article.category || 'Non catégorisé'}\n⏱️ Temps de lecture: ${article.reading_time_minutes || 5} min\n\n🌐 **L'article est maintenant visible sur ton blog !**\n👉 https://www.brianbiendou.com/blog/${article.slug}`;
   }
 
   async listDrafts() {
@@ -1806,17 +1850,18 @@ Réponds en JSON avec ce format exact:
 
   /**
    * Exécute un workflow complet en une seule commande
-   * Ex: "recherche les 3 meilleurs articles sur les GPU, rédige un blog et publie-le"
+   * IMPORTANT: Ne publie JAMAIS automatiquement - toujours créer un brouillon
+   * L'utilisateur doit relire et valider avant publication
    */
   async executeCompleteWorkflow(query, context = {}) {
-    console.log('🚀 Kiara démarre le workflow complet...');
+    console.log('🚀 Kiara démarre le workflow complet (mode brouillon)...');
     
     const whatsappNumber = context.from || process.env.MY_PHONE_NUMBER;
     let progressMessages = [];
     
     try {
       // 1. ANALYSER LA DEMANDE
-      progressMessages.push('🔍 **Étape 1/5:** Analyse de la demande...');
+      progressMessages.push('🔍 **Étape 1/4:** Analyse de la demande...');
       
       const analysisPrompt = `Analyse cette demande et extrais les informations:
 "${query}"
@@ -1825,9 +1870,6 @@ Réponds en JSON:
 {
   "topic": "le sujet principal à rechercher",
   "articleCount": 3,
-  "shouldPublish": true/false,
-  "shouldSchedule": false,
-  "scheduleDate": null,
   "language": "fr"
 }`;
 
@@ -1838,19 +1880,20 @@ Réponds en JSON:
       } catch (e) {
         // Extraction manuelle du sujet
         const topicMatch = query.match(/(?:sur|about|concernant)\s+(?:les?\s+)?(?:\d+\s+)?(?:meilleurs?\s+)?(?:articles?\s+)?(?:sur\s+)?["']?(.+?)["']?(?:\s*,|\s+et\s+|\s+puis|\s*$)/i);
+        const countMatch = query.match(/(\d+)\s+(?:meilleurs?|articles?)/i);
         analysis = {
           topic: topicMatch ? topicMatch[1].trim() : 'technologie',
-          articleCount: 3,
-          shouldPublish: query.toLowerCase().includes('publie') || query.toLowerCase().includes('poster'),
-          shouldSchedule: query.toLowerCase().includes('programme'),
-          scheduleDate: null
+          articleCount: countMatch ? parseInt(countMatch[1]) : 3
         };
       }
+      
+      // SÉCURITÉ: Ne jamais publier automatiquement
+      // L'utilisateur doit toujours relire le brouillon d'abord
 
       console.log('📊 Analyse:', analysis);
 
       // 2. RECHERCHER LES SOURCES
-      progressMessages.push(`🔍 **Étape 2/5:** Recherche des ${analysis.articleCount} meilleures sources sur "${analysis.topic}"...`);
+      progressMessages.push(`🔍 **Étape 2/4:** Recherche des ${analysis.articleCount} meilleures sources sur "${analysis.topic}"...`);
       
       const sources = await this.searchSourcesForTopic(analysis.topic, analysis.articleCount);
       
@@ -1861,7 +1904,7 @@ Réponds en JSON:
       progressMessages.push(`✅ ${sources.length} sources trouvées !`);
 
       // 3. GÉNÉRER L'ARTICLE FUSIONNÉ
-      progressMessages.push('✍️ **Étape 3/5:** Rédaction de l\'article fusionné...');
+      progressMessages.push('✍️ **Étape 3/4:** Rédaction de l\'article fusionné...');
       
       const article = await this.generateMergedArticle(analysis.topic, sources);
       
@@ -1876,7 +1919,7 @@ Réponds en JSON:
       progressMessages.push(`✅ Article "${article.title}" généré !`);
 
       // 4. GÉNÉRER LE PDF ET L'ENVOYER SUR WHATSAPP
-      progressMessages.push('📄 **Étape 4/5:** Génération du PDF...');
+      progressMessages.push('📄 **Étape 4/4:** Génération du PDF...');
       
       const pdfResult = await this.generateAndUploadPdf(
         { ...article, id: savedArticle?.id, sources },
@@ -1885,47 +1928,32 @@ Réponds en JSON:
 
       progressMessages.push('✅ PDF généré et envoyé sur WhatsApp !');
 
-      // 5. PUBLIER (si demandé)
-      let publishResult = '';
-      if (analysis.shouldPublish) {
-        progressMessages.push('📤 **Étape 5/5:** Publication sur le blog...');
-        
-        const { error: updateError } = await supabaseService.supabase
-          .from('blog_posts')
-          .update({
-            status: 'published',
-            published_at: new Date().toISOString()
-          })
-          .eq('id', savedArticle?.id);
-
-        if (!updateError) {
-          publishResult = '\n\n🌐 **Article publié sur le blog !**';
-          progressMessages.push('✅ Article publié !');
-        }
-      } else {
-        progressMessages.push('💾 Article sauvegardé en brouillon (non publié)');
-      }
+      // Article sauvegardé en brouillon - JAMAIS publié automatiquement
+      progressMessages.push('💾 Article sauvegardé en brouillon');
 
       // RÉSULTAT FINAL
       let finalResponse = `🎉 **Workflow terminé avec succès !**\n\n`;
       finalResponse += `📝 **Titre:** ${article.title}\n`;
       finalResponse += `📂 **Catégorie:** ${article.category}\n`;
       finalResponse += `⏱️ **Temps de lecture:** ${article.reading_time_minutes} min\n`;
-      finalResponse += `🖼️ **Image:** ${article.cover_image ? 'Incluse' : 'Non'}\n\n`;
+      finalResponse += `🖼️ **Image de couverture:** ${article.cover_image ? '✅ Incluse' : '❌ Non'}\n`;
+      finalResponse += `💾 **Statut:** 🟡 Brouillon (en attente de ta validation)\n\n`;
       
       finalResponse += `📰 **Sources utilisées (${sources.length}):**\n`;
       sources.forEach((s, i) => {
         finalResponse += `${i + 1}. ${s.title} (${s.source})\n`;
       });
       
-      finalResponse += `\n📄 **PDF:** Envoyé sur WhatsApp ✅`;
-      finalResponse += publishResult;
+      finalResponse += `\n📄 **PDF:** Envoyé sur WhatsApp ✅\n`;
+      finalResponse += `\n⚠️ **L'article n'est PAS encore publié.**\n`;
+      finalResponse += `Relis le PDF et fais les modifications nécessaires.\n\n`;
       
-      finalResponse += `\n\n👉 **Actions:**\n`;
-      finalResponse += `• "Modifie le titre par '...'" - Modifier\n`;
-      if (!analysis.shouldPublish) {
-        finalResponse += `• "Publie l'article" - Publier sur le blog`;
-      }
+      finalResponse += `\n📋 **Actions disponibles:**\n`;
+      finalResponse += `• "Modifie le titre par '...'" - Changer le titre\n`;
+      finalResponse += `• "Modifie l'extrait par '...'" - Changer le résumé\n`;
+      finalResponse += `• "Modifie la catégorie par '...'" - Changer la catégorie\n`;
+      finalResponse += `• "Publie l'article" - Publier maintenant sur le blog\n`;
+      finalResponse += `• "Programme l'article pour demain 9h" - Programmer la publication\n`;
 
       return finalResponse;
 
