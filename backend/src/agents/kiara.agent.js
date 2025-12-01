@@ -311,29 +311,30 @@ Rédige un article de blog captivant qui traite de ${trendsCount > 1 ? 'ces actu
 ${sourcesForPrompt}
 
 📝 TON STYLE:
-- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots dans le titre et le contenu
-- **ACCROCHEUR**: Le titre DOIT être EN FRANÇAIS avec un clin d'œil humoristique
+- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots
+- **ACCROCHEUR**: Titre EN FRANÇAIS avec un clin d'œil humoristique
 - **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
 - **ACCESSIBLE**: Explique les concepts complexes simplement
-${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets si possible' : ''}
+${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets' : ''}
 
 ⚠️ RÈGLES STRICTES:
-1. **TITRE EN FRANÇAIS** - TRADUIS le sujet en français, crée un titre accrocheur FR
-2. **100% FRANÇAIS** - Tout l'article en français, pas un mot d'anglais
-3. **RÉÉCRITURE** - Reformule avec tes mots, analyse, donne ton avis
-4. **SOURCES** - Mets les URLs des sources à la fin
+1. **TITRE EN FRANÇAIS** - Max 55 caractères, accrocheur
+2. **100% FRANÇAIS** - Tout l'article en français
+3. **PAS DE 'Introduction' ou 'Conclusion'** - Commence directement par l'accroche, termine par une phrase fun
+4. **MARKDOWN BIEN FORMATÉ** - Utilise ## pour les titres, **gras** pour les mots clés, listes à puces
 
-📏 LONGUEUR: 600-800 mots (2-3 pages PDF maximum)
+📏 LONGUEUR: 600-800 mots
 
-📋 STRUCTURE:
-1. **Titre FUN EN FRANÇAIS** - MAX 55 caractères
-2. **Meta description** (150 car.)
-3. **Contenu Markdown**:
-   - Intro accrocheuse (2-3 phrases qui captent l'attention)
-   - 3-4 sections avec sous-titres créatifs (##)
-   - Anecdotes, exemples concrets, chiffres
-   - Listes à puces pour aérer
-   - Conclusion avec une touche d'humour
+📋 STRUCTURE DU CONTENU MARKDOWN:
+1. **Accroche** (2-3 phrases percutantes, PAS de titre "Introduction")
+2. **## Titre Section 1** (créatif, pas "Qu'est-ce que...")
+   - Paragraphe explicatif avec **mots clés en gras**
+   - Liste à puces si pertinent
+3. **## Titre Section 2** (autre angle)
+   - Exemples concrets, chiffres
+4. **## Titre Section 3** (impact/futur)
+   - Analyse, point de vue
+5. **Phrase de fin fun** (PAS de titre "Conclusion")
 
 📄 FORMAT JSON:
 {
@@ -813,40 +814,41 @@ Rédige un article de blog captivant EN FRANÇAIS sur: "${subject}"
 ${sourcesForPrompt}
 
 📝 TON STYLE:
-- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots dans le titre et le contenu
-- **ACCROCHEUR**: Le titre doit donner envie de lire (avec un clin d'œil humoristique si possible)
+- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots
+- **ACCROCHEUR**: Titre percutant qui donne envie de lire
 - **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
 - **ACCESSIBLE**: Explique les concepts complexes simplement
 
 ⚠️ RÈGLES STRICTES:
 1. **100% FRANÇAIS** - Tout l'article en français
-2. **PERTINENCE** - Si une source n'a RIEN à voir avec "${subject}", IGNORE-LA
-3. **RÉÉCRITURE** - Reformule avec tes mots, ne traduis pas mot à mot
-4. **SOURCES** - Mets UNIQUEMENT les URLs des sources VRAIMENT utilisées
+2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun
+3. **MARKDOWN BIEN FORMATÉ** - Utilise ## pour les titres, **gras** pour les mots clés, listes à puces
+4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées
 
-📏 LONGUEUR: 800-1000 mots (3-4 pages PDF)
+📏 LONGUEUR: 600-800 mots
 
-📋 STRUCTURE:
-1. **Titre FUN** (avec jeu de mots ou référence pop culture si possible)
-2. **Meta description** (150 car.)
-3. **Contenu Markdown**:
-   - Intro accrocheuse (2-3 phrases qui captent l'attention)
-   - 3-4 sections avec sous-titres créatifs (##)
-   - Anecdotes, exemples concrets, chiffres
-   - Listes à puces pour aérer
-   - Conclusion avec une touche d'humour
+📋 STRUCTURE DU CONTENU MARKDOWN:
+1. **Accroche** (2-3 phrases percutantes, PAS de titre "Introduction")
+2. **## Titre Section 1** (créatif, pas "Qu'est-ce que...")
+   - Paragraphe explicatif avec **mots clés en gras**
+   - Liste à puces si pertinent
+3. **## Titre Section 2** (autre angle)
+   - Exemples concrets, chiffres
+4. **## Titre Section 3** (impact/futur)
+   - Analyse, point de vue
+5. **Phrase de fin fun** (PAS de titre "Conclusion")
 
 📄 FORMAT JSON:
 {
-  "title": "Titre accrocheur et fun",
-  "meta_description": "Description engageante",
+  "title": "Titre accrocheur (max 55 car)",
+  "meta_description": "Description engageante (150 car)",
   "keywords": ["mot1", "mot2"],
-  "excerpt": "2-3 phrases qui donnent envie de lire",
-  "content": "Contenu Markdown complet",
+  "excerpt": "2-3 phrases accrocheuses",
+  "content": "Contenu Markdown bien formaté avec ## titres et **gras**",
   "category": "${category}",
   "reading_time_minutes": 5,
   "tags": ["tag1", "tag2"],
-  "sources": ["https://url1.com", "https://url2.com"]
+  "sources": ["https://url1.com"]
 }`;
 
     try {
@@ -2117,32 +2119,36 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       }
     }
 
-    // Fallback: utiliser des images génériques
+    // Fallback: utiliser des images génériques via Picsum (fonctionne toujours)
     if (images.length === 0) {
-      console.log('ℹ️ Utilisation des images de fallback (pas de clés API configurées)');
+      console.log('ℹ️ Utilisation des images de fallback Picsum');
+      // Générer des IDs aléatoires pour avoir des images différentes
+      const randomId1 = Math.floor(Math.random() * 1000);
+      const randomId2 = Math.floor(Math.random() * 1000);
+      const randomId3 = Math.floor(Math.random() * 1000);
       return [
         {
-          url: `https://source.unsplash.com/800x600/?${encodeURIComponent(query)}`,
+          url: `https://picsum.photos/seed/${randomId1}/1200/630`,
+          description: `Image pour ${query}`,
+          author: 'Picsum Photos',
+          source: 'Picsum',
+          width: 1200,
+          height: 630
+        },
+        {
+          url: `https://picsum.photos/seed/${randomId2}/1200/630`,
           description: `Image ${query}`,
-          author: 'Unsplash Community',
-          source: 'Unsplash (random)',
-          width: 800,
-          height: 600
+          author: 'Picsum Photos',
+          source: 'Picsum',
+          width: 1200,
+          height: 630
         },
         {
-          url: `https://source.unsplash.com/800x600/?${encodeURIComponent(query)},tech`,
-          description: `Image ${query} tech`,
-          author: 'Unsplash Community',
-          source: 'Unsplash (random)',
-          width: 800,
-          height: 600
-        },
-        {
-          url: `https://source.unsplash.com/800x600/?${encodeURIComponent(query)},modern`,
-          description: `Image ${query} modern`,
-          author: 'Unsplash Community',
-          source: 'Unsplash (random)',
-          width: 800,
+          url: `https://picsum.photos/seed/${randomId3}/1200/630`,
+          description: `Image ${query}`,
+          author: 'Picsum Photos',
+          source: 'Picsum',
+          width: 1200,
           height: 600
         }
       ];
