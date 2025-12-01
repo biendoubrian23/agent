@@ -2056,13 +2056,9 @@ Agents disponibles:
     console.log(`🔍 Kiara recherche les tendances: ${topic}...`);
     
     try {
-      const result = await kiaraAgent.searchTrends(topic);
-      
-      if (result.success) {
-        return `🎯 **Kiara** - Tendances "${topic}":\n\n${result.message}`;
-      } else {
-        return `❌ Kiara n'a pas pu trouver les tendances: ${result.message}`;
-      }
+      // Appeler la méthode handleTrendRequest de Kiara
+      const result = await kiaraAgent.handleTrendRequest(topic);
+      return result;
     } catch (error) {
       console.error('Erreur Kiara trends:', error);
       return `❌ Erreur lors de la recherche de tendances: ${error.message}`;
