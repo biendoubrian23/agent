@@ -7,7 +7,37 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    // Éviter les erreurs de storage corrompu
+    storage: {
+      getItem: (key) => {
+        try {
+          return localStorage.getItem(key)
+        } catch {
+          return null
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value)
+        } catch {
+          // Ignorer les erreurs de storage
+        }
+      },
+      removeItem: (key) => {
+        try {
+          localStorage.removeItem(key)
+        } catch {
+          // Ignorer les erreurs de storage
+        }
+      }
+    }
+  }
+})
 
 // Types pour TypeScript
 export interface Profile {
