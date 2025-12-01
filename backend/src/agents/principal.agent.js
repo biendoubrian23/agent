@@ -1,0 +1,1070 @@
+const openaiService = require('../services/openai.service');
+const whatsappService = require('../services/whatsapp.service');
+const mailAgent = require('./mail.agent');
+const outlookService = require('../services/outlook.service');
+
+/**
+ * Agent Principal (Brian) - Orchestre les autres agents
+ * Brian est le manager qui comprend les intentions et délègue aux bons agents
+ */
+class PrincipalAgent {
+  constructor() {
+    this.name = 'Brian';
+    this.role = 'Assistant Principal & Manager';
+    this.myPhoneNumber = process.env.MY_PHONE_NUMBER;
+    
+    // Prompt de personnalité de Brian
+    this.systemPrompt = `Tu es Brian, l'assistant principal et manager d'une équipe d'agents IA chez BiendouCorp.
+
+🎯 TON RÔLE:
+- Tu es le point d'entrée de toutes les conversations
+- Tu analyses les messages pour comprendre l'intention de l'utilisateur
+- Tu délègues aux bons agents selon le sujet
+
+👥 TON ÉQUIPE (pour l'instant):
+- **James** (Mail Assistant): Gère TOUT ce qui concerne les emails (Outlook)
+  - Classification, résumés, envoi, règles de tri
+  - Mots-clés: mail, email, message, boîte de réception, outlook, dossier, classe, trie
+  
+- **Magali** (Conseillère Bancaire): Analyse financière (pas encore actif)
+  - Relevés bancaires, budgets, analyses PDF financiers
+  - Mots-clés: banque, compte, argent, budget, relevé, PDF bancaire
+
+🧠 COMMENT ANALYSER UN MESSAGE:
+
+1. **Salutations simples** (bonjour, salut, hello, hey, coucou):
+   → Réponds amicalement, ne crée AUCUNE règle
+
+2. **Questions générales** (comment ça va, qui es-tu, aide):
+   → Réponds toi-même sans impliquer d'agent
+
+3. **Sujet EMAIL/MAIL** (contient: mail, email, outlook, message, boîte, classe, trie, dossier, james):
+   → Délègue à James
+   → Détermine si c'est: résumé, classification, création de règle, action immédiate
+   
+   📊 **EXTRACTION DES NOMBRES:**
+   - "mes 2 derniers mails" → count: 2
+   - "les 10 derniers emails" → count: 10
+   - "le dernier mail" → count: 1
+   - "mes mails" (sans nombre) → count: 50 (défaut)
+   
+   📅 **FILTRES TEMPORELS:**
+   - "mails d'aujourd'hui" → filter: "today"
+   - "mails de cette semaine" → filter: "week"  
+   - "mails d'hier" → filter: "yesterday"
+   
+   ⭐ **FILTRES D'IMPORTANCE:**
+   - "mails importants" → filter: "important"
+   - "mails urgents" → filter: "urgent"
+
+4. **Double intention** (ex: "classe les mails eDocPerso dans ISCOD"):
+   → L'utilisateur veut SOUVENT les deux: créer une règle ET appliquer maintenant
+   → Tu dois proposer les deux options
+
+5. **Gestion des DOSSIERS:**
+   - "créer un dossier X" → action: "create_folder", folder: "X"
+   - "crée le dossier Publicité" → action: "create_folder", folder: "Publicité"
+   - "supprime le dossier X" → action: "delete_folder", folder: "X"
+   - "liste mes dossiers" → action: "list_folders"
+
+6. **RE-CLASSIFICATION (emails déjà classés):**
+   - "reclasse mes mails" → action: "email_reclassify"
+   - "reclasse" → action: "email_reclassify"
+   - "reclasse mes 10 derniers mails" → action: "email_reclassify", count: 10
+   - "reclasse mes 20 derniers mails" → action: "email_reclassify", count: 20
+   - "reclasse les mails du dossier Finance" → action: "email_reclassify", sourceFolder: "🏦 Finance"
+   - "reclasse le dossier Social" → action: "email_reclassify", sourceFolder: "🤝 Social"
+   - "refais une analyse" → action: "email_reclassify"
+   - "refais l'analyse des mails" → action: "email_reclassify"
+   - "réanalyse mes mails" → action: "email_reclassify"
+   - "ré-analyse" → action: "email_reclassify"
+   - "re-classe" → action: "email_reclassify"
+   - "applique les nouvelles règles" → action: "email_reclassify"
+   - "relance la classification" → action: "email_reclassify"
+   
+   **Mapping des dossiers:**
+   - "finance" → "🏦 Finance"
+   - "social" → "🤝 Social"
+   - "urgent" → "🔴 Urgent"
+   - "professionnel" → "💼 Professionnel"
+   - "shopping" → "🛒 Shopping"
+   - "newsletter" → "📰 Newsletter"
+   - "publicites" ou "pub" → "Publicites" (dossier personnalisé)
+
+7. **Description des agents:**
+   - "que peut faire James" → action: "describe_james"
+   - "les capacités de James" → action: "describe_james"
+   - "quels sont les rôles de James" → action: "describe_james"
+   - "les tâches de James" → action: "describe_james"
+
+8. **Sujet BANCAIRE** (contient: banque, compte, argent, magali, budget):
+   → Délègue à Magali (pas encore implémenté)
+
+RÉPONDS UNIQUEMENT EN JSON avec ce format:
+{
+  "target_agent": "brian" | "james" | "magali",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "unknown",
+  "params": {
+    "count": number (OBLIGATOIRE pour les emails - extrait du message, défaut 50),
+    "filter": "today" | "yesterday" | "week" | "important" | "urgent" | null,
+    "pattern": string (optionnel, pour les règles),
+    "folder": string (optionnel, pour les règles OU pour créer/supprimer un dossier),
+    "sourceFolder": string (optionnel, dossier source pour re-classification, avec emojis si applicable),
+    "apply_now": boolean (optionnel, appliquer immédiatement aux mails existants),
+    "ruleNumber": number (optionnel, numéro de règle à supprimer),
+    "text": string (le message original si besoin)
+  },
+  "confidence": number (0-100),
+  "reasoning": "explication courte de ton analyse"
+}
+
+EXEMPLES:
+- "résume mes 3 derniers mails" → action: "email_summary", count: 3
+- "classe mes 5 derniers mails" → action: "email_classify", count: 5
+- "le dernier mail" → action: "email_summary", count: 1
+- "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
+- "rappelle moi mes mails" → action: "email_summary", count: 10`;
+  }
+
+  /**
+   * Traiter un message WhatsApp entrant
+   */
+  async handleWhatsAppMessage(message) {
+    const { from, text, name } = message;
+    
+    console.log(`📱 Message de ${name} (${from}): ${text}`);
+
+    // Analyser l'intention du message
+    const intent = await this.analyzeIntent(text);
+    
+    let response;
+
+    switch (intent.action) {
+      case 'greeting':
+        response = await this.handleGreeting(intent.params);
+        break;
+
+      case 'email_summary':
+        response = await this.handleEmailSummary(intent.params);
+        break;
+      
+      case 'email_unread':
+        response = await this.handleUnreadEmails(intent.params);
+        break;
+      
+      case 'email_classify':
+        response = await this.handleEmailClassification(intent.params);
+        break;
+
+      case 'email_important':
+        response = await this.handleImportantEmails(intent.params);
+        break;
+
+      case 'email_classify_with_rule':
+        response = await this.handleClassifyWithRule(intent.params);
+        break;
+
+      case 'email_classify_memory':
+        response = await this.handleClassificationMemory();
+        break;
+
+      case 'email_reclassify':
+        response = await this.handleReclassifyEmails(intent.params);
+        break;
+      
+      case 'config_james':
+        response = await this.handleConfigJames(intent.params);
+        break;
+
+      case 'config_list_rules':
+        response = this.handleListRules();
+        break;
+
+      case 'delete_rule':
+        response = await this.handleDeleteRule(intent.params);
+        break;
+
+      case 'config_reset':
+        response = this.handleResetConfig();
+        break;
+      
+      case 'send_email':
+        response = await this.handleSendEmail(intent.params);
+        break;
+
+      case 'check_connection':
+        response = await this.checkConnections();
+        break;
+
+      case 'create_folder':
+        response = await this.handleCreateFolder(intent.params);
+        break;
+
+      case 'delete_folder':
+        response = await this.handleDeleteFolder(intent.params);
+        break;
+
+      case 'list_folders':
+        response = await this.handleListFolders();
+        break;
+
+      case 'help':
+        response = this.getHelpMessage();
+        break;
+
+      case 'describe_james':
+        response = this.getJamesCapabilities();
+        break;
+
+      default:
+        response = await this.handleGeneralQuestion(text);
+    }
+
+    // Envoyer la réponse via WhatsApp
+    await whatsappService.sendLongMessage(from, response);
+    
+    return response;
+  }
+
+  /**
+   * Analyser l'intention du message avec l'IA
+   */
+  async analyzeIntent(text) {
+    console.log('🧠 Brian analyse le message:', text);
+    
+    try {
+      // Utiliser GPT pour analyser l'intention
+      const response = await openaiService.chat([
+        { role: 'system', content: this.systemPrompt },
+        { role: 'user', content: `Analyse ce message et détermine l'intention:\n\n"${text}"` }
+      ], { temperature: 0.1 }); // Basse température pour plus de consistance
+
+      // Parser la réponse JSON
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log('🎯 Intention détectée:', parsed.action, '| Agent:', parsed.target_agent, '| Confiance:', parsed.confidence + '%');
+        console.log('💭 Raisonnement:', parsed.reasoning);
+        
+        // Mapper vers le format attendu par handleWhatsAppMessage
+        return this.mapIntentToAction(parsed, text);
+      }
+    } catch (error) {
+      console.error('❌ Erreur analyse IA:', error.message);
+    }
+
+    // Fallback: analyse simple si l'IA échoue
+    console.log('⚠️ Fallback vers analyse simple');
+    return this.analyzeIntentSimple(text);
+  }
+
+  /**
+   * Extraire le nom du dossier d'un message
+   */
+  extractFolderName(text) {
+    // Patterns pour extraire le nom du dossier
+    const patterns = [
+      /(?:dossier|folder)\s+["']?([^"'\n]+?)["']?(?:\s|$)/i,
+      /(?:crée?|créer|supprimer?|supprime)\s+(?:le\s+)?(?:dossier\s+)?["']?([^"'\n]+?)["']?(?:\s|$)/i,
+      /["']([^"']+)["']/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        // Nettoyer le nom du dossier
+        let folderName = match[1].trim();
+        // Enlever les mots-clés parasites
+        folderName = folderName.replace(/^(le|la|un|une)\s+/i, '');
+        if (folderName.length > 1 && folderName.length < 50) {
+          return folderName;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Mapper l'intention IA vers une action
+   */
+  mapIntentToAction(parsed, originalText) {
+    const { action, params = {} } = parsed;
+    
+    // Toujours garder le texte original
+    params.text = originalText;
+
+    switch (action) {
+      case 'greeting':
+        return { action: 'greeting', params };
+      
+      case 'help':
+        return { action: 'help', params };
+      
+      case 'general_question':
+        return { action: 'general', params };
+      
+      case 'email_summary':
+        return { 
+          action: 'email_summary', 
+          params: { 
+            count: params.count || 50,
+            filter: params.filter || null
+          } 
+        };
+      
+      case 'email_unread':
+        return { action: 'email_unread', params: { count: params.count || 20 } };
+      
+      case 'email_classify':
+        return { action: 'email_classify', params: { count: params.count || 50 } };
+      
+      case 'email_reclassify':
+        return { action: 'email_reclassify', params: { count: params.count || 30, sourceFolder: params.sourceFolder || null } };
+      
+      case 'email_important':
+        return { 
+          action: 'email_important', 
+          params: { 
+            count: params.count || 50,
+            filter: params.filter || 'important'
+          } 
+        };
+      
+      case 'email_classify_with_rule':
+        // L'utilisateur veut créer une règle ET l'appliquer maintenant
+        return { 
+          action: 'email_classify_with_rule', 
+          params: { 
+            ...params, 
+            apply_now: true,
+            text: originalText
+          } 
+        };
+      
+      case 'create_rule_only':
+        return { action: 'config_james', params: { text: originalText } };
+      
+      case 'list_rules':
+        return { action: 'config_list_rules', params };
+      
+      case 'reset_config':
+        return { action: 'config_reset', params };
+      
+      case 'send_email':
+        return { action: 'send_email', params };
+      
+      case 'check_status':
+        return { action: 'check_connection', params };
+      
+      case 'create_folder':
+        return { action: 'create_folder', params: { folder: params.folder } };
+      
+      case 'delete_folder':
+        return { action: 'delete_folder', params: { folder: params.folder } };
+      
+      case 'list_folders':
+        return { action: 'list_folders', params };
+      
+      case 'describe_james':
+        return { action: 'describe_james', params };
+      
+      case 'delete_rule':
+        return { action: 'delete_rule', params: { ruleNumber: params.ruleNumber } };
+      
+      default:
+        return { action: 'general', params };
+    }
+  }
+
+  /**
+   * Analyse simple en fallback (si l'IA échoue)
+   */
+  analyzeIntentSimple(text) {
+    const lowerText = text.toLowerCase();
+
+    // Salutations simples
+    if (/^(salut|bonjour|hello|hey|coucou|hi|yo|wesh)(\s|!|$)/i.test(lowerText) || 
+        lowerText.length < 15 && (lowerText.includes('salut') || lowerText.includes('coucou') || lowerText.includes('bonjour'))) {
+      return { action: 'greeting', params: {} };
+    }
+
+    // Gestion des dossiers (avant les emails)
+    if ((lowerText.includes('créer') || lowerText.includes('crée') || lowerText.includes('créé') || lowerText.includes('cree')) && 
+        (lowerText.includes('dossier') || lowerText.includes('folder'))) {
+      const folderName = this.extractFolderName(text);
+      return { action: 'create_folder', params: { folder: folderName } };
+    }
+
+    if ((lowerText.includes('supprimer') || lowerText.includes('supprime') || lowerText.includes('delete') || lowerText.includes('efface')) && 
+        (lowerText.includes('dossier') || lowerText.includes('folder'))) {
+      const folderName = this.extractFolderName(text);
+      return { action: 'delete_folder', params: { folder: folderName } };
+    }
+
+    if ((lowerText.includes('liste') || lowerText.includes('voir') || lowerText.includes('affiche') || lowerText.includes('montre')) && 
+        (lowerText.includes('dossier') || lowerText.includes('folders'))) {
+      return { action: 'list_folders', params: {} };
+    }
+
+    // Détection des commandes de configuration de James avec ACTION IMMÉDIATE
+    // Ex: "regarde les mails eDocPerso et classe dans ISCOD"
+    if ((lowerText.includes('mail') || lowerText.includes('email')) && 
+        (lowerText.includes('class') || lowerText.includes('mets') || lowerText.includes('range') || lowerText.includes('déplace')) &&
+        (lowerText.includes('dans') || lowerText.includes('dossier'))) {
+      
+      // C'est une demande de règle + action immédiate
+      return { action: 'email_classify_with_rule', params: { text, apply_now: true } };
+    }
+
+    // Détection des commandes de configuration de James (règles seulement)
+    if (lowerText.includes('règle') || lowerText.includes('regle') || 
+        lowerText.includes('config') || 
+        lowerText.includes('prompt de james') || lowerText.includes('instruction')) {
+      
+      // Suppression d'une règle par numéro
+      const deleteRuleMatch = lowerText.match(/(?:supprime|supprimer|delete|enleve|enlève|retire)\s*(?:la\s*)?r[eè]gle\s*(?:n[o°]?)?\s*(\d+)/i);
+      if (deleteRuleMatch) {
+        return { action: 'delete_rule', params: { ruleNumber: parseInt(deleteRuleMatch[1]) } };
+      }
+      
+      // Si c'est une demande de voir les règles
+      if (lowerText.includes('voir') || lowerText.includes('liste') || lowerText.includes('affiche') || lowerText.includes('quelles') || lowerText.includes('rappelle')) {
+        return { action: 'config_list_rules', params: {} };
+      }
+      
+      // Si c'est une demande de reset
+      if (lowerText.includes('réinitialise') || lowerText.includes('reset') || lowerText.includes('supprime tout')) {
+        return { action: 'config_reset', params: {} };
+      }
+      
+      // Sinon c'est une configuration à parser
+      return { action: 'config_james', params: { text } };
+    }
+
+    // Suppression de règle par numéro (format direct sans "règle")
+    const directDeleteMatch = lowerText.match(/(?:supprime|supprimer|delete|enleve|enlève|retire)\s*(?:la\s*)?(?:r[eè]gle\s*)?(?:n[o°]?)?\s*(\d+)/i);
+    if (directDeleteMatch && !lowerText.includes('dossier') && !lowerText.includes('mail')) {
+      return { action: 'delete_rule', params: { ruleNumber: parseInt(directDeleteMatch[1]) } };
+    }
+
+    // Détection de reclassification (même sans le mot "mail" explicite)
+    const isReclassify = (
+      lowerText.includes('reclasse') || lowerText.includes('re-classe') || lowerText.includes('ré-classe') ||
+      lowerText.includes('reclass') || lowerText.includes('re-class') || lowerText.includes('ré-class') ||
+      lowerText.includes('réanalyse') || lowerText.includes('re-analyse') || lowerText.includes('ré-analyse') ||
+      lowerText.includes('reanalyse') || lowerText.includes('re-analy') || lowerText.includes('réanaly') ||
+      (lowerText.includes('refais') && (lowerText.includes('analyse') || lowerText.includes('classement') || lowerText.includes('classification') || lowerText.includes('tri'))) ||
+      (lowerText.includes('refait') && (lowerText.includes('analyse') || lowerText.includes('classement') || lowerText.includes('classification') || lowerText.includes('tri'))) ||
+      (lowerText.includes('relance') && (lowerText.includes('class') || lowerText.includes('tri') || lowerText.includes('analyse'))) ||
+      (lowerText.includes('applique') && lowerText.includes('règle') && (lowerText.includes('nouveau') || lowerText.includes('nouvelle'))) ||
+      (lowerText.includes('déjà class') || lowerText.includes('deja class')) ||
+      (lowerText.includes('repass') && (lowerText.includes('class') || lowerText.includes('analyse') || lowerText.includes('mail')))
+    );
+    
+    if (isReclassify) {
+      const countMatch = lowerText.match(/(\d+)/);
+      const count = countMatch ? parseInt(countMatch[1]) : 30;
+      
+      // Détecter le dossier source
+      let sourceFolder = null;
+      
+      // Mapping des noms de dossiers
+      const folderMapping = {
+        'finance': '🏦 Finance',
+        'social': '🤝 Social',
+        'urgent': '🔴 Urgent',
+        'professionnel': '💼 Professionnel',
+        'pro': '💼 Professionnel',
+        'shopping': '🛒 Shopping',
+        'newsletter': '📰 Newsletter',
+        'news': '📰 Newsletter',
+        'publicites': 'Publicites',
+        'publicité': 'Publicites',
+        'pub': 'Publicites',
+        'iscod': 'ISCOD'
+      };
+      
+      // Chercher un dossier mentionné
+      const folderMatch = lowerText.match(/(?:dossier|du dossier|le dossier|dans)\s+(\w+)/i);
+      if (folderMatch) {
+        const folderKey = folderMatch[1].toLowerCase();
+        sourceFolder = folderMapping[folderKey] || folderMatch[1]; // Utiliser le mapping ou le nom brut
+      } else {
+        // Vérifier si un nom de dossier est mentionné directement
+        for (const [key, value] of Object.entries(folderMapping)) {
+          if (lowerText.includes(key)) {
+            sourceFolder = value;
+            break;
+          }
+        }
+      }
+      
+      return { action: 'email_reclassify', params: { count, sourceFolder } };
+    }
+
+    // Détection simple des intentions email
+    if (lowerText.includes('mail') || lowerText.includes('email') || lowerText.includes('e-mail')) {
+      
+      // Classification des emails (sans pattern spécifique)
+      if ((lowerText.includes('class') || lowerText.includes('trie') || lowerText.includes('organise') || lowerText.includes('range')) &&
+          !lowerText.includes('dans')) {
+        const countMatch = lowerText.match(/(\d+)/);
+        const count = countMatch ? parseInt(countMatch[1]) : 50;
+        return { action: 'email_classify', params: { count } };
+      }
+      if (lowerText.includes('non lu') || lowerText.includes('unread') || lowerText.includes('nouveau')) {
+        return { action: 'email_unread', params: {} };
+      }
+      if (lowerText.includes('résumé') || lowerText.includes('recap') || lowerText.includes('résumer') || 
+          lowerText.includes('dernier') || lowerText.includes('rappelle')) {
+        const countMatch = lowerText.match(/(\d+)/);
+        const count = countMatch ? parseInt(countMatch[1]) : 10;
+        return { action: 'email_summary', params: { count } };
+      }
+      if (lowerText.includes('important') || lowerText.includes('urgent')) {
+        return { action: 'email_important', params: { filter: 'important' } };
+      }
+      if (lowerText.includes('envoyer') || lowerText.includes('envoie') || lowerText.includes('écris')) {
+        return { action: 'send_email', params: { text } };
+      }
+    }
+
+    // Classification sans mentionner "email"
+    if (lowerText.includes('class') && (lowerText.includes('mes') || lowerText.includes('la') || lowerText.includes('boite'))) {
+      const countMatch = lowerText.match(/(\d+)/);
+      const count = countMatch ? parseInt(countMatch[1]) : 50;
+      return { action: 'email_classify', params: { count } };
+    }
+
+    // Mémoire de classification
+    if (lowerText.includes('mémoire') || lowerText.includes('historique class') || lowerText.includes('dernière class')) {
+      return { action: 'email_classify_memory', params: {} };
+    }
+
+    if (lowerText.includes('connexion') || lowerText.includes('status') || lowerText.includes('connecté')) {
+      return { action: 'check_connection', params: {} };
+    }
+
+    if (lowerText.includes('aide') || lowerText.includes('help') || lowerText === 'commandes') {
+      return { action: 'help', params: {} };
+    }
+
+    // Description des capacités de James
+    if ((lowerText.includes('james') || lowerText.includes('mail agent')) && 
+        (lowerText.includes('capable') || lowerText.includes('peut faire') || lowerText.includes('sait faire') || 
+         lowerText.includes('rôle') || lowerText.includes('role') || lowerText.includes('tâche') || lowerText.includes('tache') ||
+         lowerText.includes('fonction') || lowerText.includes('quoi') || lowerText.includes('capacit'))) {
+      return { action: 'describe_james', params: {} };
+    }
+
+    return { action: 'general', params: { text } };
+  }
+
+  /**
+   * Gérer les salutations simples
+   */
+  async handleGreeting(params) {
+    const greetings = [
+      `👋 Salut ! Je suis Brian, ton assistant principal.\n\nJe manage une équipe d'agents IA:\n• 📧 **James** - Gestion des emails\n• 💰 **Magali** - Conseils bancaires (bientôt)\n\nQue puis-je faire pour toi ?`,
+      `Hey ! 👋 Brian à ton service !\n\nDis-moi ce dont tu as besoin:\n• Emails ? Je passe le relais à James\n• Questions ? Je réponds directement\n\nTape "aide" pour voir toutes mes capacités !`,
+      `Bonjour ! 🙌 Je suis Brian.\n\nJe suis là pour t'aider avec tes emails (via James) et bientôt tes finances (via Magali).\n\nQu'est-ce que je peux faire pour toi ?`
+    ];
+    
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+
+  /**
+   * Gérer la demande de résumé d'emails
+   */
+  async handleEmailSummary(params) {
+    const count = params.count || 50;
+    const filter = params.filter || null;
+    
+    let logMessage = `📧 James analyse les ${count} derniers emails`;
+    if (filter) logMessage += ` (filtre: ${filter})`;
+    console.log(logMessage + '...');
+    
+    const result = await mailAgent.getEmailSummary(count, filter);
+    
+    if (!result.success) {
+      if (result.message.includes('pas connecté')) {
+        return `${result.message}\n\n🔗 Connectez-vous ici: ${process.env.AZURE_REDIRECT_URI?.replace('/callback', '')}`;
+      }
+      return result.message;
+    }
+
+    const countInfo = count === 1 ? 'votre dernier email' : `vos ${count} derniers emails`;
+    return `🤖 **James** a analysé ${countInfo}:\n\n${result.message}`;
+  }
+
+  /**
+   * Gérer les emails non lus
+   */
+  async handleUnreadEmails(params = {}) {
+    const count = params.count || 20;
+    console.log(`📧 James vérifie les ${count} emails non lus...`);
+    
+    const result = await mailAgent.getUnreadSummary(count);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Gérer les emails importants/urgents
+   */
+  async handleImportantEmails(params) {
+    const count = params.count || 50;
+    const filter = params.filter || 'important';
+    
+    console.log(`⭐ James cherche les emails ${filter}...`);
+    
+    const result = await mailAgent.getImportantEmails(count, filter);
+    
+    if (!result.success) {
+      if (result.message.includes('pas connecté')) {
+        return `${result.message}\n\n🔗 Connectez-vous ici: ${process.env.AZURE_REDIRECT_URI?.replace('/callback', '')}`;
+      }
+      return result.message;
+    }
+
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Gérer la classification des emails dans les dossiers Outlook
+   */
+  async handleEmailClassification(params) {
+    const count = params.count || 50;
+    
+    console.log(`📂 James classifie les ${count} derniers emails dans les dossiers Outlook...`);
+    
+    const result = await mailAgent.classifyAndOrganizeEmails(count);
+    
+    if (!result.success) {
+      if (result.message.includes('pas connecté')) {
+        return `${result.message}\n\n🔗 Connectez-vous ici: ${process.env.AZURE_REDIRECT_URI?.replace('/callback', '')}`;
+      }
+      return result.message;
+    }
+
+    return `🤖 **James** a organisé vos emails:\n\n${result.message}`;
+  }
+
+  /**
+   * Re-classifier les emails déjà classés avec les nouvelles règles
+   */
+  async handleReclassifyEmails(params) {
+    const count = params.count || 30;
+    const sourceFolder = params.sourceFolder || null;
+    
+    if (sourceFolder) {
+      console.log(`🔄 James re-classifie les ${count} derniers emails du dossier "${sourceFolder}"...`);
+    } else {
+      console.log(`🔄 James re-classifie les emails déjà classés (${count} par dossier)...`);
+    }
+    
+    const result = await mailAgent.reclassifyEmails(count, sourceFolder);
+    
+    if (!result.success) {
+      if (result.message.includes('pas connecté')) {
+        return `${result.message}\n\n🔗 Connectez-vous ici: ${process.env.AZURE_REDIRECT_URI?.replace('/callback', '')}`;
+      }
+      return result.message;
+    }
+
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Créer une règle ET l'appliquer immédiatement aux emails existants
+   */
+  async handleClassifyWithRule(params) {
+    console.log('📂⚙️ James: Création de règle + Application immédiate...');
+    
+    const messages = [];
+    
+    try {
+      // 1. D'abord, parser et créer la règle
+      const parsed = await openaiService.parseConfigCommand(params.text);
+      
+      if (parsed.action === 'add_rule' && parsed.rules && parsed.rules.length > 0) {
+        for (const rule of parsed.rules) {
+          await openaiService.addCustomRule(rule);
+          messages.push(`✅ Règle créée: "${rule.pattern}" → ${rule.folder}`);
+        }
+        
+        // 2. Ensuite, appliquer aux emails existants
+        messages.push(`\n⏳ Application aux emails existants...`);
+        
+        // Chercher les emails qui correspondent au pattern
+        const pattern = parsed.rules[0].pattern;
+        const folder = parsed.rules[0].folder;
+        
+        const searchResult = await mailAgent.searchAndMoveEmails(pattern, folder);
+        
+        if (searchResult.success) {
+          messages.push(`\n📬 **Résultat:**`);
+          messages.push(`• ${searchResult.found} emails trouvés contenant "${pattern}"`);
+          messages.push(`• ${searchResult.moved} emails déplacés vers ${folder}`);
+          
+          if (searchResult.found === 0) {
+            messages.push(`\n💡 Aucun email existant ne correspond, mais les prochains seront classés automatiquement !`);
+          }
+        } else {
+          messages.push(`\n⚠️ ${searchResult.message}`);
+        }
+        
+        messages.push(`\n💾 Règle sauvegardée dans Supabase`);
+        
+      } else {
+        messages.push(`❓ Je n'ai pas compris la règle à créer.`);
+        messages.push(`\nExemple: "Classe les mails eDocPerso dans ISCOD"`);
+      }
+      
+    } catch (error) {
+      console.error('Erreur handleClassifyWithRule:', error);
+      messages.push(`❌ Erreur: ${error.message}`);
+    }
+    
+    return `🤖 **James** rapporte:\n\n${messages.join('\n')}`;
+  }
+
+  /**
+   * Obtenir la mémoire de classification
+   */
+  async handleClassificationMemory() {
+    console.log('📊 James consulte la mémoire de classification...');
+    
+    const result = mailAgent.getLastClassificationSummary();
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Supprimer une règle par son numéro
+   */
+  async handleDeleteRule(params) {
+    const ruleNumber = params.ruleNumber;
+    
+    if (!ruleNumber) {
+      return `❓ Quel numéro de règle voulez-vous supprimer ?\n\nTapez "voir mes règles" pour voir la liste numérotée.`;
+    }
+
+    console.log(`🗑️ Suppression de la règle n°${ruleNumber}...`);
+    
+    const result = await openaiService.removeCustomRuleByIndex(ruleNumber);
+    
+    if (result.success) {
+      return `🗑️ **Règle supprimée !**\n\n${result.message}\n\n💾 Supprimé de Supabase`;
+    }
+    
+    return `❌ ${result.message}`;
+  }
+
+  /**
+   * Créer un dossier personnalisé via WhatsApp
+   */
+  async handleCreateFolder(params) {
+    const folderName = params.folder;
+    
+    if (!folderName) {
+      return `❓ Quel nom voulez-vous donner au dossier ?\n\nExemple: "Crée le dossier Publicité"`;
+    }
+
+    console.log(`📁 James crée le dossier "${folderName}"...`);
+    
+    const result = await mailAgent.createFolder(folderName);
+    
+    if (result.success) {
+      return `🤖 **James** rapporte:\n\n${result.message}\n\n💡 Vous pouvez maintenant créer des règles pour ce dossier:\n"Classe les mails X dans ${folderName}"`;
+    }
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Supprimer un dossier via WhatsApp (emails déplacés vers Inbox)
+   */
+  async handleDeleteFolder(params) {
+    const folderName = params.folder;
+    
+    if (!folderName) {
+      return `❓ Quel dossier voulez-vous supprimer ?\n\nExemple: "Supprime le dossier Publicité"\n\n⚠️ Les emails du dossier seront déplacés vers la boîte de réception.`;
+    }
+
+    console.log(`🗑️ James supprime le dossier "${folderName}"...`);
+    
+    const result = await mailAgent.deleteFolder(folderName);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Lister tous les dossiers personnalisés
+   */
+  async handleListFolders() {
+    console.log(`📁 James liste les dossiers...`);
+    
+    const result = await mailAgent.listFolders();
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Configurer James via commande naturelle
+   */
+  async handleConfigJames(params) {
+    console.log('⚙️ Configuration de James demandée...');
+    
+    try {
+      const parsed = await openaiService.parseConfigCommand(params.text);
+      
+      if (parsed.action === 'unknown') {
+        return `❓ ${parsed.message}\n\nExemples de commandes:\n• "Mets les mails de LinkedIn dans Newsletter"\n• "Classe les mails eDocPerso dans ISCOD"\n• "Voir mes règles"`;
+      }
+
+      if (parsed.action === 'add_rule' && parsed.rules && parsed.rules.length > 0) {
+        const addedRules = [];
+        for (const rule of parsed.rules) {
+          await openaiService.addCustomRule(rule);
+          addedRules.push(`📌 ${rule.pattern} → ${rule.folder}`);
+        }
+        
+        return `✅ **Règle(s) ajoutée(s) pour James !**\n\n${addedRules.join('\n')}\n\n💾 Sauvegardé dans Supabase\n${parsed.message || 'La prochaine classification utilisera ces règles.'}`;
+      }
+
+      if (parsed.action === 'add_instruction' && parsed.instruction) {
+        await openaiService.addJamesInstruction(parsed.instruction);
+        return `✅ **Instruction ajoutée au prompt de James !**\n\n📝 "${parsed.instruction}"\n\n💾 Sauvegardé dans Supabase\nVous pouvez voir le prompt complet dans le frontend.`;
+      }
+
+      if (parsed.action === 'list_rules') {
+        return this.handleListRules();
+      }
+
+      if (parsed.action === 'remove_rule' && parsed.rules && parsed.rules.length > 0) {
+        const removed = [];
+        for (const rule of parsed.rules) {
+          if (await openaiService.removeCustomRule(rule.pattern)) {
+            removed.push(rule.pattern);
+          }
+        }
+        if (removed.length > 0) {
+          return `🗑️ **Règle(s) supprimée(s):** ${removed.join(', ')}\n\n💾 Supprimé de Supabase`;
+        }
+        return `❌ Aucune règle trouvée à supprimer.`;
+      }
+
+      return parsed.message || "Configuration effectuée !";
+    } catch (error) {
+      console.error('Erreur config James:', error);
+      return `❌ Erreur lors de la configuration: ${error.message}`;
+    }
+  }
+
+  /**
+   * Lister les règles de configuration
+   */
+  handleListRules() {
+    const rules = openaiService.getCustomRules();
+    const instructions = openaiService.getJamesInstructions();
+    
+    let message = `⚙️ **Configuration de James**\n\n`;
+    
+    if (rules.length === 0 && !instructions) {
+      message += `📭 Aucune règle personnalisée configurée.\n\n`;
+      message += `💡 **Exemples de commandes:**\n`;
+      message += `• "Mets les mails de LinkedIn dans Newsletter"\n`;
+      message += `• "Classe les mails eDocPerso dans ISCOD"\n`;
+      message += `• "Ajoute une règle: les mails Amazon vont dans Shopping"`;
+    } else {
+      if (rules.length > 0) {
+        message += `📌 **Règles de classification (${rules.length}):**\n`;
+        rules.forEach((rule, i) => {
+          message += `${i + 1}. "${rule.pattern}" → ${rule.folder} (${rule.type})\n`;
+        });
+        message += '\n';
+      }
+      
+      if (instructions) {
+        message += `📝 **Instructions personnalisées:**\n${instructions}\n`;
+      }
+      
+      message += `\n💾 _Données sauvegardées dans Supabase_`;
+    }
+    
+    return message;
+  }
+
+  /**
+   * Réinitialiser la configuration de James
+   */
+  async handleResetConfig() {
+    await openaiService.resetJamesInstructions();
+    // Vider les règles dans Supabase
+    const supabaseService = require('../services/supabase.service');
+    await supabaseService.clearAllRules();
+    
+    // Vider le cache local
+    openaiService.getCustomRules().length = 0;
+    
+    return `🔄 **Configuration de James réinitialisée !**\n\nToutes les règles et instructions personnalisées ont été supprimées de Supabase.`;
+  }
+
+  /**
+   * Gérer l'envoi d'email (à implémenter plus tard)
+   */
+  async handleSendEmail(params) {
+    return `📝 Pour envoyer un email, utilisez le format:\n\n"Envoie un email à [adresse] avec le sujet [sujet] et le message [contenu]"\n\n(Fonctionnalité en cours de développement)`;
+  }
+
+  /**
+   * Vérifier l'état des connexions
+   */
+  async checkConnections() {
+    const connections = [];
+    
+    // WhatsApp
+    connections.push('✅ WhatsApp: Connecté');
+
+    // Outlook
+    if (outlookService.isConnected()) {
+      try {
+        const user = await outlookService.getUserInfo();
+        connections.push(`✅ Outlook: Connecté (${user.email})`);
+      } catch {
+        connections.push('⚠️ Outlook: Token expiré');
+      }
+    } else {
+      connections.push('❌ Outlook: Non connecté');
+    }
+
+    return `📊 **État des connexions**\n\n${connections.join('\n')}`;
+  }
+
+  /**
+   * Message d'aide
+   */
+  getHelpMessage() {
+    return `👋 **Bonjour ! Je suis Brian, votre assistant principal.**
+
+Voici ce que je peux faire:
+
+📧 **Emails (via James)**
+• "Résume mes emails" - Résumé des 50 derniers
+• "Emails non lus" - Voir les emails non lus
+• "Classe mes emails" - Trier dans les dossiers Outlook 📂
+• "Re-classe mes mails" - Re-analyser les mails déjà classés 🔄
+• "Mémoire classification" - Voir l'historique
+
+⚙️ **Configurer James**
+• "Mets les mails LinkedIn dans Newsletter"
+• "Classe les mails eDocPerso dans ISCOD"
+• "Voir mes règles" - Afficher la config
+• "Supprime la règle 2" - Supprimer par numéro
+• "Réinitialiser les règles" - Tout supprimer
+
+📁 **Gestion des Dossiers**
+• "Crée le dossier Publicité" - Créer un nouveau dossier
+• "Supprime le dossier Test" - Supprimer (emails → Inbox)
+• "Liste mes dossiers" - Voir tous les dossiers
+
+🔧 **Système**
+• "Status" - Vérifier les connexions
+• "Que peut faire James ?" - Voir toutes ses capacités
+• "Aide" - Afficher ce message
+
+💬 Posez-moi n'importe quelle question !`;
+  }
+
+  /**
+   * Décrire toutes les capacités de James
+   */
+  getJamesCapabilities() {
+    return `🤖 **James - Mail Assistant**
+
+James est l'agent spécialisé dans la gestion de vos emails Outlook.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📬 **LECTURE & RÉSUMÉS**
+• Résumer les X derniers emails
+• Filtrer par date (aujourd'hui, cette semaine)
+• Filtrer par importance (urgent, important)
+• Voir les emails non lus
+
+📂 **CLASSIFICATION INTELLIGENTE**
+• Classer automatiquement les emails par catégorie
+• Déplacer les emails dans les dossiers Outlook
+• Utiliser l'IA pour décider du bon dossier
+• Appliquer vos règles personnalisées en priorité
+
+🔄 **RE-CLASSIFICATION** (NOUVEAU!)
+• Re-analyser les emails déjà classés
+• Appliquer les nouvelles règles aux anciens mails
+• Vérifier et corriger la classification
+  _Commande: "Re-classe mes mails"_
+
+⚙️ **RÈGLES PERSONNALISÉES**
+• Créer des règles de classification
+  _Ex: "Classe les mails Amazon dans Shopping"_
+• Appliquer immédiatement aux emails existants
+• Supprimer des règles par numéro
+• Voir toutes les règles actives
+• Types de règles: expéditeur, sujet, contenu
+
+📁 **GESTION DES DOSSIERS**
+• Créer de nouveaux dossiers personnalisés
+• Supprimer des dossiers (emails préservés → Inbox)
+• Lister tous les dossiers disponibles
+
+📤 **ENVOI** (bientôt)
+• Envoyer des emails
+• Générer des brouillons de réponse
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 **Dossiers par défaut:**
+🔴 Urgent | 💼 Professionnel | 🛒 Shopping
+📰 Newsletter | 🏦 Finance | 🤝 Social | 🎓 ISCOD
+
+💡 **Exemples de commandes:**
+• "Résume mes 5 derniers mails"
+• "Classe mes 50 emails"
+• "Mets les mails LinkedIn dans Publicites"
+• "Crée le dossier Promotions"
+• "Supprime la règle 1"
+• "Voir mes règles"`;
+  }
+
+  /**
+   * Répondre à une question générale
+   */
+  async handleGeneralQuestion(question) {
+    const context = `
+Agents disponibles:
+- James (Mail Assistant): Gère les emails Outlook
+- Magali (Assistant Bancaire): Analyse les relevés bancaires (pas encore implémenté)
+- Kiara (CEO Assistant): Rédige des articles (pas encore implémenté)
+
+État Outlook: ${outlookService.isConnected() ? 'Connecté' : 'Non connecté'}
+`;
+
+    const response = await openaiService.answerQuestion(question, context);
+    return response;
+  }
+
+  /**
+   * Notification de nouveaux emails (appelé par le scheduler)
+   */
+  async notifyNewEmails(emails) {
+    if (emails.length === 0) return;
+
+    const summary = await openaiService.summarizeEmails(emails);
+    const message = `📬 **Nouveaux emails détectés !**\n\n${summary}`;
+
+    await whatsappService.sendLongMessage(this.myPhoneNumber, message);
+  }
+}
+
+module.exports = new PrincipalAgent();
