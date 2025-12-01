@@ -17,6 +17,11 @@ class KiaraAgent {
     this.name = 'Kiara';
     this.role = 'SEO & Blog Manager';
     
+    // Contexte conversationnel
+    this.lastDisplayedTrends = [];  // Tendances affichées récemment
+    this.lastGeneratedArticle = null;  // Dernier article généré
+    this.conversationContext = {};  // Contexte par utilisateur
+    
     // Parser RSS pour les tendances
     this.rssParser = new Parser({
       customFields: {
@@ -114,6 +119,12 @@ Réponds toujours de manière professionnelle et utile.`;
     this.currentContext = context;
 
     try {
+      // Détection des références aux tendances affichées (numéros, "les deux", etc.)
+      const trendReference = this.detectTrendReference(lowerMessage);
+      if (trendReference && this.lastDisplayedTrends.length > 0) {
+        return await this.handleTrendArticleRequest(trendReference, message);
+      }
+
       // Détection des intentions
       if (this.isStatsRequest(lowerMessage)) {
         return await this.handleStatsRequest(message, lowerMessage);
@@ -167,6 +178,251 @@ Réponds toujours de manière professionnelle et utile.`;
   isStatsRequest(message) {
     const keywords = ['stats', 'statistiques', 'vues', 'performance', 'consultation', 'combien de vue', 'analytics'];
     return keywords.some(k => message.includes(k));
+  }
+
+  /**
+   * Détecte si le message fait référence aux tendances affichées
+   * Retourne les indices des tendances référencées ou null
+   */
+  detectTrendReference(message) {
+    // Si pas de tendances en mémoire, pas de référence possible
+    if (!this.lastDisplayedTrends || this.lastDisplayedTrends.length === 0) {
+      return null;
+    }
+
+    // Patterns pour détecter les références
+    const patterns = {
+      // "oui", "ok", "d'accord" seuls (confirmation après tendances)
+      simpleConfirm: /^(oui|ok|d'accord|yes|ouais|yep)\s*(,|\.|!)?$/i,
+      
+      // "les deux sujets", "les 2 sujets", "les deux premiers"
+      twoSubjects: /les?\s*(deux|2)\s*(sujets?|premiers?|articles?)?/i,
+      
+      // "sur les deux", "sur les 2"
+      onTwo: /sur\s+les?\s*(deux|2)/i,
+      
+      // "le 1", "numéro 1", "le premier", "sujet 1"
+      singleNumber: /(?:le\s+|num[eé]ro\s+|sujet\s+|le\s+premier|le\s+deuxi[eè]me|le\s+troisi[eè]me)?(\d+)(?:er|ème|eme|e)?/i,
+      
+      // "1 et 2", "le 1 et le 3"
+      multipleNumbers: /(\d+)\s*(?:et|,)\s*(?:le\s+)?(\d+)/i,
+      
+      // "tous les sujets", "tous"
+      all: /tous?\s*(les)?\s*(sujets?)?/i,
+
+      // "article sur oui", "rédige oui" -> confirmation implicite
+      articleYes: /(?:article|redige|ecris)\s+(?:sur\s+)?(oui|les?|ça|cela)/i
+    };
+
+    // Vérifier si c'est une demande d'article avec référence aux tendances
+    const isArticleRequest = /(?:article|redige|ecris|genere|cree)/i.test(message);
+
+    // "les deux sujets" ou "sur les deux"
+    if (patterns.twoSubjects.test(message) || patterns.onTwo.test(message)) {
+      return [0, 1]; // Les deux premiers
+    }
+
+    // "tous"
+    if (patterns.all.test(message) && isArticleRequest) {
+      return this.lastDisplayedTrends.map((_, i) => i);
+    }
+
+    // "1 et 2", "le 1 et le 3"
+    const multiMatch = message.match(patterns.multipleNumbers);
+    if (multiMatch) {
+      const indices = [parseInt(multiMatch[1]) - 1, parseInt(multiMatch[2]) - 1];
+      return indices.filter(i => i >= 0 && i < this.lastDisplayedTrends.length);
+    }
+
+    // Numéro simple "le 1", "numéro 2"
+    const singleMatch = message.match(patterns.singleNumber);
+    if (singleMatch && singleMatch[1]) {
+      const index = parseInt(singleMatch[1]) - 1;
+      if (index >= 0 && index < this.lastDisplayedTrends.length) {
+        return [index];
+      }
+    }
+
+    // "oui" simple après affichage des tendances -> prend le premier sujet
+    if (patterns.simpleConfirm.test(message.trim())) {
+      return [0];
+    }
+
+    // "article sur oui" ou similaire
+    if (patterns.articleYes.test(message)) {
+      return [0, 1]; // Les deux premiers par défaut
+    }
+
+    return null;
+  }
+
+  /**
+   * Génère un article à partir des tendances sélectionnées
+   */
+  async handleTrendArticleRequest(trendIndices, originalMessage) {
+    const selectedTrends = trendIndices
+      .map(i => this.lastDisplayedTrends[i])
+      .filter(t => t !== undefined);
+
+    if (selectedTrends.length === 0) {
+      return `❌ Je n'ai pas trouvé les sujets demandés. Les tendances disponibles sont numérotées de 1 à ${this.lastDisplayedTrends.length}.`;
+    }
+
+    // Construire le sujet à partir des tendances sélectionnées
+    let subject;
+    if (selectedTrends.length === 1) {
+      subject = selectedTrends[0].title;
+    } else {
+      // Combiner les sujets
+      const titles = selectedTrends.map(t => t.title);
+      subject = titles.join(' et ');
+    }
+
+    console.log(`📝 Kiara génère un article sur les tendances sélectionnées: ${subject}`);
+
+    // Utiliser les tendances comme sources
+    const sources = selectedTrends.map(t => ({
+      title: t.title,
+      link: t.link,
+      source: t.source,
+      description: t.description
+    }));
+
+    // Générer l'article avec le sujet combiné et les sources
+    return await this.generateArticleFromTrends(subject, sources, selectedTrends.length);
+  }
+
+  /**
+   * Génère un article à partir de tendances spécifiques
+   */
+  async generateArticleFromTrends(subject, sources, trendsCount) {
+    console.log(`✍️ Kiara génère un article sur: ${subject}`);
+
+    const category = await this.detectCategory(subject);
+    const images = await this.searchFreeImages(subject, 1);
+    const coverImage = images.length > 0 ? images[0] : null;
+
+    const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
+
+    const articlePrompt = `Tu es un EXCELLENT rédacteur web français avec un style ENGAGEANT et une touche d'HUMOUR. 
+Rédige un article de blog captivant EN FRANÇAIS qui traite de ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
+
+🔍 SUJETS/SOURCES À ANALYSER:
+${sourcesForPrompt}
+
+📝 TON STYLE:
+- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots dans le titre et le contenu
+- **ACCROCHEUR**: Le titre doit donner envie de lire (avec un clin d'œil humoristique si possible)
+- **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
+- **ACCESSIBLE**: Explique les concepts complexes simplement
+${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets si possible, sinon traite-les séparément' : ''}
+
+⚠️ RÈGLES STRICTES:
+1. **100% FRANÇAIS** - Tout l'article en français
+2. **PERTINENCE** - Base-toi sur les actualités fournies
+3. **RÉÉCRITURE** - Reformule avec tes mots, analyse, donne ton avis
+4. **SOURCES** - Mets les URLs des sources à la fin
+
+📏 LONGUEUR: 800-1000 mots (3-4 pages PDF)
+
+📋 STRUCTURE:
+1. **Titre FUN** (avec jeu de mots ou référence pop culture si possible) - MAX 60 caractères
+2. **Meta description** (150 car.)
+3. **Contenu Markdown**:
+   - Intro accrocheuse (2-3 phrases qui captent l'attention)
+   - 3-4 sections avec sous-titres créatifs (##)
+   - Anecdotes, exemples concrets, chiffres
+   - Listes à puces pour aérer
+   - Conclusion avec une touche d'humour
+
+📄 FORMAT JSON:
+{
+  "title": "Titre accrocheur et fun (max 60 car)",
+  "meta_description": "Description engageante",
+  "keywords": ["mot1", "mot2"],
+  "excerpt": "2-3 phrases qui donnent envie de lire",
+  "content": "Contenu Markdown complet",
+  "category": "${category}",
+  "reading_time_minutes": 5,
+  "tags": ["tag1", "tag2"],
+  "sources": [${sources.map(s => `"${s.link}"`).join(', ')}]
+}`;
+
+    try {
+      const response = await openaiService.chat(this.systemPrompt, articlePrompt, { 
+        json: true,
+        maxTokens: 3500 
+      });
+      
+      let cleanResponse = response.trim();
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      }
+      const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanResponse = jsonMatch[0];
+      }
+      
+      let article;
+      try {
+        article = JSON.parse(cleanResponse);
+        if (!article.title || !article.content) {
+          throw new Error('Article incomplet');
+        }
+      } catch (parseError) {
+        console.error('Erreur parsing JSON, création article depuis le texte brut...');
+        article = {
+          title: subject.substring(0, 60),
+          meta_description: `Découvrez les dernières actualités sur ${subject}`,
+          keywords: subject.split(' ').filter(w => w.length > 2),
+          excerpt: `Un article complet sur ${subject}.`,
+          content: `# ${subject}\n\n${response}`,
+          category: category,
+          reading_time_minutes: 5,
+          tags: subject.split(' ').filter(w => w.length > 3).slice(0, 5),
+          sources: sources.map(s => s.link)
+        };
+      }
+      
+      if (coverImage) {
+        article.cover_image = coverImage.url;
+        article.cover_image_author = coverImage.author;
+        article.cover_image_source = coverImage.source;
+      }
+
+      const savedArticle = await this.saveArticleDraft(article);
+      
+      this.lastGeneratedArticle = { 
+        ...article, 
+        id: savedArticle?.id,
+        slug: savedArticle?.slug || this.generateSlug(article.title),
+        title: savedArticle?.title || article.title
+      };
+
+      let result = `✅ **Article généré avec succès !**\n\n`;
+      result += `📝 **Titre:** ${this.lastGeneratedArticle.title}\n`;
+      result += `📂 **Catégorie:** ${article.category}\n`;
+      result += `⏱️ **Temps de lecture:** ${article.reading_time_minutes} min\n`;
+      result += `🏷️ **Tags:** ${article.tags?.join(', ') || 'Aucun'}\n`;
+      if (coverImage) {
+        result += `🖼️ **Image:** ${coverImage.source} (${coverImage.author})\n`;
+      }
+      result += `\n📄 **Extrait:**\n${article.excerpt}\n\n`;
+      result += `💾 Article sauvegardé en brouillon\n\n`;
+      result += `👍 **Actions possibles:**\n`;
+      result += `• "PDF de l'article" - Recevoir le PDF\n`;
+      result += `• "Modifie le titre par '...'" - Modifier\n`;
+      result += `• "Publie l'article" - Publier sur le blog\n`;
+      result += `• "Mes brouillons" - Voir tous les brouillons\n\n`;
+      result += `🔄 *Dis "James" ou "emails" pour passer aux emails*\n`;
+      result += `🚪 *Dis "quitter" ou "Brian" pour terminer avec Kiara*`;
+
+      return result;
+
+    } catch (error) {
+      console.error('Erreur génération article:', error);
+      return `❌ Erreur lors de la génération de l'article: ${error.message}`;
+    }
   }
 
   isTrendRequest(message) {
@@ -390,6 +646,9 @@ Réponds toujours de manière professionnelle et utile.`;
     
     const trends = await this.fetchTrendsFromInternet();
     
+    // Stocker les tendances pour référence ultérieure
+    this.lastDisplayedTrends = trends;
+    
     let response = `🔥 **Tendances Tech en temps réel** (${new Date().toLocaleDateString('fr-FR')})\n\n`;
     
     trends.forEach((trend, i) => {
@@ -403,6 +662,7 @@ Réponds toujours de manière professionnelle et utile.`;
     });
 
     response += `\n💡 Tu veux que je rédige un article sur l'un de ces sujets ? Dis-moi le numéro !`;
+    response += `\n💡 Tu peux aussi dire "rédige un article sur les 2 premiers" ou "article sur le 1 et le 3" !`;
     
     return response;
   }
