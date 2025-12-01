@@ -136,8 +136,8 @@ app.get('/auth/callback', async (req, res) => {
   try {
     await outlookService.handleCallback(code);
     
-    // Démarrer le scheduler d'emails après connexion
-    emailScheduler.start();
+    // Scheduler d'emails désactivé - l'utilisateur préfère vérifier manuellement
+    // emailScheduler.start();
     
     res.send(`
       <!DOCTYPE html>
