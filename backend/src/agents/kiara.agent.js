@@ -2159,7 +2159,17 @@ Réponds en JSON:
         cleanResponse = jsonMatch[0];
       }
       
+      // Vérifier que la réponse n'est pas vide ou tronquée
+      if (!cleanResponse || cleanResponse.length < 100) {
+        throw new Error('Réponse OpenAI trop courte ou vide');
+      }
+      
       const article = JSON.parse(cleanResponse);
+      
+      // Vérifier que l'article a les champs requis
+      if (!article.title || !article.content) {
+        throw new Error('Article incomplet (titre ou contenu manquant)');
+      }
       
       // Ajouter l'image et les sources
       if (coverImage) {
@@ -2168,38 +2178,72 @@ Réponds en JSON:
         article.cover_image_source = coverImage.source;
       }
       
-      article.sources_used = sources.map(s => ({
-        title: s.title,
-        source: s.source,
-        link: s.link
+      // Formater les sources de manière sécurisée
+      article.sources_used = (sources || []).filter(s => s).map(s => ({
+        title: s.title || 'Source',
+        source: s.source || 'Unknown',
+        link: s.link || '#'
       }));
 
       console.log(`✅ Article fusionné généré: ${article.title}`);
       return article;
     } catch (error) {
-      console.error('Erreur génération article fusionné:', error);
+      console.error('Erreur génération article fusionné:', error.message);
       
-      // Fallback: créer un article de base
+      // Fallback: créer un article de base avec gestion sécurisée des sources
       console.log('🔄 Tentative de génération d\'un article de fallback...');
-      return {
+      
+      // S'assurer que sources est un tableau valide
+      const safeSources = (sources || []).filter(s => s && s.title);
+      
+      const fallbackArticle = {
         title: `Analyse: ${topic} - Les tendances actuelles`,
         meta_description: `Découvrez les dernières actualités et analyses sur ${topic}. Article rédigé par Brian Biendou.`,
-        keywords: topic.split(' ').filter(w => w.length > 3),
+        keywords: topic.split(' ').filter(w => w.length > 2),
         excerpt: `Une analyse approfondie des dernières tendances et actualités concernant ${topic}.`,
-        content: `# ${topic} : Les tendances actuelles\n\n## Introduction\n\nDans cet article, nous allons explorer les dernières actualités et tendances concernant ${topic}.\n\n## Analyse des sources\n\n${sources.map((s, i) => `### ${s.title}\n\nSelon ${s.source}, ${s.description || 'cette source apporte un éclairage intéressant sur le sujet.'}\n`).join('\n')}\n\n## Conclusion\n\nLe domaine de ${topic} continue d'évoluer rapidement. Restez informés des dernières nouveautés sur notre blog !\n\n---\n*Article rédigé par Brian Biendou*`,
+        content: this.generateFallbackContent(topic, safeSources),
         category: this.detectCategoryFromContent(topic),
         reading_time_minutes: 5,
         tags: [topic],
-        sources: sources.map(s => s.title),
+        sources: safeSources.map(s => s.title || 'Source'),
         cover_image: coverImage?.url || null,
-        sources_used: sources.map(s => ({ title: s.title, source: s.source, link: s.link }))
+        sources_used: safeSources.map(s => ({ 
+          title: s.title || 'Source', 
+          source: s.source || 'Unknown', 
+          link: s.link || '#' 
+        }))
       };
+      
+      console.log(`✅ Article fallback généré: ${fallbackArticle.title}`);
+      return fallbackArticle;
     }
   }
 
-  // ============================================
-  // CONVERSATION GÉNÉRALE
-  // ============================================
+  /**
+   * Génère un contenu de fallback structuré
+   */
+  generateFallbackContent(topic, sources) {
+    let content = `# ${topic} : Les tendances actuelles\n\n`;
+    content += `## Introduction\n\n`;
+    content += `Dans cet article, nous explorons les dernières actualités et tendances concernant **${topic}**. `;
+    content += `L'écosystème technologique évolue rapidement et il est essentiel de rester informé.\n\n`;
+    
+    if (sources.length > 0) {
+      content += `## Analyse des sources\n\n`;
+      sources.forEach((s, i) => {
+        content += `### ${i + 1}. ${s.title || 'Article'}\n\n`;
+        content += `Selon **${s.source || 'une source tech'}**, ${s.description || 'cette actualité apporte un éclairage intéressant sur le sujet.'}`;
+        content += `\n\n`;
+      });
+    }
+    
+    content += `## Conclusion\n\n`;
+    content += `Le domaine de ${topic} continue d'évoluer rapidement. `;
+    content += `Restez informés des dernières nouveautés sur notre blog !\n\n`;
+    content += `---\n*Article rédigé par Brian Biendou*`;
+    
+    return content;
+  }
 
   async chat(message) {
     const response = await openaiService.chat(this.systemPrompt, message);
