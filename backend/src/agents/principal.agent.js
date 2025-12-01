@@ -456,13 +456,19 @@ EXEMPLES:
         return { action: 'email_search', params: { query: params.query, filter: params.filter } };
       
       case 'set_reminder':
-        return { action: 'set_reminder', params: { message: params.message, delay: params.delay, time: params.time } };
+      case 'create_reminder':
+        return { action: 'create_reminder', params: { message: params.message || params.text, delay: params.delay, time: params.time, text: params.text } };
+      
+      case 'list_reminders':
+        return { action: 'list_reminders', params };
       
       case 'quick_reply':
-        return { action: 'quick_reply', params: { searchQuery: params.searchQuery, replyInstructions: params.replyInstructions } };
+      case 'email_reply':
+        return { action: 'email_reply', params: { searchQuery: params.searchQuery, replyInstructions: params.replyInstructions, text: params.text } };
       
       case 'clean_emails':
-        return { action: 'clean_emails', params: { folder: params.folder, daysOld: params.daysOld } };
+      case 'email_cleanup':
+        return { action: 'email_cleanup', params: { folder: params.folder, daysOld: params.daysOld, text: params.text } };
       
       case 'daily_summary':
         return { action: 'daily_summary', params };
