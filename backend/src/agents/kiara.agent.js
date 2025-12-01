@@ -728,7 +728,7 @@ Réponds en JSON avec ce format exact:
     const { data, error } = await supabaseService.client
       .from('blog_posts')
       .insert({
-        user_id: supabaseService.defaultUserId,
+        // user_id: supabaseService.defaultUserId, // Désactivé - contrainte FK vers table users inexistante
         title: article.title,
         slug: slug,
         excerpt: article.excerpt,
@@ -1288,6 +1288,7 @@ Réponds en JSON avec ce format exact:
       const doc = new PDFDocument({
         size: 'A4',
         margins: { top: 60, bottom: 60, left: 60, right: 60 },
+        bufferPages: true, // Important pour pouvoir revenir sur les pages
         info: {
           Title: article.title,
           Author: article.author_name || 'Brian Biendou',
@@ -1544,45 +1545,52 @@ Réponds en JSON avec ce format exact:
          .text('Passionné par la technologie et l\'innovation. Suivez mon blog pour plus d\'articles sur le dev, l\'IA et l\'entrepreneuriat.', 75, authorBoxY + 35, { width: 435 });
 
       // === FOOTER ===
-      const pageCount = doc.bufferedPageRange().count;
-      for (let i = 0; i < pageCount; i++) {
-        doc.switchToPage(i);
+      try {
+        const range = doc.bufferedPageRange();
+        const pageCount = range.count || 1;
+        const startPage = range.start || 0;
         
-        // Ligne de séparation footer
-        doc.moveTo(60, 770)
-           .lineTo(535, 770)
-           .strokeColor('#e2e8f0')
-           .lineWidth(1)
-           .stroke();
-        
-        doc.fontSize(8)
-           .fillColor('#94a3b8')
-           .text(
-             `Page ${i + 1} / ${pageCount}`,
-             60,
-             778
-           );
-        
-        doc.fontSize(8)
-           .fillColor('#64748b')
-           .text(
-             '🌐 www.brianbiendou.com',
-             300,
-             778,
-             { align: 'center', width: 235 }
-           );
-
-        // Généré par Kiara
-        if (i === pageCount - 1) {
-          doc.fontSize(7)
+        for (let i = 0; i < pageCount; i++) {
+          doc.switchToPage(startPage + i);
+          
+          // Ligne de séparation footer
+          doc.moveTo(60, 770)
+             .lineTo(535, 770)
+             .strokeColor('#e2e8f0')
+             .lineWidth(1)
+             .stroke();
+          
+          doc.fontSize(8)
              .fillColor('#94a3b8')
              .text(
-               `📄 Généré par Kiara - Agent SEO BiendouCorp | ${new Date().toLocaleString('fr-FR')}`,
+               `Page ${i + 1} / ${pageCount}`,
                60,
-               790,
-               { align: 'center', width: 475 }
+               778
              );
+          
+          doc.fontSize(8)
+             .fillColor('#64748b')
+             .text(
+               '🌐 www.brianbiendou.com',
+               300,
+               778,
+               { align: 'center', width: 235 }
+             );
+
+          // Généré par Kiara
+          if (i === pageCount - 1) {
+            doc.fontSize(7)
+               .fillColor('#94a3b8')
+               .text(
+                 `📄 Généré par Kiara - Agent SEO BiendouCorp | ${new Date().toLocaleString('fr-FR')}`,
+                 60,
+                 790,
+                 { align: 'center', width: 475 }
+               );
+          }
         }
+      } catch (footerError) {
+        console.warn('⚠️ Impossible d\'ajouter le footer aux pages:', footerError.message);
       }
 
       doc.end();
