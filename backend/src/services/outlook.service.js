@@ -1303,9 +1303,8 @@ class OutlookService {
 
   /**
    * Rechercher des contacts/expéditeurs par nom
-   * Cherche dans les emails récents pour trouver les adresses correspondant à un nom
+   * Cherche dans TOUS les dossiers (200 derniers emails) pour trouver les adresses correspondant à un nom
    * @param {string} name - Nom à rechercher
-   * @param {number} limit - Nombre max de contacts à retourner
    */
   async searchContactsByName(name) {
     const accessToken = await this.ensureValidToken();
@@ -1323,70 +1322,94 @@ class OutlookService {
         if (email.includes('/cn=')) return false;
         return true;
       };
+
+      // Fonction pour ajouter un contact à la map
+      const addContact = (emailAddr, contactName, date, source = 'received') => {
+        if (!isValidEmail(emailAddr)) return;
+        const emailLower = emailAddr.toLowerCase();
+        const nameLowerContact = contactName.toLowerCase();
+        
+        // Vérifier si le nom correspond
+        if (nameLowerContact.includes(nameLower) || emailLower.includes(nameLower)) {
+          if (!contactsMap.has(emailLower)) {
+            contactsMap.set(emailLower, {
+              name: contactName,
+              email: emailLower,
+              count: 1,
+              lastSeen: date,
+              source
+            });
+          } else {
+            contactsMap.get(emailLower).count++;
+            // Mettre à jour si plus récent
+            if (date && new Date(date) > new Date(contactsMap.get(emailLower).lastSeen)) {
+              contactsMap.get(emailLower).lastSeen = date;
+            }
+          }
+        }
+      };
       
-      // 1. Chercher dans les emails récents (expéditeurs)
-      const emailsResponse = await axios.get(
-        `${this.graphBaseUrl}/me/messages?$top=200&$select=from,receivedDateTime&$orderby=receivedDateTime desc`,
+      // 1. Chercher dans TOUS les emails (tous dossiers) - 200 derniers
+      console.log(`🔍 Recherche contacts "${name}" dans tous les dossiers...`);
+      
+      const allEmailsResponse = await axios.get(
+        `${this.graphBaseUrl}/me/messages?$top=200&$select=from,toRecipients,ccRecipients,receivedDateTime&$orderby=receivedDateTime desc`,
         { headers: { 'Authorization': `Bearer ${accessToken}` } }
       );
       
-      const emails = emailsResponse.data.value || [];
+      const allEmails = allEmailsResponse.data.value || [];
+      console.log(`   📧 ${allEmails.length} emails analysés (tous dossiers)`);
       
-      for (const email of emails) {
-        const fromEmail = email.from?.emailAddress?.address?.toLowerCase() || '';
-        const fromName = email.from?.emailAddress?.name || '';
-        const fromNameLower = fromName.toLowerCase();
+      for (const email of allEmails) {
+        // Expéditeur
+        if (email.from?.emailAddress) {
+          addContact(
+            email.from.emailAddress.address || '',
+            email.from.emailAddress.name || '',
+            email.receivedDateTime,
+            'received'
+          );
+        }
         
-        // Vérifier si c'est une vraie adresse email et si le nom correspond
-        if (isValidEmail(fromEmail) && (fromNameLower.includes(nameLower) || fromEmail.includes(nameLower))) {
-          if (!contactsMap.has(fromEmail)) {
-            contactsMap.set(fromEmail, {
-              name: fromName,
-              email: fromEmail,
-              count: 1,
-              lastSeen: email.receivedDateTime
-            });
-          } else {
-            contactsMap.get(fromEmail).count++;
+        // Destinataires (pour les emails que j'ai envoyés)
+        const allRecipients = [...(email.toRecipients || []), ...(email.ccRecipients || [])];
+        for (const recipient of allRecipients) {
+          if (recipient.emailAddress) {
+            addContact(
+              recipient.emailAddress.address || '',
+              recipient.emailAddress.name || '',
+              email.receivedDateTime,
+              'sent'
+            );
           }
         }
       }
       
-      // 2. Chercher aussi dans les destinataires des emails envoyés
+      // 2. Chercher aussi spécifiquement dans les emails envoyés (200 derniers)
       try {
         const sentResponse = await axios.get(
-          `${this.graphBaseUrl}/me/mailFolders/sentitems/messages?$top=100&$select=toRecipients,ccRecipients,receivedDateTime&$orderby=receivedDateTime desc`,
+          `${this.graphBaseUrl}/me/mailFolders/sentitems/messages?$top=200&$select=toRecipients,ccRecipients,receivedDateTime&$orderby=receivedDateTime desc`,
           { headers: { 'Authorization': `Bearer ${accessToken}` } }
         );
         
         const sentEmails = sentResponse.data.value || [];
+        console.log(`   📤 ${sentEmails.length} emails envoyés analysés`);
         
         for (const email of sentEmails) {
           const allRecipients = [...(email.toRecipients || []), ...(email.ccRecipients || [])];
-          
           for (const recipient of allRecipients) {
-            const toEmail = recipient.emailAddress?.address?.toLowerCase() || '';
-            const toName = recipient.emailAddress?.name || '';
-            const toNameLower = toName.toLowerCase();
-            
-            // Vérifier si c'est une vraie adresse email et si le nom correspond
-            if (isValidEmail(toEmail) && (toNameLower.includes(nameLower) || toEmail.includes(nameLower))) {
-              if (!contactsMap.has(toEmail)) {
-                contactsMap.set(toEmail, {
-                  name: toName,
-                  email: toEmail,
-                  count: 1,
-                  lastSeen: email.receivedDateTime,
-                  source: 'sent'
-                });
-              } else {
-                contactsMap.get(toEmail).count++;
-              }
+            if (recipient.emailAddress) {
+              addContact(
+                recipient.emailAddress.address || '',
+                recipient.emailAddress.name || '',
+                email.receivedDateTime,
+                'sent'
+              );
             }
           }
         }
       } catch (sentError) {
-        // Ignorer si on ne peut pas lire les emails envoyés
+        console.log('   ⚠️ Impossible de lire les emails envoyés');
       }
       
       // 3. Convertir en array et trier par fréquence
@@ -1394,7 +1417,7 @@ class OutlookService {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10); // Max 10 contacts
       
-      console.log(`🔍 Recherche contacts "${name}": ${contacts.length} trouvés`);
+      console.log(`✅ Recherche contacts "${name}": ${contacts.length} trouvés sur ${allEmails.length}+ emails`);
       
       return contacts;
       
