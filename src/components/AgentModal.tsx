@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Send, Settings, Link, History, BarChart3, Globe, Mic, Paperclip, CheckCircle, XCircle, RefreshCw, AlertCircle } from 'lucide-react'
+import { X, Send, Settings, Link, History, BarChart3, Globe, Mic, Paperclip, CheckCircle, XCircle, RefreshCw, AlertCircle, Zap } from 'lucide-react'
 import './AgentModal.css'
 
 interface AgentPermission {
@@ -22,6 +22,10 @@ interface AgentStats {
   emailsToday: number
   urgentEmails: number
   lastSync: string
+  totalRequests?: number
+  remindersSet?: number
+  emailsSent?: number
+  foldersCreated?: number
 }
 
 interface AgentModalProps {
@@ -300,6 +304,86 @@ Tu es professionnel, efficace et tu communiques en français.`
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Capacités de James */}
+                <div className="feature-card capabilities-card">
+                  <div className="feature-icon">
+                    <Zap size={24} />
+                  </div>
+                  <h3>Capacités de {agent.name}</h3>
+                  <div className="capabilities-grid">
+                    <div className="capability-item">
+                      <span className="capability-icon">📧</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Résumé emails</span>
+                        <span className="capability-example">"Résume mes 10 derniers mails"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📬</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Non-lus</span>
+                        <span className="capability-example">"Emails non lus"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📂</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Classification</span>
+                        <span className="capability-example">"Classe mes emails"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">🔍</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Recherche</span>
+                        <span className="capability-example">"Cherche les mails d'Amazon"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📤</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Envoi</span>
+                        <span className="capability-example">"Envoie un mail à x@email.com"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">✉️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Réponse rapide</span>
+                        <span className="capability-example">"Réponds au mail de Jean"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">⏰</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Rappels</span>
+                        <span className="capability-example">"Rappelle-moi dans 1h"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">🗑️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Nettoyage</span>
+                        <span className="capability-example">"Nettoie les vieux mails"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">⚙️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Règles auto</span>
+                        <span className="capability-example">"LinkedIn → Newsletter"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📁</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Dossiers</span>
+                        <span className="capability-example">"Crée le dossier Projets"</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Historique */}

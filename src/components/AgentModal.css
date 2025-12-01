@@ -707,6 +707,61 @@
   box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
 }
 
+/* Capabilities Card */
+.capabilities-card {
+  grid-column: 1 / -1;
+}
+
+.capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.capability-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.capability-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #fff 0%, #f8fafc 100%);
+}
+
+.capability-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.capability-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.capability-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.capability-example {
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .modal-container {
@@ -730,5 +785,15 @@
 
   .quick-actions-row {
     flex-direction: column;
+  }
+
+  .capabilities-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .capabilities-grid {
+    grid-template-columns: 1fr;
   }
 }
