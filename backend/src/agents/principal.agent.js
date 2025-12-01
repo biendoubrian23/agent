@@ -15,6 +15,10 @@ class PrincipalAgent {
     this.role = 'Assistant Principal & Manager';
     this.myPhoneNumber = process.env.MY_PHONE_NUMBER;
     
+    // Tracking de l'agent actif par utilisateur (pour garder le contexte)
+    // Format: { phoneNumber: { agent: 'kiara'|'james'|null, lastActivity: Date, lastArticleId: ... } }
+    this.userContexts = new Map();
+    
     // Prompt de personnalité de Brian
     this.systemPrompt = `Tu es Brian, l'assistant principal et manager d'une équipe d'agents IA chez BiendouCorp.
 
@@ -214,6 +218,29 @@ EXEMPLES:
     
     console.log(`📱 Message de ${name} (${from}): ${text}`);
 
+    // Récupérer le contexte de l'utilisateur (agent actif)
+    const userContext = this.getUserContext(from);
+    const lowerText = text.toLowerCase().trim();
+    
+    // PRIORITÉ 0: Vérifier les commandes explicites de changement d'agent
+    if (lowerText === 'james' || lowerText === 'passe à james' || lowerText === 'emails' || lowerText === 'mails') {
+      const response = this.handleSwitchToJames(from);
+      await whatsappService.sendLongMessage(from, response);
+      return response;
+    }
+    
+    if (lowerText === 'kiara' || lowerText === 'passe à kiara' || lowerText === 'blog' || lowerText === 'article') {
+      const response = this.handleSwitchToKiara(from);
+      await whatsappService.sendLongMessage(from, response);
+      return response;
+    }
+    
+    if (lowerText === 'quitter' || lowerText === 'fin' || lowerText === 'terminer' || lowerText === 'retour' || lowerText === 'brian') {
+      const response = this.handleEndAgentSession(from);
+      await whatsappService.sendLongMessage(from, response);
+      return response;
+    }
+
     // PRIORITÉ 1: Vérifier si l'utilisateur a un brouillon en attente
     if (mailAgent.hasPendingDraft(from)) {
       const draftResponse = await this.handleDraftInteraction(from, text);
@@ -230,8 +257,8 @@ EXEMPLES:
       return selectionResult.message;
     }
 
-    // Analyser l'intention du message
-    const intent = await this.analyzeIntent(text);
+    // PRIORITÉ 3: Si un agent est actif, interpréter dans son contexte
+    const intent = await this.analyzeIntent(text, from, userContext);
     
     // Logger la requête pour les stats (détermine quel agent est sollicité)
     if (intent.agent) {
@@ -404,8 +431,35 @@ EXEMPLES:
         response = await this.handleKiaraCompleteWorkflow(from, intent.params);
         break;
 
+      case 'kiara_pdf':
+        response = await this.handleKiaraPDF(from, intent.params);
+        break;
+
+      case 'kiara_list_drafts':
+        response = await this.handleKiaraListDrafts(from);
+        break;
+
+      case 'switch_to_james':
+        response = this.handleSwitchToJames(from);
+        break;
+
+      case 'switch_to_kiara':
+        response = this.handleSwitchToKiara(from);
+        break;
+
+      case 'end_agent_session':
+        response = this.handleEndAgentSession(from);
+        break;
+
       default:
         response = await this.handleGeneralQuestion(text);
+    }
+    
+    // Mettre à jour le contexte agent si une action Kiara/James est exécutée
+    if (intent.action && intent.action.startsWith('kiara')) {
+      this.setUserContext(from, 'kiara');
+    } else if (intent.action && intent.action.startsWith('email')) {
+      this.setUserContext(from, 'james');
     }
 
     // Envoyer la réponse via WhatsApp
@@ -416,14 +470,30 @@ EXEMPLES:
 
   /**
    * Analyser l'intention du message avec l'IA
+   * Prend en compte le contexte de l'agent actif
    */
-  async analyzeIntent(text) {
+  async analyzeIntent(text, from = null, userContext = null) {
     console.log('🧠 Brian analyse le message:', text);
+    
+    // Si un agent est actif, d'abord essayer d'interpréter dans ce contexte
+    if (userContext?.agent) {
+      console.log(`📍 Contexte actif: ${userContext.agent}`);
+      
+      const contextualIntent = this.analyzeWithContext(text, userContext.agent);
+      if (contextualIntent) {
+        console.log(`🎯 Intention contextuelle: ${contextualIntent.action}`);
+        return contextualIntent;
+      }
+    }
     
     try {
       // Utiliser GPT pour analyser l'intention
+      const contextInfo = userContext?.agent 
+        ? `\n\nNOTE: L'utilisateur est actuellement en conversation avec ${userContext.agent === 'kiara' ? 'Kiara (blog/SEO)' : 'James (emails)'}. Privilégie les actions de cet agent sauf si le message mentionne clairement un autre domaine.`
+        : '';
+        
       const response = await openaiService.chat([
-        { role: 'system', content: this.systemPrompt },
+        { role: 'system', content: this.systemPrompt + contextInfo },
         { role: 'user', content: `Analyse ce message et détermine l'intention:\n\n"${text}"` }
       ], { temperature: 0.1 }); // Basse température pour plus de consistance
 
@@ -444,6 +514,57 @@ EXEMPLES:
     // Fallback: analyse simple si l'IA échoue
     console.log('⚠️ Fallback vers analyse simple');
     return this.analyzeIntentSimple(text);
+  }
+
+  /**
+   * Analyse contextuelle basée sur l'agent actif
+   */
+  analyzeWithContext(text, activeAgent) {
+    const lowerText = text.toLowerCase().trim();
+    
+    if (activeAgent === 'kiara') {
+      // Commandes spécifiques à Kiara
+      if (lowerText.includes('pdf') || lowerText.includes('recevoir le pdf') || lowerText.includes('envoie le pdf')) {
+        return { action: 'kiara_pdf', params: { text } };
+      }
+      if (lowerText.includes('publie') || lowerText.includes('publier') || lowerText.includes('publication')) {
+        return { action: 'kiara_publish', params: { text } };
+      }
+      if (lowerText.includes('modifi') || lowerText.includes('change le titre') || lowerText.includes('corrige')) {
+        return { action: 'kiara_modify', params: { text } };
+      }
+      if (lowerText.includes('brouillon') || lowerText.includes('drafts') || lowerText.includes('mes articles')) {
+        return { action: 'kiara_list_drafts', params: { text } };
+      }
+      if (lowerText.includes('stats') || lowerText.includes('statistiques') || lowerText.includes('vues')) {
+        return { action: 'kiara_global_stats', params: { text } };
+      }
+      if (lowerText.includes('tendance') || lowerText.includes('trends') || lowerText.includes('actualité')) {
+        return { action: 'kiara_trends', params: { text } };
+      }
+      // Si c'est une demande de génération d'article
+      if (lowerText.includes('rédige') || lowerText.includes('écris') || lowerText.includes('génère') || lowerText.includes('article sur')) {
+        return { action: 'kiara_generate_article', params: { query: text, topic: text } };
+      }
+    }
+    
+    if (activeAgent === 'james') {
+      // Commandes spécifiques à James
+      if (lowerText.includes('résume') || lowerText.includes('résumé') || lowerText.includes('summary')) {
+        return { action: 'email_summary', params: { count: 10 } };
+      }
+      if (lowerText.includes('non lu') || lowerText.includes('unread')) {
+        return { action: 'email_unread', params: { count: 20 } };
+      }
+      if (lowerText.includes('classe') || lowerText.includes('classifie') || lowerText.includes('trie')) {
+        return { action: 'email_classify', params: { count: 50 } };
+      }
+      if (lowerText.includes('envoie') || lowerText.includes('écris un mail') || lowerText.includes('mail à')) {
+        return { action: 'send_email', params: { text } };
+      }
+    }
+    
+    return null; // Pas d'intention contextuelle trouvée
   }
 
   /**
@@ -638,6 +759,26 @@ EXEMPLES:
             text: originalText 
           } 
         };
+      
+      case 'kiara_pdf':
+        return { 
+          action: 'kiara_pdf', 
+          params: { 
+            text: originalText 
+          } 
+        };
+      
+      case 'kiara_list_drafts':
+        return { action: 'kiara_list_drafts', params: {} };
+      
+      case 'switch_to_james':
+        return { action: 'switch_to_james', params: {} };
+      
+      case 'switch_to_kiara':
+        return { action: 'switch_to_kiara', params: {} };
+      
+      case 'end_agent_session':
+        return { action: 'end_agent_session', params: {} };
       
       default:
         return { action: 'general', params };
@@ -2078,6 +2219,109 @@ Agents disponibles:
       console.error('Erreur Kiara workflow:', error);
       return `❌ Kiara a rencontré une erreur lors du workflow: ${error.message}`;
     }
+  }
+
+  /**
+   * Génération et envoi du PDF de l'article
+   */
+  async handleKiaraPDF(from, params) {
+    console.log(`📄 Kiara génère le PDF...`);
+    
+    try {
+      // Mettre à jour le contexte - on est avec Kiara
+      this.setUserContext(from, 'kiara');
+      
+      const result = await kiaraAgent.handlePdfRequest(params.text, { from });
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara PDF:', error);
+      return `❌ Kiara n'a pas pu générer le PDF: ${error.message}`;
+    }
+  }
+
+  /**
+   * Lister les brouillons de Kiara
+   */
+  async handleKiaraListDrafts(from) {
+    console.log(`📝 Kiara liste les brouillons...`);
+    
+    try {
+      // Mettre à jour le contexte - on est avec Kiara
+      this.setUserContext(from, 'kiara');
+      
+      const result = await kiaraAgent.listDrafts();
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara list drafts:', error);
+      return `❌ Kiara n'a pas pu lister les brouillons: ${error.message}`;
+    }
+  }
+
+  /**
+   * Gestion du contexte utilisateur
+   */
+  setUserContext(from, agent, extraData = {}) {
+    this.userContexts.set(from, {
+      agent,
+      lastActivity: new Date(),
+      ...extraData
+    });
+    console.log(`📍 Contexte mis à jour pour ${from}: agent actif = ${agent}`);
+  }
+
+  getUserContext(from) {
+    return this.userContexts.get(from) || null;
+  }
+
+  clearUserContext(from) {
+    this.userContexts.delete(from);
+    console.log(`🧹 Contexte effacé pour ${from}`);
+  }
+
+  /**
+   * Passer à James (emails)
+   */
+  handleSwitchToJames(from) {
+    this.setUserContext(from, 'james');
+    return `✅ **Changement d'agent**\n\n` +
+           `Tu es maintenant avec **James** (Mail Assistant) 📧\n\n` +
+           `Tu peux me demander:\n` +
+           `• "Résume mes mails"\n` +
+           `• "Mails non lus"\n` +
+           `• "Classe mes emails"\n` +
+           `• "Envoie un mail à..."\n\n` +
+           `💡 *Dis "Kiara" pour revenir au blog*`;
+  }
+
+  /**
+   * Passer à Kiara (blog)
+   */
+  handleSwitchToKiara(from) {
+    this.setUserContext(from, 'kiara');
+    return `✅ **Changement d'agent**\n\n` +
+           `Tu es maintenant avec **Kiara** (SEO & Blog Manager) 📝\n\n` +
+           `Tu peux me demander:\n` +
+           `• "Rédige un article sur..."\n` +
+           `• "Tendances du moment"\n` +
+           `• "PDF de l'article"\n` +
+           `• "Publie l'article"\n\n` +
+           `💡 *Dis "James" pour passer aux emails*`;
+  }
+
+  /**
+   * Terminer la session avec un agent
+   */
+  handleEndAgentSession(from) {
+    const context = this.getUserContext(from);
+    this.clearUserContext(from);
+    
+    const previousAgent = context?.agent || 'aucun';
+    return `✅ **Session terminée**\n\n` +
+           `Tu as quitté la session avec ${previousAgent === 'kiara' ? 'Kiara' : previousAgent === 'james' ? 'James' : 'l\'agent actif'}.\n\n` +
+           `Je suis Brian, ton assistant principal. Comment puis-je t'aider?\n\n` +
+           `👥 **Mon équipe:**\n` +
+           `• **Kiara** - Blog & SEO\n` +
+           `• **James** - Emails & Outlook`;
   }
 }
 
