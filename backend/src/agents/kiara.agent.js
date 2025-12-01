@@ -190,8 +190,14 @@ Réponds toujours de manière professionnelle et utile.`;
   }
 
   isArticleGeneration(message) {
-    const keywords = ['écris', 'rédige', 'génère', 'crée un article', 'article sur', 'écrit', 'rédiger'];
-    return keywords.some(k => message.includes(k));
+    // Normaliser le message (enlever accents pour comparaison)
+    const normalized = message.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const keywords = [
+      'ecris', 'redige', 'genere', 'cree un article', 'article sur', 
+      'ecrit', 'rediger', 'ecrire', 'fait un article', 'fais un article',
+      'redaction', 'article concernant', 'article a propos'
+    ];
+    return keywords.some(k => normalized.includes(k));
   }
 
   isPublishRequest(message) {
@@ -601,10 +607,31 @@ ${sourcesForPrompt}
       let article;
       try {
         article = JSON.parse(cleanResponse);
+        // Vérifier que l'article a les champs requis
+        if (!article.title || !article.content) {
+          throw new Error('Article incomplet');
+        }
       } catch (parseError) {
-        console.error('Erreur parsing JSON, génération d\'un article complet en fallback...');
-        // Fallback: générer un article structuré plus complet
-        article = await this.generateFallbackArticle(subject, category, relatedTrends);
+        console.error('Erreur parsing JSON, création article depuis le texte brut...');
+        
+        // Si la réponse contient du contenu textuel, l'utiliser directement
+        if (response && response.length > 200 && !response.includes('{')) {
+          // OpenAI a renvoyé du texte brut au lieu de JSON
+          article = {
+            title: `${subject} : Guide Complet`,
+            meta_description: `Découvrez tout sur ${subject}`,
+            keywords: subject.split(' ').filter(w => w.length > 2),
+            excerpt: `Un article complet sur ${subject}.`,
+            content: `# ${subject}\n\n${response}`,
+            category: category,
+            reading_time_minutes: Math.ceil(response.split(/\s+/).length / 200),
+            tags: subject.split(' ').filter(w => w.length > 3).slice(0, 5),
+            sources: []
+          };
+        } else {
+          // Fallback complet
+          article = await this.generateFallbackArticle(subject, category, relatedTrends);
+        }
       }
       
       // Ajouter l'image de couverture
