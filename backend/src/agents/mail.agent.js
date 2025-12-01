@@ -2,6 +2,7 @@ const openaiService = require('../services/openai.service');
 const outlookService = require('../services/outlook.service');
 const statsService = require('../services/stats.service');
 const draftService = require('../services/draft.service');
+const reminderService = require('../services/reminder.service');
 
 /**
  * Agent Mail (James) - Gère les emails Outlook
@@ -10,6 +11,9 @@ class MailAgent {
   constructor() {
     this.name = 'James';
     this.role = 'Mail Assistant';
+    
+    // Cache du dernier email trouvé (pour "réponds au dernier mail de X")
+    this.lastSearchResults = new Map(); // phoneNumber -> emails[]
   }
 
   /**
@@ -654,6 +658,10 @@ class MailAgent {
         };
       }
 
+      // Recharger les règles depuis Supabase pour avoir la dernière version
+      await openaiService.initFromSupabase();
+      console.log(`📋 Règles rechargées: ${openaiService.customClassificationRules?.length || 0} règles actives`);
+
       let allEmails;
       
       if (sourceFolder) {
@@ -988,6 +996,350 @@ class MailAgent {
       success: true,
       message: "📭 Aucun brouillon en cours."
     };
+  }
+
+  // ==================== RECHERCHE INTELLIGENTE ====================
+
+  /**
+   * Rechercher des emails avec des critères en langage naturel
+   * @param {string} phoneNumber - Pour garder en cache
+   * @param {Object} criteria - Critères de recherche
+   */
+  async searchEmails(phoneNumber, criteria) {
+    try {
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: "❌ Outlook n'est pas connecté."
+        };
+      }
+
+      console.log('🔍 James recherche des emails:', criteria);
+      
+      const emails = await outlookService.searchEmails(criteria);
+      
+      // Sauvegarder en cache pour "réponds au dernier"
+      this.lastSearchResults.set(phoneNumber, emails);
+      
+      if (emails.length === 0) {
+        return {
+          success: true,
+          message: `📭 Aucun email trouvé pour cette recherche.`,
+          count: 0
+        };
+      }
+
+      // Résumer les résultats avec l'IA
+      const summary = await openaiService.summarizeEmails(emails, {
+        instruction: 'Résume les résultats de recherche de manière concise, en mettant en avant les emails les plus pertinents.'
+      });
+
+      statsService.addActivity('james', `Recherche: ${emails.length} emails trouvés`);
+
+      return {
+        success: true,
+        message: `🔍 **${emails.length} email(s) trouvé(s)**\n\n${summary}`,
+        count: emails.length,
+        emails: emails
+      };
+    } catch (error) {
+      console.error('❌ Erreur searchEmails:', error);
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
+  }
+
+  // ==================== RÉPONSE RAPIDE ====================
+
+  /**
+   * Répondre au dernier email d'un expéditeur
+   * @param {string} phoneNumber 
+   * @param {string} from - Expéditeur (nom ou email)
+   * @param {string} instructions - Instructions pour la réponse
+   */
+  async replyToEmail(phoneNumber, from, instructions) {
+    try {
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: "❌ Outlook n'est pas connecté."
+        };
+      }
+
+      // Chercher le dernier email de cet expéditeur
+      const emails = await outlookService.searchEmails({
+        from: from,
+        limit: 1
+      });
+
+      if (emails.length === 0) {
+        return {
+          success: false,
+          message: `📭 Aucun email trouvé de "${from}".`
+        };
+      }
+
+      const originalEmail = emails[0];
+      
+      // Récupérer le contenu complet
+      const fullEmail = await outlookService.getEmailById(originalEmail.id);
+      
+      // Générer la réponse avec l'IA
+      const replyContent = await openaiService.draftEmailReply(fullEmail, instructions);
+      
+      // Créer un brouillon pour validation
+      const replySubject = fullEmail.subject.startsWith('Re:') 
+        ? fullEmail.subject 
+        : `Re: ${fullEmail.subject}`;
+      
+      draftService.createDraft(phoneNumber, {
+        to: fullEmail.from,
+        subject: replySubject,
+        body: replyContent,
+        context: `Réponse à l'email de ${fullEmail.fromName || fullEmail.from}`
+      });
+
+      const draftEntry = draftService.getDraft(phoneNumber);
+
+      statsService.addActivity('james', `Réponse préparée pour ${fullEmail.from}`);
+
+      return {
+        success: true,
+        hasDraft: true,
+        originalEmail: {
+          from: fullEmail.fromName || fullEmail.from,
+          subject: fullEmail.subject,
+          preview: fullEmail.preview?.substring(0, 100)
+        },
+        message: `📩 **Réponse à l'email de ${fullEmail.fromName || fullEmail.from}**\n\n📌 **Sujet original:** ${fullEmail.subject}\n\n${draftService.formatForDisplay(draftEntry)}`
+      };
+    } catch (error) {
+      console.error('❌ Erreur replyToEmail:', error);
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
+  }
+
+  // ==================== NETTOYAGE INTELLIGENT ====================
+
+  /**
+   * Supprimer des emails en masse
+   * @param {Object} criteria - Critères de suppression
+   */
+  async cleanupEmails(criteria) {
+    try {
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: "❌ Outlook n'est pas connecté."
+        };
+      }
+
+      console.log('🗑️ James nettoie les emails:', criteria);
+
+      const result = await outlookService.deleteEmails(criteria);
+
+      if (!result.success) {
+        return result;
+      }
+
+      statsService.addActivity('james', `Nettoyage: ${result.deleted} emails supprimés`);
+
+      let message = `🗑️ **Nettoyage terminé**\n\n`;
+      message += `📊 **Résultat:**\n`;
+      message += `• ${result.deleted} email(s) supprimé(s)\n`;
+      
+      if (criteria.folder) {
+        message += `• Dossier: ${criteria.folder}\n`;
+      }
+      if (criteria.from) {
+        message += `• Expéditeur: ${criteria.from}\n`;
+      }
+      if (criteria.olderThanDays) {
+        message += `• Plus vieux que ${criteria.olderThanDays} jours\n`;
+      }
+
+      return {
+        success: true,
+        message,
+        deleted: result.deleted
+      };
+    } catch (error) {
+      console.error('❌ Erreur cleanupEmails:', error);
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
+  }
+
+  // ==================== RAPPELS ====================
+
+  /**
+   * Créer un rappel
+   * @param {string} phoneNumber 
+   * @param {string} text - Demande en langage naturel
+   */
+  async createReminder(phoneNumber, text) {
+    try {
+      // Parser la demande
+      const parsed = reminderService.parseReminderRequest(text);
+      
+      if (!parsed.isValid) {
+        return {
+          success: false,
+          message: `❓ Je n'ai pas compris quand vous rappeler.\n\n**Exemples:**\n• "Rappelle-moi demain à 9h d'envoyer le rapport"\n• "Rappelle-moi dans 2 heures de répondre à Pierre"\n• "Rappelle-moi lundi à 14h de la réunion"`
+        };
+      }
+
+      const result = await reminderService.createReminder({
+        phoneNumber,
+        message: parsed.message,
+        triggerAt: parsed.triggerAt,
+        context: text
+      });
+
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur createReminder:', error);
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Lister les rappels d'un utilisateur
+   * @param {string} phoneNumber 
+   */
+  async listReminders(phoneNumber) {
+    try {
+      const reminders = await reminderService.listReminders(phoneNumber);
+      
+      if (reminders.length === 0) {
+        return {
+          success: true,
+          message: "📭 Aucun rappel programmé."
+        };
+      }
+
+      let message = `⏰ **Vos rappels (${reminders.length})**\n\n`;
+      
+      reminders.forEach((r, i) => {
+        const dateStr = r.triggerAt.toLocaleDateString('fr-FR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short'
+        });
+        const timeStr = r.triggerAt.toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        message += `${i + 1}. 📅 ${dateStr} à ${timeStr}\n   📝 ${r.message}\n\n`;
+      });
+
+      return {
+        success: true,
+        message,
+        reminders
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
+  }
+
+  // ==================== RÉSUMÉ QUOTIDIEN ====================
+
+  /**
+   * Générer un résumé de la journée mail
+   * @param {number} count - Nombre d'emails à analyser
+   */
+  async getDailySummary(count = 50) {
+    try {
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: "❌ Outlook n'est pas connecté."
+        };
+      }
+
+      // Récupérer les emails d'aujourd'hui
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      let emails = await outlookService.getEmails(count);
+      const todayEmails = emails.filter(e => new Date(e.receivedAt) >= today);
+      
+      // Compter les non lus
+      const unreadEmails = await outlookService.getUnreadEmails(50);
+      
+      // Emails importants/urgents
+      const importantEmails = emails.filter(e => 
+        e.importance === 'high' || 
+        e.subject?.toLowerCase().includes('urgent')
+      );
+      
+      // Emails flaggés (à suivre)
+      const flaggedEmails = emails.filter(e => e.isFlagged);
+
+      // Générer le résumé avec l'IA
+      let message = `📊 **Résumé de votre journée mail**\n\n`;
+      message += `📬 **Aujourd'hui:** ${todayEmails.length} email(s) reçu(s)\n`;
+      message += `📭 **Non lus:** ${unreadEmails.length} email(s)\n`;
+      message += `⚠️ **Urgents/Importants:** ${importantEmails.length} email(s)\n`;
+      message += `🚩 **À suivre:** ${flaggedEmails.length} email(s)\n\n`;
+
+      if (importantEmails.length > 0) {
+        message += `🔴 **Emails prioritaires:**\n`;
+        for (const email of importantEmails.slice(0, 5)) {
+          message += `• ${email.fromName || email.from}: "${email.subject?.substring(0, 40)}..."\n`;
+        }
+        message += '\n';
+      }
+
+      if (unreadEmails.length > 0) {
+        // Résumer les non lus
+        const unreadSummary = await openaiService.summarizeEmails(unreadEmails.slice(0, 10), {
+          instruction: 'Résume très brièvement les emails non lus en mettant en avant les actions requises.'
+        });
+        message += `📝 **Résumé des non lus:**\n${unreadSummary}\n\n`;
+      }
+
+      if (flaggedEmails.length > 0) {
+        message += `🚩 **Emails à suivre:**\n`;
+        for (const email of flaggedEmails.slice(0, 3)) {
+          message += `• ${email.fromName || email.from}: "${email.subject?.substring(0, 40)}..."\n`;
+        }
+      }
+
+      statsService.addActivity('james', 'Résumé quotidien généré');
+
+      return {
+        success: true,
+        message,
+        stats: {
+          today: todayEmails.length,
+          unread: unreadEmails.length,
+          important: importantEmails.length,
+          flagged: flaggedEmails.length
+        }
+      };
+    } catch (error) {
+      console.error('❌ Erreur getDailySummary:', error);
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
   }
 }
 

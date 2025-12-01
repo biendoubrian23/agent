@@ -108,10 +108,34 @@ class PrincipalAgent {
    - L'email nécessite: destinataire + intention/message
    - C'est différent de "résumer mes mails" ou "classer mes mails"
 
+10. **RECHERCHE D'EMAILS:**
+   - "trouve le mail de Jean" → action: "email_search", params: { from: "Jean" }
+   - "cherche les mails concernant le devis" → action: "email_search", params: { query: "devis" }
+   - "emails de la semaine dernière de Amazon" → action: "email_search"
+
+11. **RÉPONSE RAPIDE:**
+   - "réponds au dernier mail de Pierre" → action: "email_reply", params: { from: "Pierre" }
+   - "réponds à l'email de Marie pour confirmer" → action: "email_reply"
+
+12. **RAPPELS:**
+   - "rappelle-moi demain à 9h de..." → action: "create_reminder"
+   - "rappelle-moi dans 2 heures" → action: "create_reminder"
+   - "mes rappels" ou "liste mes rappels" → action: "list_reminders"
+
+13. **NETTOYAGE/SUPPRESSION:**
+   - "supprime les newsletters de plus de 30 jours" → action: "email_cleanup"
+   - "nettoie le dossier Newsletter" → action: "email_cleanup"
+   - "supprime les mails de LinkedIn" → action: "email_cleanup"
+
+14. **RÉSUMÉ QUOTIDIEN:**
+   - "résumé de ma journée mail" → action: "daily_summary"
+   - "résumé quotidien" → action: "daily_summary"
+   - "comment va ma boîte mail" → action: "daily_summary"
+
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
   "target_agent": "brian" | "james" | "magali",
-  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "unknown",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "unknown",
   "params": {
     "count": number (OBLIGATOIRE pour les emails - extrait du message, défaut 50),
     "filter": "today" | "yesterday" | "week" | "important" | "urgent" | null,
@@ -120,7 +144,10 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "sourceFolder": string (optionnel, dossier source pour re-classification, avec emojis si applicable),
     "apply_now": boolean (optionnel, appliquer immédiatement aux mails existants),
     "ruleNumber": number (optionnel, numéro de règle à supprimer),
-    "text": string (le message original - TOUJOURS inclure pour send_email)
+    "text": string (le message original - TOUJOURS inclure pour send_email, create_reminder),
+    "from": string (optionnel, expéditeur pour recherche/réponse),
+    "query": string (optionnel, terme de recherche),
+    "olderThanDays": number (optionnel, pour nettoyage)
   },
   "confidence": number (0-100),
   "reasoning": "explication courte de ton analyse"
@@ -236,6 +263,30 @@ EXEMPLES:
 
       case 'list_folders':
         response = await this.handleListFolders();
+        break;
+
+      case 'email_search':
+        response = await this.handleEmailSearch(intent.params);
+        break;
+
+      case 'email_reply':
+        response = await this.handleQuickReply(from, intent.params);
+        break;
+
+      case 'create_reminder':
+        response = await this.handleSetReminder(from, intent.params);
+        break;
+
+      case 'list_reminders':
+        response = await this.handleListReminders(from);
+        break;
+
+      case 'email_cleanup':
+        response = await this.handleCleanEmails(intent.params);
+        break;
+
+      case 'daily_summary':
+        response = await this.handleDailySummary();
         break;
 
       case 'help':
@@ -400,6 +451,21 @@ EXEMPLES:
       
       case 'delete_rule':
         return { action: 'delete_rule', params: { ruleNumber: params.ruleNumber } };
+      
+      case 'email_search':
+        return { action: 'email_search', params: { query: params.query, filter: params.filter } };
+      
+      case 'set_reminder':
+        return { action: 'set_reminder', params: { message: params.message, delay: params.delay, time: params.time } };
+      
+      case 'quick_reply':
+        return { action: 'quick_reply', params: { searchQuery: params.searchQuery, replyInstructions: params.replyInstructions } };
+      
+      case 'clean_emails':
+        return { action: 'clean_emails', params: { folder: params.folder, daysOld: params.daysOld } };
+      
+      case 'daily_summary':
+        return { action: 'daily_summary', params };
       
       default:
         return { action: 'general', params };
@@ -594,6 +660,41 @@ EXEMPLES:
          lowerText.includes('rôle') || lowerText.includes('role') || lowerText.includes('tâche') || lowerText.includes('tache') ||
          lowerText.includes('fonction') || lowerText.includes('quoi') || lowerText.includes('capacit'))) {
       return { action: 'describe_james', params: {} };
+    }
+
+    // Recherche d'emails
+    if ((lowerText.includes('cherche') || lowerText.includes('trouve') || lowerText.includes('recherche') || 
+         lowerText.includes('search') || lowerText.includes('retrouve')) && 
+        (lowerText.includes('mail') || lowerText.includes('email') || lowerText.includes('message'))) {
+      return { action: 'email_search', params: { query: text } };
+    }
+
+    // Rappels / Reminders
+    if (lowerText.includes('rappel') || lowerText.includes('remind') || lowerText.includes('rappelle') ||
+        lowerText.includes('n\'oublie pas') || lowerText.includes('noublie pas') ||
+        (lowerText.includes('préviens') && lowerText.includes('dans'))) {
+      return { action: 'set_reminder', params: { message: text } };
+    }
+
+    // Réponse rapide à un email
+    if ((lowerText.includes('répond') || lowerText.includes('reply') || lowerText.includes('répondre')) && 
+        (lowerText.includes('mail') || lowerText.includes('email') || lowerText.includes('message'))) {
+      return { action: 'quick_reply', params: { searchQuery: text, replyInstructions: text } };
+    }
+
+    // Nettoyage d'emails
+    if ((lowerText.includes('nettoie') || lowerText.includes('nettoyer') || lowerText.includes('supprime') || 
+         lowerText.includes('vide') || lowerText.includes('efface') || lowerText.includes('clean')) && 
+        (lowerText.includes('vieux') || lowerText.includes('ancien') || lowerText.includes('old') ||
+         lowerText.includes('jours') || lowerText.includes('semaine') || lowerText.includes('mois'))) {
+      return { action: 'clean_emails', params: { text } };
+    }
+
+    // Résumé quotidien
+    if ((lowerText.includes('résumé') || lowerText.includes('bilan') || lowerText.includes('recap')) && 
+        (lowerText.includes('journée') || lowerText.includes('jour') || lowerText.includes('quotidien') || 
+         lowerText.includes('daily') || lowerText.includes('aujourd'))) {
+      return { action: 'daily_summary', params: {} };
     }
 
     return { action: 'general', params: { text } };
@@ -1078,103 +1179,190 @@ EXEMPLES:
    * Message d'aide
    */
   getHelpMessage() {
-    return `👋 **Bonjour ! Je suis Brian, votre assistant principal.**
+    return `🤖 **Services de James**
 
-Voici ce que je peux faire:
+📧 *Emails*
+→ "Résume mes 10 derniers mails"
+→ "Emails non lus"
 
-📧 **Emails (via James)**
-• "Résume mes emails" - Résumé des 50 derniers
-• "Emails non lus" - Voir les emails non lus
-• "Classe mes emails" - Trier dans les dossiers Outlook 📂
-• "Re-classe mes mails" - Re-analyser les mails déjà classés 🔄
-• "Mémoire classification" - Voir l'historique
+📂 *Classification*
+→ "Classe mes emails"
+→ "Reclasse le dossier Newsletter"
 
-📤 **Envoyer des Emails** (NOUVEAU!)
-• "Envoie un mail à X@email.com pour..." - Rédige et valide
-• James vous montre le brouillon avant d'envoyer
-• Vous pouvez modifier, puis dire "envoie" pour confirmer
+🔍 *Recherche*
+→ "Cherche les mails d'Amazon"
 
-⚙️ **Configurer James**
-• "Mets les mails LinkedIn dans Newsletter"
-• "Classe les mails eDocPerso dans ISCOD"
-• "Voir mes règles" - Afficher la config
-• "Supprime la règle 2" - Supprimer par numéro
-• "Réinitialiser les règles" - Tout supprimer
+📤 *Envoi*
+→ "Envoie un mail à x@email.com pour..."
 
-📁 **Gestion des Dossiers**
-• "Crée le dossier Publicité" - Créer un nouveau dossier
-• "Supprime le dossier Test" - Supprimer (emails → Inbox)
-• "Liste mes dossiers" - Voir tous les dossiers
+✉️ *Réponse rapide*
+→ "Réponds au mail de Jean pour accepter"
 
-🔧 **Système**
-• "Status" - Vérifier les connexions
-• "Que peut faire James ?" - Voir toutes ses capacités
-• "Aide" - Afficher ce message
+⏰ *Rappels*
+→ "Rappelle-moi dans 1h de..."
+→ "Mes rappels" (voir la liste)
 
-💬 Posez-moi n'importe quelle question !`;
+🗑️ *Nettoyage*
+→ "Nettoie les mails +30j dans Newsletter"
+
+⚙️ *Règles*
+→ "Mets les mails LinkedIn dans Newsletter"
+→ "Voir mes règles"
+→ "Supprime la règle 2"
+
+📁 *Dossiers*
+→ "Crée le dossier Projets"
+→ "Supprime le dossier Pub"
+→ "Liste mes dossiers"
+
+📊 *Résumé quotidien*
+→ "Résumé de ma journée"
+
+🔧 *Status*
+→ "Status" ou "Connexion"`;
   }
 
   /**
    * Décrire toutes les capacités de James
    */
   getJamesCapabilities() {
-    return `🤖 **James - Mail Assistant**
+    return `🤖 **James - Assistant Mail**
 
-James est l'agent spécialisé dans la gestion de vos emails Outlook.
+📧 *Lecture* → "Résume mes 10 mails"
+📂 *Classification* → "Classe mes emails"
+🔄 *Reclassement* → "Reclasse Newsletter"
+🔍 *Recherche* → "Cherche mails d'Amazon"
+📤 *Envoi* → "Envoie mail à x@email.com"
+✉️ *Réponse* → "Réponds au mail de Jean"
+⏰ *Rappels* → "Rappelle-moi dans 1h"
+📋 *Mes rappels* → "Mes rappels"
+🗑️ *Nettoyage* → "Nettoie +30j dans Spam"
+⚙️ *Règles* → "Mets LinkedIn dans Newsletter"
+🗑️ *Suppr règle* → "Supprime la règle 2"
+📁 *Créer dossier* → "Crée dossier Projets"
+🗑️ *Suppr dossier* → "Supprime dossier Pub"
+📋 *Liste dossiers* → "Mes dossiers"
+📊 *Résumé* → "Résumé de ma journée"
+🔧 *Status* → "Status"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📂 Dossiers: 🔴Urgent 💼Pro 🛒Shopping 📰Newsletter 🏦Finance 🤝Social`;
+  }
 
-📬 **LECTURE & RÉSUMÉS**
-• Résumer les X derniers emails
-• Filtrer par date (aujourd'hui, cette semaine)
-• Filtrer par importance (urgent, important)
-• Voir les emails non lus
+  /**
+   * Recherche d'emails par mots-clés
+   */
+  async handleEmailSearch(params) {
+    const query = params.query || params.text;
+    
+    if (!query) {
+      return `🔍 **Recherche d'emails**\n\nQue cherchez-vous ?\n\nExemples:\n• "Cherche les mails de LinkedIn"\n• "Trouve les emails contenant facture"\n• "Recherche les mails d'Amazon du mois dernier"`;
+    }
 
-📂 **CLASSIFICATION INTELLIGENTE**
-• Classer automatiquement les emails par catégorie
-• Déplacer les emails dans les dossiers Outlook
-• Utiliser l'IA pour décider du bon dossier
-• Appliquer vos règles personnalisées en priorité
+    console.log(`🔍 James recherche: "${query}"...`);
+    
+    const result = await mailAgent.searchEmails(query);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
 
-🔄 **RE-CLASSIFICATION**
-• Re-analyser les emails déjà classés
-• Appliquer les nouvelles règles aux anciens mails
-• Vérifier et corriger la classification
-  _Commande: "Re-classe mes mails"_
+  /**
+   * Définir un rappel avec notification WhatsApp
+   */
+  async handleSetReminder(from, params) {
+    const message = params.message || params.text;
+    
+    if (!message) {
+      return `⏰ **Créer un rappel**\n\nExemples:\n• "Rappelle-moi de répondre à Jean dans 2 heures"\n• "N'oublie pas de vérifier les emails demain matin"\n• "Préviens-moi dans 30 minutes de faire le suivi"`;
+    }
 
-⚙️ **RÈGLES PERSONNALISÉES**
-• Créer des règles de classification
-  _Ex: "Classe les mails Amazon dans Shopping"_
-• Appliquer immédiatement aux emails existants
-• Supprimer des règles par numéro
-• Voir toutes les règles actives
-• Types de règles: expéditeur, sujet, contenu
+    console.log(`⏰ Création d'un rappel pour ${from}...`);
+    
+    const result = await mailAgent.setReminder(from, message);
+    
+    return `⏰ **Rappel créé !**\n\n${result.message}`;
+  }
 
-📁 **GESTION DES DOSSIERS**
-• Créer de nouveaux dossiers personnalisés
-• Supprimer des dossiers (emails préservés → Inbox)
-• Lister tous les dossiers disponibles
+  /**
+   * Lister les rappels en attente d'un utilisateur
+   */
+  async handleListReminders(from) {
+    console.log(`⏰ Liste des rappels pour ${from}...`);
+    
+    const reminders = await supabaseService.getUserReminders(from);
+    
+    if (!reminders || reminders.length === 0) {
+      return `⏰ **Vos rappels**\n\nAucun rappel en attente.`;
+    }
+    
+    let message = `⏰ **Vos rappels** (${reminders.length})\n\n`;
+    reminders.forEach((r, i) => {
+      const date = new Date(r.trigger_at).toLocaleString('fr-FR');
+      message += `${i + 1}. ${r.message}\n   📅 ${date}\n\n`;
+    });
+    
+    return message;
+  }
 
-📤 **RÉDACTION & ENVOI D'EMAILS** ✨
-• Rédiger un email à partir de vos instructions
-• Prévisualiser avant d'envoyer
-• Modifier le brouillon (ton, contenu, sujet)
-• Envoyer après votre validation
-  _Ex: "Envoie un mail à jean@test.com pour lui demander des nouvelles"_
+  /**
+   * Réponse rapide à un email reçu
+   */
+  async handleQuickReply(from, params) {
+    const text = params.searchQuery || params.text;
+    
+    if (!text) {
+      return `✉️ **Réponse rapide**\n\nExemples:\n• "Réponds au mail de Pierre pour confirmer la réunion"\n• "Reply au dernier mail d'Amazon pour demander un remboursement"\n• "Réponds au mail concernant le projet pour dire que c'est ok"`;
+    }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log(`✉️ James prépare une réponse rapide...`);
+    
+    const result = await mailAgent.quickReply(from, text, text);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
 
-📂 **Dossiers par défaut:**
-🔴 Urgent | 💼 Professionnel | 🛒 Shopping
-📰 Newsletter | 🏦 Finance | 🤝 Social | 🎓 ISCOD
+  /**
+   * Nettoyage intelligent des vieux emails
+   */
+  async handleCleanEmails(params) {
+    const text = params.text || '';
+    
+    // Extraire le dossier et le nombre de jours
+    let folder = 'Deleted Items';
+    let daysOld = 30;
+    
+    const lowerText = text.toLowerCase();
+    
+    // Détecter le dossier
+    if (lowerText.includes('newsletter')) folder = '📰 Newsletter';
+    else if (lowerText.includes('pub') || lowerText.includes('spam')) folder = 'Junk Email';
+    else if (lowerText.includes('corbeille') || lowerText.includes('trash') || lowerText.includes('deleted')) folder = 'Deleted Items';
+    else if (lowerText.includes('sent') || lowerText.includes('envoyé')) folder = 'Sent Items';
+    
+    // Détecter la durée
+    const daysMatch = text.match(/(\d+)\s*(jour|day)/i);
+    const weeksMatch = text.match(/(\d+)\s*(semaine|week)/i);
+    const monthsMatch = text.match(/(\d+)\s*(mois|month)/i);
+    
+    if (daysMatch) daysOld = parseInt(daysMatch[1]);
+    else if (weeksMatch) daysOld = parseInt(weeksMatch[1]) * 7;
+    else if (monthsMatch) daysOld = parseInt(monthsMatch[1]) * 30;
 
-💡 **Exemples de commandes:**
-• "Résume mes 5 derniers mails"
-• "Classe mes 50 emails"
-• "Envoie un mail à x@test.com pour..."
-• "Crée le dossier Promotions"
-• "Supprime la règle 1"
-• "Voir mes règles"`;
+    console.log(`🗑️ James nettoie ${folder} (> ${daysOld} jours)...`);
+    
+    const result = await mailAgent.cleanEmails(folder, daysOld);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Résumé quotidien des emails
+   */
+  async handleDailySummary() {
+    console.log(`📊 James prépare le résumé quotidien...`);
+    
+    const result = await mailAgent.getDailySummary();
+    
+    return `🤖 **James** - Résumé du jour:\n\n${result.message}`;
   }
 
   /**

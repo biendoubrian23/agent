@@ -722,6 +722,10 @@ class OutlookService {
     
     console.log(`📂 Classification de ${count} emails...`);
     
+    // Recharger les règles depuis Supabase pour avoir la dernière version
+    await openaiService.initFromSupabase();
+    console.log(`📋 Règles rechargées: ${openaiService.customClassificationRules?.length || 0} règles actives`);
+    
     // Récupérer les emails
     const emails = await this.getEmails(count);
     
@@ -1002,6 +1006,294 @@ class OutlookService {
       };
     } catch (error) {
       console.error('❌ Erreur récupération infos utilisateur:', error);
+      throw error;
+    }
+  }
+
+  // ==================== RECHERCHE INTELLIGENTE ====================
+
+  /**
+   * Rechercher des emails avec des critères
+   * @param {Object} criteria - Critères de recherche
+   * @param {string} criteria.query - Texte à rechercher (sujet, corps, expéditeur)
+   * @param {string} criteria.from - Filtrer par expéditeur
+   * @param {string} criteria.subject - Filtrer par sujet
+   * @param {Date} criteria.after - Emails après cette date
+   * @param {Date} criteria.before - Emails avant cette date
+   * @param {number} criteria.limit - Nombre max de résultats (défaut: 20)
+   */
+  async searchEmails(criteria = {}) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      let filterParts = [];
+      let searchQuery = '';
+      
+      // Construire le filtre OData
+      if (criteria.from) {
+        filterParts.push(`from/emailAddress/address eq '${criteria.from}' or contains(from/emailAddress/name, '${criteria.from}')`);
+      }
+      
+      if (criteria.after) {
+        const afterDate = new Date(criteria.after).toISOString();
+        filterParts.push(`receivedDateTime ge ${afterDate}`);
+      }
+      
+      if (criteria.before) {
+        const beforeDate = new Date(criteria.before).toISOString();
+        filterParts.push(`receivedDateTime le ${beforeDate}`);
+      }
+      
+      // Construire l'URL avec $search pour la recherche full-text
+      let url = `${this.graphBaseUrl}/me/messages?$top=${criteria.limit || 20}&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,bodyPreview,isRead,importance,flag`;
+      
+      // Utiliser $search pour la recherche dans le contenu
+      if (criteria.query) {
+        // Microsoft Graph utilise KQL pour la recherche
+        searchQuery = `"${criteria.query}"`;
+        url += `&$search="${encodeURIComponent(criteria.query)}"`;
+      }
+      
+      // Ajouter le filtre si présent
+      if (filterParts.length > 0 && !criteria.query) {
+        url += `&$filter=${encodeURIComponent(filterParts.join(' and '))}`;
+      }
+      
+      console.log('🔍 Recherche emails:', criteria);
+      
+      const response = await axios.get(url, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'ConsistencyLevel': 'eventual' // Requis pour $search
+        }
+      });
+      
+      let emails = response.data.value || [];
+      
+      // Filtrage supplémentaire côté client si nécessaire
+      if (criteria.from && criteria.query) {
+        const fromLower = criteria.from.toLowerCase();
+        emails = emails.filter(e => 
+          (e.from?.emailAddress?.address || '').toLowerCase().includes(fromLower) ||
+          (e.from?.emailAddress?.name || '').toLowerCase().includes(fromLower)
+        );
+      }
+      
+      if (criteria.subject) {
+        const subjectLower = criteria.subject.toLowerCase();
+        emails = emails.filter(e => 
+          (e.subject || '').toLowerCase().includes(subjectLower)
+        );
+      }
+      
+      return emails.map(email => ({
+        id: email.id,
+        subject: email.subject,
+        from: email.from?.emailAddress?.address || 'Inconnu',
+        fromName: email.from?.emailAddress?.name || 'Inconnu',
+        receivedAt: email.receivedDateTime,
+        preview: email.bodyPreview,
+        isRead: email.isRead,
+        importance: email.importance,
+        isFlagged: email.flag?.flagStatus === 'flagged'
+      }));
+      
+    } catch (error) {
+      console.error('❌ Erreur recherche emails:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // ==================== SUPPRESSION EN MASSE ====================
+
+  /**
+   * Supprimer des emails selon des critères
+   * @param {Object} criteria - Critères de sélection
+   * @param {string} criteria.folder - Nom du dossier à vider
+   * @param {string} criteria.from - Supprimer les emails de cet expéditeur
+   * @param {number} criteria.olderThanDays - Supprimer les emails plus vieux que X jours
+   * @param {number} criteria.limit - Nombre max d'emails à supprimer
+   */
+  async deleteEmails(criteria = {}) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      let emailsToDelete = [];
+      
+      // Si un dossier est spécifié
+      if (criteria.folder) {
+        const folderId = await this.getFolderIdByName(criteria.folder);
+        if (!folderId) {
+          return { success: false, message: `Dossier "${criteria.folder}" non trouvé`, deleted: 0 };
+        }
+        
+        const response = await axios.get(
+          `${this.graphBaseUrl}/me/mailFolders/${folderId}/messages?$top=${criteria.limit || 100}&$select=id,subject,from,receivedDateTime`,
+          { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+        
+        emailsToDelete = response.data.value || [];
+      } else {
+        // Recherche dans tous les emails
+        emailsToDelete = await this.searchEmails({
+          query: criteria.from || criteria.query,
+          limit: criteria.limit || 100
+        });
+      }
+      
+      // Filtrer par âge si spécifié
+      if (criteria.olderThanDays) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - criteria.olderThanDays);
+        
+        emailsToDelete = emailsToDelete.filter(e => {
+          const emailDate = new Date(e.receivedAt || e.receivedDateTime);
+          return emailDate < cutoffDate;
+        });
+      }
+      
+      // Filtrer par expéditeur si spécifié (en plus du dossier)
+      if (criteria.from && criteria.folder) {
+        const fromLower = criteria.from.toLowerCase();
+        emailsToDelete = emailsToDelete.filter(e => {
+          const emailFrom = (e.from?.emailAddress?.address || e.from || '').toLowerCase();
+          const emailFromName = (e.from?.emailAddress?.name || e.fromName || '').toLowerCase();
+          return emailFrom.includes(fromLower) || emailFromName.includes(fromLower);
+        });
+      }
+      
+      if (emailsToDelete.length === 0) {
+        return { success: true, message: 'Aucun email correspondant aux critères', deleted: 0 };
+      }
+      
+      // Supprimer les emails (déplacer vers Deleted Items)
+      let deletedCount = 0;
+      for (const email of emailsToDelete) {
+        try {
+          await axios.delete(
+            `${this.graphBaseUrl}/me/messages/${email.id}`,
+            { headers: { 'Authorization': `Bearer ${accessToken}` } }
+          );
+          deletedCount++;
+        } catch (err) {
+          console.error(`Erreur suppression email ${email.id}:`, err.message);
+        }
+      }
+      
+      console.log(`🗑️ ${deletedCount} emails supprimés`);
+      
+      return {
+        success: true,
+        deleted: deletedCount,
+        total: emailsToDelete.length,
+        message: `${deletedCount} email(s) supprimé(s)`
+      };
+      
+    } catch (error) {
+      console.error('❌ Erreur suppression emails:', error.response?.data || error.message);
+      return { success: false, message: error.message, deleted: 0 };
+    }
+  }
+
+  // ==================== FLAG / MARQUER POUR SUIVI ====================
+
+  /**
+   * Marquer un email pour suivi (flag)
+   * @param {string} emailId - ID de l'email
+   * @param {boolean} flagged - true pour flag, false pour unflag
+   */
+  async flagEmail(emailId, flagged = true) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      await axios.patch(
+        `${this.graphBaseUrl}/me/messages/${emailId}`,
+        {
+          flag: {
+            flagStatus: flagged ? 'flagged' : 'notFlagged'
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log(`🚩 Email ${flagged ? 'flaggé' : 'unflaggé'}`);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Erreur flag email:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Marquer un email comme lu ou non lu
+   * @param {string} emailId - ID de l'email
+   * @param {boolean} isRead - true pour lu, false pour non lu
+   */
+  async markAsRead(emailId, isRead = true) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      await axios.patch(
+        `${this.graphBaseUrl}/me/messages/${emailId}`,
+        { isRead: isRead },
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log(`📧 Email marqué comme ${isRead ? 'lu' : 'non lu'}`);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Erreur mark as read:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Récupérer le contenu complet d'un email par son ID
+   * @param {string} emailId 
+   */
+  async getEmailById(emailId) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      const response = await axios.get(
+        `${this.graphBaseUrl}/me/messages/${emailId}?$select=id,subject,from,toRecipients,receivedDateTime,body,bodyPreview,importance,isRead,flag`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+      
+      const email = response.data;
+      
+      return {
+        id: email.id,
+        subject: email.subject,
+        from: email.from?.emailAddress?.address,
+        fromName: email.from?.emailAddress?.name,
+        to: email.toRecipients?.map(r => r.emailAddress?.address).join(', '),
+        receivedAt: email.receivedDateTime,
+        body: email.body?.content,
+        bodyType: email.body?.contentType,
+        preview: email.bodyPreview,
+        importance: email.importance,
+        isRead: email.isRead,
+        isFlagged: email.flag?.flagStatus === 'flagged'
+      };
+      
+    } catch (error) {
+      console.error('❌ Erreur get email by ID:', error.response?.data || error.message);
       throw error;
     }
   }

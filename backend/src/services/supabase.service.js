@@ -575,6 +575,139 @@ Tu es organisée, créative et proactive.`
       return false;
     }
   }
+
+  // ==================== RAPPELS ====================
+
+  /**
+   * Créer un rappel
+   */
+  async createReminder(reminder) {
+    if (!this.isAvailable()) {
+      console.log('⚠️ Supabase non disponible - rappel non sauvegardé');
+      return null;
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('reminders')
+        .insert({
+          phone_number: reminder.phone_number,
+          message: reminder.message,
+          context: reminder.context,
+          trigger_at: reminder.trigger_at,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erreur création rappel:', error);
+        return null;
+      }
+
+      console.log(`✅ Rappel sauvegardé: ${reminder.message}`);
+      return data;
+    } catch (error) {
+      console.error('Erreur createReminder:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Récupérer les rappels actifs (non envoyés)
+   */
+  async getActiveReminders() {
+    if (!this.isAvailable()) return [];
+
+    try {
+      const { data, error } = await this.client
+        .from('reminders')
+        .select('*')
+        .eq('status', 'pending')
+        .order('trigger_at', { ascending: true });
+
+      if (error) {
+        console.error('Erreur récup rappels:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Erreur getActiveReminders:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Marquer un rappel comme envoyé
+   */
+  async markReminderSent(reminderId) {
+    if (!this.isAvailable()) return false;
+
+    try {
+      const { error } = await this.client
+        .from('reminders')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', reminderId);
+
+      if (error) {
+        console.error('Erreur mark reminder sent:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Supprimer un rappel
+   */
+  async deleteReminder(reminderId) {
+    if (!this.isAvailable()) return false;
+
+    try {
+      const { error } = await this.client
+        .from('reminders')
+        .delete()
+        .eq('id', reminderId);
+
+      if (error) {
+        console.error('Erreur delete reminder:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Récupérer les rappels d'un utilisateur
+   */
+  async getUserReminders(phoneNumber) {
+    if (!this.isAvailable()) return [];
+
+    try {
+      const { data, error } = await this.client
+        .from('reminders')
+        .select('*')
+        .eq('phone_number', phoneNumber)
+        .eq('status', 'pending')
+        .order('trigger_at', { ascending: true });
+
+      if (error) {
+        console.error('Erreur récup rappels user:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      return [];
+    }
+  }
 }
 
 module.exports = new SupabaseService();

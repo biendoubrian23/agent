@@ -7,6 +7,7 @@ const whatsappService = require('./services/whatsapp.service');
 const outlookService = require('./services/outlook.service');
 const statsService = require('./services/stats.service');
 const supabaseService = require('./services/supabase.service');
+const reminderService = require('./services/reminder.service');
 const principalAgent = require('./agents/principal.agent');
 const mailAgent = require('./agents/mail.agent');
 const emailScheduler = require('./scheduler/email.scheduler');
@@ -439,4 +440,8 @@ app.listen(PORT, () => {
   console.log('⏳ En attente de connexion Outlook...');
   console.log(`🔗 Connectez-vous: http://localhost:${PORT}/auth/outlook`);
   console.log('');
+  
+  // Démarrer le scheduler de rappels
+  reminderService.initScheduler();
+  console.log('⏰ Scheduler de rappels démarré');
 });
