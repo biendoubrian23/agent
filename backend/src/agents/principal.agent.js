@@ -100,6 +100,14 @@ class PrincipalAgent {
 8. **Sujet BANCAIRE** (contient: banque, compte, argent, magali, budget):
    → Délègue à Magali (pas encore implémenté)
 
+9. **ENVOI D'EMAIL:**
+   - "envoie un mail à X@email.com" → action: "send_email"
+   - "écris un email à X pour lui dire..." → action: "send_email"
+   - "mail à X concernant..." → action: "send_email"
+   - "envoie à X avec le sujet..." → action: "send_email"
+   - L'email nécessite: destinataire + intention/message
+   - C'est différent de "résumer mes mails" ou "classer mes mails"
+
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
   "target_agent": "brian" | "james" | "magali",
@@ -112,7 +120,7 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "sourceFolder": string (optionnel, dossier source pour re-classification, avec emojis si applicable),
     "apply_now": boolean (optionnel, appliquer immédiatement aux mails existants),
     "ruleNumber": number (optionnel, numéro de règle à supprimer),
-    "text": string (le message original si besoin)
+    "text": string (le message original - TOUJOURS inclure pour send_email)
   },
   "confidence": number (0-100),
   "reasoning": "explication courte de ton analyse"
@@ -123,6 +131,7 @@ EXEMPLES:
 - "classe mes 5 derniers mails" → action: "email_classify", count: 5
 - "le dernier mail" → action: "email_summary", count: 1
 - "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
+- "envoie un mail à jean@test.com pour lui dire bonjour" → action: "send_email", text: "..."
 - "rappelle moi mes mails" → action: "email_summary", count: 10`;
   }
 
@@ -133,6 +142,15 @@ EXEMPLES:
     const { from, text, name } = message;
     
     console.log(`📱 Message de ${name} (${from}): ${text}`);
+
+    // PRIORITÉ 1: Vérifier si l'utilisateur a un brouillon en attente
+    if (mailAgent.hasPendingDraft(from)) {
+      const draftResponse = await this.handleDraftInteraction(from, text);
+      if (draftResponse) {
+        await whatsappService.sendLongMessage(from, draftResponse);
+        return draftResponse;
+      }
+    }
 
     // Analyser l'intention du message
     const intent = await this.analyzeIntent(text);
@@ -189,7 +207,19 @@ EXEMPLES:
         break;
       
       case 'send_email':
-        response = await this.handleSendEmail(intent.params);
+        response = await this.handleSendEmail(from, intent.params);
+        break;
+
+      case 'confirm_send':
+        response = await this.handleConfirmSend(from);
+        break;
+
+      case 'cancel_draft':
+        response = await this.handleCancelDraft(from);
+        break;
+
+      case 'revise_draft':
+        response = await this.handleReviseDraft(from, intent.params);
         break;
 
       case 'check_connection':
@@ -524,9 +554,18 @@ EXEMPLES:
       if (lowerText.includes('important') || lowerText.includes('urgent')) {
         return { action: 'email_important', params: { filter: 'important' } };
       }
-      if (lowerText.includes('envoyer') || lowerText.includes('envoie') || lowerText.includes('écris')) {
+      // Envoi d'email (doit contenir une adresse ou mention d'envoi)
+      if ((lowerText.includes('envoyer') || lowerText.includes('envoie') || lowerText.includes('écris')) &&
+          (lowerText.includes('@') || lowerText.includes('mail à') || lowerText.includes('email à'))) {
         return { action: 'send_email', params: { text } };
       }
+    }
+
+    // Détection d'envoi d'email même sans le mot "mail/email" explicite
+    // Ex: "envoie à jean@test.com pour lui dire..."
+    if ((lowerText.includes('envoie') || lowerText.includes('envoyer') || lowerText.includes('écris')) && 
+        lowerText.includes('@')) {
+      return { action: 'send_email', params: { text } };
     }
 
     // Classification sans mentionner "email"
@@ -912,10 +951,103 @@ EXEMPLES:
   }
 
   /**
-   * Gérer l'envoi d'email (à implémenter plus tard)
+   * Gérer l'envoi d'email - Crée un brouillon pour validation
+   * @param {string} phoneNumber - Numéro de téléphone de l'utilisateur
+   * @param {Object} params - Paramètres de la demande
    */
-  async handleSendEmail(params) {
-    return `📝 Pour envoyer un email, utilisez le format:\n\n"Envoie un email à [adresse] avec le sujet [sujet] et le message [contenu]"\n\n(Fonctionnalité en cours de développement)`;
+  async handleSendEmail(phoneNumber, params) {
+    console.log('📧 James: Création d\'un brouillon d\'email...');
+    
+    const result = await mailAgent.composeDraft(phoneNumber, params.text);
+    
+    if (result.success) {
+      return `🤖 **James** a préparé votre email:\n\n${result.message}`;
+    }
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Gérer les interactions avec un brouillon en attente
+   * @param {string} phoneNumber 
+   * @param {string} text - Message de l'utilisateur
+   */
+  async handleDraftInteraction(phoneNumber, text) {
+    const lowerText = text.toLowerCase().trim();
+    
+    // Confirmation d'envoi
+    const sendKeywords = ['envoie', 'envoyer', 'envoi', 'ok', 'oui', 'yes', 'send', 'go', 'parfait', 'c\'est bon', 'valide', 'confirme', 'tu peux envoyer', 'envoie-le', 'envoie le'];
+    if (sendKeywords.some(kw => lowerText.includes(kw)) || lowerText === 'ok' || lowerText === 'oui') {
+      return await this.handleConfirmSend(phoneNumber);
+    }
+    
+    // Annulation
+    const cancelKeywords = ['annule', 'annuler', 'cancel', 'non', 'stop', 'laisse tomber', 'oublie', 'pas la peine'];
+    if (cancelKeywords.some(kw => lowerText.includes(kw))) {
+      return await this.handleCancelDraft(phoneNumber);
+    }
+    
+    // Modification demandée - tout autre message est une demande de révision
+    // (sauf si c'est clairement autre chose)
+    const isNewRequest = lowerText.includes('nouveau mail') || 
+                         lowerText.includes('autre mail') || 
+                         lowerText.includes('nouvel email') ||
+                         (lowerText.includes('envoie un mail') && lowerText.includes('@'));
+    
+    if (isNewRequest) {
+      // Annuler l'ancien brouillon et créer un nouveau
+      mailAgent.cancelDraft(phoneNumber);
+      return null; // Retourner null pour continuer le flow normal
+    }
+    
+    // C'est une demande de révision
+    return await this.handleReviseDraft(phoneNumber, { instructions: text });
+  }
+
+  /**
+   * Confirmer et envoyer le brouillon
+   * @param {string} phoneNumber 
+   */
+  async handleConfirmSend(phoneNumber) {
+    console.log('📤 James: Envoi du brouillon confirmé...');
+    
+    const result = await mailAgent.sendDraft(phoneNumber);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Annuler le brouillon en cours
+   * @param {string} phoneNumber 
+   */
+  async handleCancelDraft(phoneNumber) {
+    console.log('🗑️ James: Annulation du brouillon...');
+    
+    const result = mailAgent.cancelDraft(phoneNumber);
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Réviser le brouillon selon les instructions
+   * @param {string} phoneNumber 
+   * @param {Object} params 
+   */
+  async handleReviseDraft(phoneNumber, params) {
+    console.log('✏️ James: Révision du brouillon...');
+    
+    const result = await mailAgent.reviseDraft(phoneNumber, params.instructions || params.text);
+    
+    if (result.success) {
+      let response = `🤖 **James** a modifié le brouillon:\n\n`;
+      if (result.changes) {
+        response += `✏️ _${result.changes}_\n\n`;
+      }
+      response += result.message;
+      return response;
+    }
+    
+    return `🤖 **James** rapporte:\n\n${result.message}`;
   }
 
   /**
@@ -956,6 +1088,11 @@ Voici ce que je peux faire:
 • "Classe mes emails" - Trier dans les dossiers Outlook 📂
 • "Re-classe mes mails" - Re-analyser les mails déjà classés 🔄
 • "Mémoire classification" - Voir l'historique
+
+📤 **Envoyer des Emails** (NOUVEAU!)
+• "Envoie un mail à X@email.com pour..." - Rédige et valide
+• James vous montre le brouillon avant d'envoyer
+• Vous pouvez modifier, puis dire "envoie" pour confirmer
 
 ⚙️ **Configurer James**
 • "Mets les mails LinkedIn dans Newsletter"
@@ -999,7 +1136,7 @@ James est l'agent spécialisé dans la gestion de vos emails Outlook.
 • Utiliser l'IA pour décider du bon dossier
 • Appliquer vos règles personnalisées en priorité
 
-🔄 **RE-CLASSIFICATION** (NOUVEAU!)
+🔄 **RE-CLASSIFICATION**
 • Re-analyser les emails déjà classés
 • Appliquer les nouvelles règles aux anciens mails
 • Vérifier et corriger la classification
@@ -1018,9 +1155,12 @@ James est l'agent spécialisé dans la gestion de vos emails Outlook.
 • Supprimer des dossiers (emails préservés → Inbox)
 • Lister tous les dossiers disponibles
 
-📤 **ENVOI** (bientôt)
-• Envoyer des emails
-• Générer des brouillons de réponse
+📤 **RÉDACTION & ENVOI D'EMAILS** ✨
+• Rédiger un email à partir de vos instructions
+• Prévisualiser avant d'envoyer
+• Modifier le brouillon (ton, contenu, sujet)
+• Envoyer après votre validation
+  _Ex: "Envoie un mail à jean@test.com pour lui demander des nouvelles"_
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1031,7 +1171,7 @@ James est l'agent spécialisé dans la gestion de vos emails Outlook.
 💡 **Exemples de commandes:**
 • "Résume mes 5 derniers mails"
 • "Classe mes 50 emails"
-• "Mets les mails LinkedIn dans Publicites"
+• "Envoie un mail à x@test.com pour..."
 • "Crée le dossier Promotions"
 • "Supprime la règle 1"
 • "Voir mes règles"`;

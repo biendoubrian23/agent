@@ -1,0 +1,33 @@
+# 📋 Variables d'environnement pour Railway
+# Copie ces valeurs dans Railway → Settings → Variables
+# ⚠️ REMPLACE LES VALEURS PAR TES VRAIES CLÉS
+
+# ========== WhatsApp ==========
+WHATSAPP_ACCESS_TOKEN=YOUR_WHATSAPP_ACCESS_TOKEN_HERE
+WHATSAPP_PHONE_NUMBER_ID=YOUR_PHONE_NUMBER_ID
+WHATSAPP_BUSINESS_ACCOUNT_ID=YOUR_BUSINESS_ACCOUNT_ID
+WHATSAPP_VERIFY_TOKEN=biendoucorp_webhook_secret_2024
+
+# ========== Azure/Outlook ==========
+AZURE_CLIENT_ID=YOUR_AZURE_CLIENT_ID
+AZURE_CLIENT_SECRET=YOUR_AZURE_CLIENT_SECRET
+AZURE_TENANT_ID=consumers
+# ⚠️ REMPLACE xxx par ton URL Railway!
+AZURE_REDIRECT_URI=https://xxx.railway.app/auth/callback
+
+# ========== OpenAI ==========
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+
+# ========== Supabase ==========
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY_HERE
+
+# ========== Configuration ==========
+PORT=3001
+NODE_ENV=production
+MY_PHONE_NUMBER=33644814218
+MAIL_CHECK_INTERVAL=5
+
+# ========== Frontend URL (CORS) ==========
+# ⚠️ REMPLACE par ton URL Vercel!
+FRONTEND_URL=https://xxx.vercel.app

@@ -1,6 +1,7 @@
 const openaiService = require('../services/openai.service');
 const outlookService = require('../services/outlook.service');
 const statsService = require('../services/stats.service');
+const draftService = require('../services/draft.service');
 
 /**
  * Agent Mail (James) - Gère les emails Outlook
@@ -799,6 +800,194 @@ class MailAgent {
     
     // Sinon retourner la catégorie telle quelle (pour les dossiers personnalisés)
     return category;
+  }
+
+  // ==================== GESTION DES BROUILLONS D'EMAILS ====================
+
+  /**
+   * Créer un brouillon d'email à partir d'une demande en langage naturel
+   * @param {string} phoneNumber - Numéro de téléphone de l'utilisateur
+   * @param {string} request - La demande de l'utilisateur
+   */
+  async composeDraft(phoneNumber, request) {
+    try {
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: "❌ Outlook n'est pas connecté. Connectez-vous d'abord pour envoyer des emails."
+        };
+      }
+
+      // Parser la demande
+      const parsed = await openaiService.parseEmailRequest(request);
+      
+      if (parsed.action === 'unclear' || !parsed.to) {
+        return {
+          success: false,
+          message: `❓ Je n'ai pas compris la demande d'email.\n\nPrécisez le destinataire et le message.\n\n**Exemple:**\n"Envoie un mail à jean@example.com pour lui dire bonjour et demander des nouvelles du projet"`
+        };
+      }
+
+      // Valider l'adresse email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(parsed.to)) {
+        return {
+          success: false,
+          message: `❌ L'adresse email "${parsed.to}" ne semble pas valide.\n\nVérifiez l'adresse et réessayez.`
+        };
+      }
+
+      // Générer le brouillon avec l'IA
+      const composed = await openaiService.composeEmail({
+        to: parsed.to,
+        intent: parsed.intent,
+        context: parsed.context,
+        tone: parsed.tone
+      });
+
+      // Sauvegarder le brouillon
+      const draftEntry = draftService.createDraft(phoneNumber, {
+        to: parsed.to,
+        subject: parsed.subject_hint || composed.subject,
+        body: composed.body,
+        context: request
+      });
+
+      statsService.addActivity('james', `Brouillon créé pour ${parsed.to}`);
+
+      return {
+        success: true,
+        hasDraft: true,
+        message: draftService.formatForDisplay(draftEntry)
+      };
+    } catch (error) {
+      console.error('❌ Erreur composeDraft:', error);
+      return {
+        success: false,
+        message: `❌ Erreur lors de la rédaction: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Vérifier si l'utilisateur a un brouillon en attente
+   * @param {string} phoneNumber 
+   */
+  hasPendingDraft(phoneNumber) {
+    return draftService.hasPendingDraft(phoneNumber);
+  }
+
+  /**
+   * Récupérer le brouillon en attente
+   * @param {string} phoneNumber 
+   */
+  getPendingDraft(phoneNumber) {
+    return draftService.getDraft(phoneNumber);
+  }
+
+  /**
+   * Réviser un brouillon existant
+   * @param {string} phoneNumber 
+   * @param {string} instructions - Les modifications demandées
+   */
+  async reviseDraft(phoneNumber, instructions) {
+    try {
+      const draftEntry = draftService.getDraft(phoneNumber);
+      
+      if (!draftEntry) {
+        return {
+          success: false,
+          message: "📭 Aucun brouillon en cours. Commencez par demander un nouvel email."
+        };
+      }
+
+      // Réviser avec l'IA
+      const revised = await openaiService.reviseDraft(draftEntry.draft, instructions);
+
+      // Mettre à jour le brouillon
+      const updated = draftService.updateDraft(phoneNumber, {
+        subject: revised.subject,
+        body: revised.body
+      });
+
+      return {
+        success: true,
+        hasDraft: true,
+        changes: revised.changes,
+        message: draftService.formatForDisplay(updated)
+      };
+    } catch (error) {
+      console.error('❌ Erreur reviseDraft:', error);
+      return {
+        success: false,
+        message: `❌ Erreur lors de la révision: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Envoyer le brouillon en attente
+   * @param {string} phoneNumber 
+   */
+  async sendDraft(phoneNumber) {
+    try {
+      const draftEntry = draftService.getDraft(phoneNumber);
+      
+      if (!draftEntry) {
+        return {
+          success: false,
+          message: "📭 Aucun brouillon à envoyer. Rédigez d'abord un email."
+        };
+      }
+
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: "❌ Outlook n'est pas connecté."
+        };
+      }
+
+      const { to, subject, body } = draftEntry.draft;
+
+      // Envoyer l'email
+      await outlookService.sendEmail(to, subject, body);
+
+      // Marquer comme envoyé
+      draftService.markAsSent(phoneNumber);
+
+      statsService.addActivity('james', `Email envoyé à ${to}`);
+
+      return {
+        success: true,
+        message: `✅ **Email envoyé avec succès !**\n\n📧 **À:** ${to}\n📌 **Sujet:** ${subject}\n\n_L'email a été envoyé depuis votre compte Outlook._`
+      };
+    } catch (error) {
+      console.error('❌ Erreur sendDraft:', error);
+      return {
+        success: false,
+        message: `❌ Erreur lors de l'envoi: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Annuler le brouillon en cours
+   * @param {string} phoneNumber 
+   */
+  cancelDraft(phoneNumber) {
+    const existed = draftService.deleteDraft(phoneNumber);
+    
+    if (existed) {
+      return {
+        success: true,
+        message: "🗑️ Brouillon annulé. L'email ne sera pas envoyé."
+      };
+    }
+    
+    return {
+      success: true,
+      message: "📭 Aucun brouillon en cours."
+    };
   }
 }
 

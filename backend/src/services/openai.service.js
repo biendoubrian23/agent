@@ -548,6 +548,150 @@ Instructions pour la réponse: ${instructions}
 
     return this.chat(systemPrompt, userMessage);
   }
+
+  /**
+   * Rédiger un nouvel email à partir d'une demande en langage naturel
+   * @param {Object} request - La demande de l'utilisateur
+   * @param {string} request.to - Destinataire
+   * @param {string} request.intent - Ce que l'utilisateur veut dire
+   * @param {string} request.context - Contexte supplémentaire (optionnel)
+   * @param {string} request.tone - Ton souhaité (optionnel: formel, amical, professionnel)
+   */
+  async composeEmail(request) {
+    const systemPrompt = `Tu es James, un assistant expert en rédaction d'emails.
+Tu dois rédiger un email basé sur les instructions de l'utilisateur.
+
+RÈGLES:
+1. Rédige un email complet et professionnel
+2. Adapte le ton selon le contexte (formel pour travail, amical pour connaissances)
+3. Structure bien le mail (salutation, corps, formule de politesse, signature)
+4. Sois concis mais complet
+5. Génère aussi un sujet approprié
+
+RETOURNE UN JSON:
+{
+  "subject": "Sujet de l'email",
+  "body": "Corps complet de l'email avec salutations et signature",
+  "tone": "formel|amical|professionnel"
+}
+
+Réponds UNIQUEMENT avec le JSON, sans backticks ni markdown.`;
+
+    const userMessage = `
+Destinataire: ${request.to}
+Ce que l'utilisateur veut communiquer: ${request.intent}
+${request.context ? `Contexte supplémentaire: ${request.context}` : ''}
+${request.tone ? `Ton souhaité: ${request.tone}` : ''}
+`;
+
+    try {
+      const response = await this.chat(systemPrompt, userMessage);
+      const cleanResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(cleanResponse);
+    } catch (error) {
+      console.error('Erreur composition email:', error);
+      // Fallback: retourner un format basique
+      return {
+        subject: 'Message',
+        body: request.intent,
+        tone: 'professionnel'
+      };
+    }
+  }
+
+  /**
+   * Réviser un brouillon d'email selon les instructions
+   * @param {Object} draft - Le brouillon actuel
+   * @param {string} instructions - Les modifications demandées
+   */
+  async reviseDraft(draft, instructions) {
+    const systemPrompt = `Tu es James, un assistant expert en rédaction d'emails.
+Tu dois modifier un email existant selon les instructions de l'utilisateur.
+
+RÈGLES:
+1. Applique UNIQUEMENT les modifications demandées
+2. Garde le reste du contenu intact
+3. Maintiens la cohérence du mail
+4. Si on te demande de changer le ton, adapte tout le mail
+
+RETOURNE UN JSON:
+{
+  "subject": "Sujet (modifié ou original)",
+  "body": "Corps complet modifié",
+  "changes": "Résumé des modifications apportées"
+}
+
+Réponds UNIQUEMENT avec le JSON, sans backticks ni markdown.`;
+
+    const userMessage = `
+EMAIL ACTUEL:
+À: ${draft.to}
+Sujet: ${draft.subject}
+Corps: ${draft.body}
+
+MODIFICATIONS DEMANDÉES: ${instructions}
+`;
+
+    try {
+      const response = await this.chat(systemPrompt, userMessage);
+      const cleanResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(cleanResponse);
+    } catch (error) {
+      console.error('Erreur révision draft:', error);
+      return {
+        subject: draft.subject,
+        body: draft.body,
+        changes: 'Erreur lors de la révision'
+      };
+    }
+  }
+
+  /**
+   * Parser une demande d'envoi d'email en langage naturel
+   * @param {string} text - Le message de l'utilisateur
+   */
+  async parseEmailRequest(text) {
+    const systemPrompt = `Tu es un assistant qui analyse les demandes d'envoi d'email.
+Extrait les informations de la demande de l'utilisateur.
+
+RETOURNE UN JSON:
+{
+  "action": "compose" (rédiger un mail) | "reply" (répondre) | "unclear" (pas clair),
+  "to": "adresse email du destinataire (null si non spécifié)",
+  "intent": "ce que l'utilisateur veut communiquer (le message/l'intention)",
+  "context": "contexte supplémentaire extrait",
+  "tone": "formel|amical|professionnel|null",
+  "subject_hint": "indication de sujet si mentionné (sinon null)"
+}
+
+Exemples:
+- "Envoie un mail à jean@test.com pour lui dire bonjour" 
+  → to: "jean@test.com", intent: "dire bonjour, prendre des nouvelles", tone: "amical"
+
+- "Écris à client@entreprise.com concernant notre projet et demande où il en est"
+  → to: "client@entreprise.com", intent: "demander l'avancement du projet commun", tone: "professionnel"
+
+- "Mail à marie@outlook.fr pour la remercier de son aide hier"
+  → to: "marie@outlook.fr", intent: "remercier pour l'aide d'hier", tone: "amical"
+
+Réponds UNIQUEMENT avec le JSON.`;
+
+    try {
+      const response = await this.chat(systemPrompt, text);
+      const cleanResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(cleanResponse);
+    } catch (error) {
+      console.error('Erreur parsing email request:', error);
+      return {
+        action: 'unclear',
+        to: null,
+        intent: text,
+        context: null,
+        tone: null,
+        subject_hint: null
+      };
+    }
+  }
 }
 
 module.exports = new OpenAIService();
