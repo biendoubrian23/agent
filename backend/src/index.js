@@ -442,6 +442,5 @@ app.listen(PORT, () => {
   console.log('');
   
   // Démarrer le scheduler de rappels
-  reminderService.initScheduler();
-  console.log('⏰ Scheduler de rappels démarré');
+  reminderService.init(whatsappService);
 });
