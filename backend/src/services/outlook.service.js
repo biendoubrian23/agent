@@ -902,6 +902,9 @@ class OutlookService {
     const accessToken = await this.ensureValidToken();
 
     try {
+      // Convertir le texte brut en HTML propre
+      const htmlBody = this.formatBodyAsHtml(body);
+      
       await axios.post(
         `${this.graphBaseUrl}/me/sendMail`,
         {
@@ -909,7 +912,7 @@ class OutlookService {
             subject: subject,
             body: {
               contentType: 'HTML',
-              content: body
+              content: htmlBody
             },
             toRecipients: [
               {
@@ -934,6 +937,40 @@ class OutlookService {
       console.error('❌ Erreur envoi email:', error.response?.data || error.message);
       throw error;
     }
+  }
+
+  /**
+   * Convertir le texte brut en HTML formaté
+   * @param {string} text - Texte brut avec retours à la ligne
+   * @returns {string} - HTML formaté
+   */
+  formatBodyAsHtml(text) {
+    if (!text) return '';
+    
+    // Échapper les caractères HTML spéciaux
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // Convertir les doubles retours à la ligne en paragraphes
+    // et les simples retours en <br>
+    const paragraphs = html.split(/\n\n+/);
+    
+    html = paragraphs
+      .map(p => {
+        // Remplacer les retours simples par <br>
+        const lines = p.split('\n').join('<br>\n');
+        return `<p style="margin: 0 0 10px 0;">${lines}</p>`;
+      })
+      .join('\n');
+    
+    // Envelopper dans un conteneur avec style
+    return `
+      <div style="font-family: Calibri, Arial, sans-serif; font-size: 14px; color: #333;">
+        ${html}
+      </div>
+    `;
   }
 
   /**
