@@ -73,7 +73,12 @@ class OutlookService {
       
       return this.tokens;
     } catch (error) {
-      console.error('❌ Erreur authentification Outlook:', error);
+      // Simplifier le log pour les erreurs de token expiré
+      if (error.errorCode === 'invalid_grant') {
+        console.warn('⚠️ Token Outlook expiré - reconnexion nécessaire via /auth/outlook');
+      } else {
+        console.error('❌ Erreur authentification Outlook:', error.message || error);
+      }
       throw error;
     }
   }

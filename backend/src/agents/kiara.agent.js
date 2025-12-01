@@ -533,50 +533,58 @@ Réponds en JSON avec ce format:
     console.log('🔍 Recherche de sources pour enrichir l\'article...');
     const relatedTrends = await this.fetchRelatedContent(subject);
 
-    const articlePrompt = `Tu es un expert en rédaction SEO. Rédige un article de blog TRÈS COMPLET et professionnel sur: "${subject}"
+    // Préparer les sources pour le prompt (uniquement titre + lien)
+    const sourcesForPrompt = relatedTrends.length > 0 
+      ? relatedTrends.map(t => `- "${t.title}" - ${t.link}`).join('\n')
+      : 'Aucune source externe trouvée.';
 
-${relatedTrends.length > 0 ? `
-📰 SOURCES ACTUELLES À INTÉGRER (cite-les dans l'article):
-${relatedTrends.map(t => `- ${t.title} (${t.source}): ${t.description?.substring(0, 150)}`).join('\n')}
-` : ''}
+    const articlePrompt = `Tu es un EXCELLENT rédacteur web français avec un style ENGAGEANT et une touche d'HUMOUR. 
+Rédige un article de blog captivant EN FRANÇAIS sur: "${subject}"
 
-📋 STRUCTURE OBLIGATOIRE:
+🔍 SOURCES À ANALYSER (utilise SEULEMENT si pertinentes pour "${subject}"):
+${sourcesForPrompt}
 
-1. **Titre accrocheur** (optimisé SEO, 60-70 caractères max)
-2. **Meta description** (150-160 caractères pour Google)
-3. **Mots-clés** (8-10 mots-clés pertinents)
-4. **Extrait** (3-4 phrases captivantes résumant l'article)
-5. **Contenu principal DÉTAILLÉ** en Markdown (MINIMUM 1500 mots):
-   - Introduction engageante (2-3 paragraphes) qui pose le contexte et les enjeux
-   - 5-7 sections principales avec sous-titres (## et ###)
-   - Chaque section doit avoir 3-5 paragraphes développés
-   - Exemples concrets, cas d'usage réels et études de cas
-   - Statistiques, chiffres et données récentes (2024-2025)
-   - Comparaisons et analyses approfondies
-   - Listes à puces pour la lisibilité
-   - Conseils pratiques et recommandations
-   - Conclusion avec résumé des points clés et call-to-action
-6. **Temps de lecture estimé** (généralement 6-10 minutes pour un article complet)
+📝 TON STYLE:
+- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots dans le titre et le contenu
+- **ACCROCHEUR**: Le titre doit donner envie de lire (avec un clin d'œil humoristique si possible)
+- **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
+- **ACCESSIBLE**: Explique les concepts complexes simplement
 
-⚠️ IMPORTANT: L'article doit être TRÈS DÉTAILLÉ, INFORMATIF et faire au moins 1500-2000 mots. C'est un article de qualité professionnelle, pas un résumé.
+⚠️ RÈGLES STRICTES:
+1. **100% FRANÇAIS** - Tout l'article en français
+2. **PERTINENCE** - Si une source n'a RIEN à voir avec "${subject}", IGNORE-LA
+3. **RÉÉCRITURE** - Reformule avec tes mots, ne traduis pas mot à mot
+4. **SOURCES** - Mets UNIQUEMENT les URLs des sources VRAIMENT utilisées
 
-Réponds en JSON avec ce format exact:
+📏 LONGUEUR: 800-1000 mots (3-4 pages PDF)
+
+📋 STRUCTURE:
+1. **Titre FUN** (avec jeu de mots ou référence pop culture si possible)
+2. **Meta description** (150 car.)
+3. **Contenu Markdown**:
+   - Intro accrocheuse (2-3 phrases qui captent l'attention)
+   - 3-4 sections avec sous-titres créatifs (##)
+   - Anecdotes, exemples concrets, chiffres
+   - Listes à puces pour aérer
+   - Conclusion avec une touche d'humour
+
+📄 FORMAT JSON:
 {
-  "title": "...",
-  "meta_description": "...",
-  "keywords": ["...", "..."],
-  "excerpt": "...",
-  "content": "# Titre\\n\\n## Section 1\\n...",
+  "title": "Titre accrocheur et fun",
+  "meta_description": "Description engageante",
+  "keywords": ["mot1", "mot2"],
+  "excerpt": "2-3 phrases qui donnent envie de lire",
+  "content": "Contenu Markdown complet",
   "category": "${category}",
   "reading_time_minutes": 5,
-  "tags": ["...", "..."],
-  "sources": ["..."]
+  "tags": ["tag1", "tag2"],
+  "sources": ["https://url1.com", "https://url2.com"]
 }`;
 
     try {
       const response = await openaiService.chat(this.systemPrompt, articlePrompt, { 
         json: true,
-        maxTokens: 4000 
+        maxTokens: 3500 
       });
       
       // Nettoyer la réponse si elle contient des backticks markdown
@@ -707,62 +715,64 @@ Réponds en JSON avec ce format exact:
    * Génère un article complet en fallback quand le parsing JSON échoue
    */
   async generateFallbackArticle(subject, category, relatedTrends = []) {
-    // Prompt simplifié pour obtenir juste le contenu
-    const contentPrompt = `Rédige un article de blog TRÈS COMPLET sur "${subject}".
+    // Prompt simplifié pour obtenir un article fun en français
+    const contentPrompt = `Rédige un article de blog CAPTIVANT en FRANÇAIS sur "${subject}".
 
-L'article doit avoir:
-- Une introduction de 2-3 paragraphes
-- 5-6 sections détaillées avec des sous-titres
-- Des exemples concrets et données chiffrées
-- Une conclusion avec call-to-action
+STYLE:
+- Touches d'humour et jeux de mots
+- Dynamique, comme si tu parlais à un ami
+- Accessible, pas trop technique
 
-Format: Markdown pur, commence directement par l'introduction (pas de titre #).
-Longueur: minimum 1500 mots.`;
+RÈGLES:
+- 100% en français
+- 800-1000 mots MAX (3-4 pages PDF)
+- Structure: Intro fun + 3 sections + Conclusion avec clin d'œil
+
+Format: Markdown pur, commence par l'intro (pas de titre #).`;
 
     let content;
     try {
       content = await openaiService.chat(this.systemPrompt, contentPrompt);
     } catch (e) {
-      content = `Dans cet article, nous allons explorer en détail ${subject}, un sujet crucial dans le paysage technologique actuel.
+      content = `Accrochez-vous à vos claviers, on va parler de ${subject} ! 🚀
 
-## Comprendre ${subject}
+## C'est quoi le délire avec ${subject} ?
 
-${subject} représente aujourd'hui un enjeu majeur pour les professionnels et les entreprises. Cette technologie/ce concept a considérablement évolué ces dernières années, transformant la façon dont nous travaillons et innovons.
+Si vous n'avez pas encore entendu parler de ${subject}, soit vous vivez dans une grotte (avec du WiFi j'espère), soit vous avez mieux à faire. Dans les deux cas, on va rattraper le temps perdu !
 
-## Les avantages clés
+## Pourquoi tout le monde en parle ?
 
-- **Performance améliorée** : Des gains significatifs en termes d'efficacité
-- **Innovation continue** : De nouvelles possibilités émergent régulièrement  
-- **Accessibilité accrue** : De plus en plus de ressources disponibles
+- **C'est puissant** : On parle de performances qui font pâlir la concurrence
+- **C'est tendance** : Les geeks en raffolent, et ils ont raison
+- **C'est l'avenir** : Autant prendre le train en marche maintenant
 
-## Applications pratiques
+## Comment en profiter ?
 
-De nombreuses entreprises adoptent ${subject} pour optimiser leurs processus. Les cas d'usage sont variés et touchent de nombreux secteurs.
+Pas besoin d'être un génie pour s'y mettre. Avec les bonnes ressources et un peu de curiosité, vous serez opérationnel en un rien de temps.
 
-## Tendances et perspectives
+## Le mot de la fin
 
-L'avenir de ${subject} s'annonce prometteur avec des évolutions majeures attendues dans les prochains mois.
-
-## Conclusion
-
-${subject} continue de façonner notre industrie. Restez informé des dernières évolutions en suivant notre blog !
-
----
-*Article rédigé par Brian Biendou - Expert Tech*`;
+${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile de s'en passer. Restez connectés pour plus de pépites tech !`;
     }
 
     const keywords = subject.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     
+    // Sources = uniquement les URLs pertinentes
+    const sourceUrls = relatedTrends
+      .filter(t => t.link && t.link.startsWith('http'))
+      .map(t => t.link)
+      .slice(0, 3);
+    
     return {
-      title: `${subject} : Guide Complet ${new Date().getFullYear()}`,
-      meta_description: `Découvrez notre guide complet sur ${subject}. Analyse détaillée, tendances et conseils pratiques pour ${new Date().getFullYear()}.`,
-      keywords: [...keywords, 'guide', 'tutoriel', '2025'],
-      excerpt: `Un guide complet et actualisé sur ${subject}. Découvrez les dernières tendances, les meilleures pratiques et des conseils d'experts pour maîtriser ce sujet incontournable.`,
+      title: `${subject} : Le Guide Qui Déchire`,
+      meta_description: `Découvrez tout sur ${subject}. Le guide fun et pratique !`,
+      keywords: [...keywords, 'guide', '2025'],
+      excerpt: `Un guide complet sur ${subject}. Découvrez les tendances et conseils d'experts.`,
       content: `# ${subject} : Guide Complet\n\n${content}`,
       category: category,
-      reading_time_minutes: Math.max(6, Math.ceil(content.split(/\s+/).length / 200)),
+      reading_time_minutes: 5,
       tags: keywords.slice(0, 5),
-      sources: relatedTrends.map(t => t.title).filter(Boolean)
+      sources: sourceUrls
     };
   }
 
@@ -1523,44 +1533,29 @@ ${subject} continue de façonner notre industrie. Restez informé des dernières
         doc.moveDown(2);
         
         // Titre section sources
-        doc.rect(55, doc.y, 485, 35).fill('#f1f5f9');
-        doc.fontSize(16)
+        doc.rect(55, doc.y, 485, 30).fill('#f1f5f9');
+        doc.fontSize(14)
            .fillColor('#1e40af')
-           .text('📚 Sources & Références', 65, doc.y + 10);
+           .text('📚 Sources', 65, doc.y + 8);
         
-        doc.moveDown(2);
+        doc.moveDown(1.5);
 
+        // Afficher les sources de manière compacte (juste les liens)
         article.sources.forEach((source, index) => {
-          if (doc.y > 720) {
+          if (doc.y > 740) {
             doc.addPage();
             doc.y = 60;
           }
 
-          // Numéro de source
-          doc.fontSize(10)
-             .fillColor('#3b82f6')
-             .text(`[${index + 1}]`, 60, doc.y, { continued: true });
+          // Extraire l'URL (source peut être string ou objet)
+          const url = typeof source === 'string' ? source : (source.url || source.link || source.title);
           
-          // Titre de la source
-          doc.fontSize(10)
-             .fillColor('#1e293b')
-             .text(` ${source.title || 'Source'}`, { continued: false });
-          
-          // URL de la source
-          if (source.url || source.link) {
+          if (url && url.startsWith('http')) {
             doc.fontSize(9)
-               .fillColor('#64748b')
-               .text(`    ${source.url || source.link}`, { link: source.url || source.link });
+               .fillColor('#3b82f6')
+               .text(`[${index + 1}] ${url}`, 60, doc.y, { link: url, underline: true });
+            doc.moveDown(0.3);
           }
-
-          // Source (site)
-          if (source.source) {
-            doc.fontSize(9)
-               .fillColor('#94a3b8')
-               .text(`    Source: ${source.source}`);
-          }
-
-          doc.moveDown(0.5);
         });
       }
 
@@ -2121,14 +2116,30 @@ Réponds en JSON:
         
         const matchingItems = feed.items.filter(item => {
           const text = (item.title + ' ' + (item.contentSnippet || '')).toLowerCase();
+          
+          // Vérifier que c'est en français ou anglais (exclure portugais, espagnol, etc.)
+          const nonLatinChars = /[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/gi;
+          const portugueseWords = /(desenvolvimento|projeto|trabalho|semanas|ideias|persistência|começar|também|porque|estava)/i;
+          
+          // Exclure si ça ressemble à du portugais ou autre langue
+          if (portugueseWords.test(text)) {
+            return false;
+          }
+          
           // Chercher si au moins un mot-clé est présent
           return searchKeywords.some(kw => text.includes(kw));
         });
 
         matchingItems.slice(0, 2).forEach(item => {
+          // Limiter la description à 200 caractères max pour éviter les articles trop longs
+          const shortDescription = (item.contentSnippet || item.content || '')
+            .substring(0, 200)
+            .replace(/\s+/g, ' ')
+            .trim();
+          
           allSources.push({
             title: item.title,
-            description: item.contentSnippet || item.content || '',
+            description: shortDescription + (shortDescription.length >= 200 ? '...' : ''),
             link: item.link,
             source: source.name,
             pubDate: item.pubDate
@@ -2325,26 +2336,31 @@ Réponds en JSON:
   }
 
   /**
-   * Génère un contenu de fallback structuré
+   * Génère un contenu de fallback structuré (version courte sans copier les sources)
    */
   generateFallbackContent(topic, sources) {
-    let content = `# ${topic} : Les tendances actuelles\n\n`;
+    let content = `# ${topic} : Guide Complet\n\n`;
     content += `## Introduction\n\n`;
-    content += `Dans cet article, nous explorons les dernières actualités et tendances concernant **${topic}**. `;
-    content += `L'écosystème technologique évolue rapidement et il est essentiel de rester informé.\n\n`;
+    content += `Dans cet article, nous explorons en profondeur **${topic}**. `;
+    content += `Ce sujet est au cœur des discussions dans l'écosystème technologique actuel et mérite une analyse approfondie.\n\n`;
     
-    if (sources.length > 0) {
-      content += `## Analyse des sources\n\n`;
-      sources.forEach((s, i) => {
-        content += `### ${i + 1}. ${s.title || 'Article'}\n\n`;
-        content += `Selon **${s.source || 'une source tech'}**, ${s.description || 'cette actualité apporte un éclairage intéressant sur le sujet.'}`;
-        content += `\n\n`;
-      });
-    }
+    content += `## Contexte et enjeux\n\n`;
+    content += `${topic} représente un domaine en constante évolution. Les professionnels du secteur suivent de près les dernières avancées et innovations. `;
+    content += `Comprendre les fondamentaux et les tendances actuelles est essentiel pour rester compétitif.\n\n`;
+    
+    content += `## Points clés à retenir\n\n`;
+    content += `- **Innovation continue** : Le domaine évolue rapidement avec de nouvelles solutions\n`;
+    content += `- **Impact sur l'industrie** : Des changements significatifs dans les pratiques\n`;
+    content += `- **Opportunités** : De nouvelles possibilités émergent pour les professionnels\n`;
+    content += `- **Défis** : Des obstacles à surmonter pour une adoption réussie\n\n`;
+    
+    content += `## Perspectives d'avenir\n\n`;
+    content += `L'avenir de ${topic} s'annonce prometteur. Les experts prévoient des évolutions majeures dans les prochains mois. `;
+    content += `Il est crucial de rester informé et de s'adapter aux nouvelles tendances.\n\n`;
     
     content += `## Conclusion\n\n`;
-    content += `Le domaine de ${topic} continue d'évoluer rapidement. `;
-    content += `Restez informés des dernières nouveautés sur notre blog !\n\n`;
+    content += `${topic} continue de façonner notre industrie technologique. `;
+    content += `Pour rester à la pointe, suivez notre blog et n'hésitez pas à approfondir vos connaissances sur ce sujet passionnant.\n\n`;
     content += `---\n*Article rédigé par Brian Biendou*`;
     
     return content;
