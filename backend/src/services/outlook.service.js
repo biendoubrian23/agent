@@ -453,8 +453,20 @@ class OutlookService {
       await this.getFolders();
     }
     
+    const searchName = folderName.toLowerCase().trim();
+    
+    // Fonction pour normaliser le nom (enlever les emojis)
+    const normalizeForSearch = (name) => {
+      // Enlever les emojis et caractères spéciaux au début
+      return name.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\s]+/gu, '').toLowerCase().trim();
+    };
+    
     // Chercher dans les dossiers racine
-    let folder = this.foldersCache.find(f => f.name.toLowerCase() === folderName.toLowerCase());
+    let folder = this.foldersCache.find(f => {
+      const fName = f.name.toLowerCase();
+      const fNameNormalized = normalizeForSearch(f.name);
+      return fName === searchName || fNameNormalized === searchName || fName.includes(searchName);
+    });
     
     if (folder) return folder.id;
     
@@ -468,9 +480,11 @@ class OutlookService {
         }
       );
       
-      folder = response.data.value.find(f => 
-        f.displayName.toLowerCase() === folderName.toLowerCase()
-      );
+      folder = response.data.value.find(f => {
+        const fName = f.displayName.toLowerCase();
+        const fNameNormalized = normalizeForSearch(f.displayName);
+        return fName === searchName || fNameNormalized === searchName || fName.includes(searchName);
+      });
       
       return folder ? folder.id : null;
     } catch (error) {
