@@ -533,29 +533,32 @@ Réponds en JSON avec ce format:
     console.log('🔍 Recherche de sources pour enrichir l\'article...');
     const relatedTrends = await this.fetchRelatedContent(subject);
 
-    const articlePrompt = `Rédige un article de blog complet et professionnel sur le sujet suivant: "${subject}"
+    const articlePrompt = `Tu es un expert en rédaction SEO. Rédige un article de blog TRÈS COMPLET et professionnel sur: "${subject}"
 
 ${relatedTrends.length > 0 ? `
-📰 SOURCES ACTUELLES À INTÉGRER (mentionne-les dans l'article):
-${relatedTrends.map(t => `- ${t.title} (${t.source}): ${t.description?.substring(0, 100)}`).join('\n')}
+📰 SOURCES ACTUELLES À INTÉGRER (cite-les dans l'article):
+${relatedTrends.map(t => `- ${t.title} (${t.source}): ${t.description?.substring(0, 150)}`).join('\n')}
 ` : ''}
 
-📋 STRUCTURE REQUISE:
+📋 STRUCTURE OBLIGATOIRE:
 
-1. **Titre accrocheur** (optimisé SEO, 60-70 caractères)
-2. **Meta description** (150-160 caractères pour le SEO)
-3. **Mots-clés** (5-8 mots-clés pertinents)
-4. **Extrait** (2-3 phrases résumant l'article)
-5. **Contenu principal** en Markdown avec:
-   - Introduction engageante qui accroche le lecteur
-   - 4-6 sections avec sous-titres (## et ###)
-   - Exemples concrets et cas pratiques actuels
-   - Statistiques ou chiffres quand pertinent
+1. **Titre accrocheur** (optimisé SEO, 60-70 caractères max)
+2. **Meta description** (150-160 caractères pour Google)
+3. **Mots-clés** (8-10 mots-clés pertinents)
+4. **Extrait** (3-4 phrases captivantes résumant l'article)
+5. **Contenu principal DÉTAILLÉ** en Markdown (MINIMUM 1500 mots):
+   - Introduction engageante (2-3 paragraphes) qui pose le contexte et les enjeux
+   - 5-7 sections principales avec sous-titres (## et ###)
+   - Chaque section doit avoir 3-5 paragraphes développés
+   - Exemples concrets, cas d'usage réels et études de cas
+   - Statistiques, chiffres et données récentes (2024-2025)
+   - Comparaisons et analyses approfondies
    - Listes à puces pour la lisibilité
-   - Conclusion avec call-to-action
-6. **Temps de lecture estimé** (en minutes)
+   - Conseils pratiques et recommandations
+   - Conclusion avec résumé des points clés et call-to-action
+6. **Temps de lecture estimé** (généralement 6-10 minutes pour un article complet)
 
-L'article doit faire au moins 1000 mots et être très informatif.
+⚠️ IMPORTANT: L'article doit être TRÈS DÉTAILLÉ, INFORMATIF et faire au moins 1500-2000 mots. C'est un article de qualité professionnelle, pas un résumé.
 
 Réponds en JSON avec ce format exact:
 {
@@ -591,19 +594,9 @@ Réponds en JSON avec ce format exact:
       try {
         article = JSON.parse(cleanResponse);
       } catch (parseError) {
-        console.error('Erreur parsing JSON, tentative fallback...');
-        // Fallback: créer un article basique
-        article = {
-          title: `${subject} : Guide complet`,
-          meta_description: `Découvrez tout sur ${subject}. Guide complet et actualisé.`,
-          keywords: subject.split(' ').filter(w => w.length > 2),
-          excerpt: `Un article complet sur ${subject} avec les dernières informations et tendances.`,
-          content: `# ${subject}\n\n## Introduction\n\nDans cet article, nous explorons ${subject} en détail.\n\n## Points clés\n\n- Analyse approfondie du sujet\n- Tendances actuelles\n- Perspectives d'avenir\n\n## Conclusion\n\nRestez informé sur ${subject} en suivant notre blog !\n\n---\n*Par Brian Biendou*`,
-          category: category,
-          reading_time_minutes: 5,
-          tags: [subject],
-          sources: relatedTrends.map(t => t.title)
-        };
+        console.error('Erreur parsing JSON, génération d\'un article complet en fallback...');
+        // Fallback: générer un article structuré plus complet
+        article = await this.generateFallbackArticle(subject, category, relatedTrends);
       }
       
       // Ajouter l'image de couverture
@@ -629,10 +622,13 @@ Réponds en JSON avec ce format exact:
       }
       result += `\n📄 **Extrait:**\n${article.excerpt}\n\n`;
       result += `💾 Article sauvegardé en brouillon\n\n`;
-      result += `👉 **Actions possibles:**\n`;
+      result += `👍 **Actions possibles:**\n`;
       result += `• "PDF de l'article" - Recevoir le PDF\n`;
       result += `• "Modifie le titre par '...'" - Modifier\n`;
-      result += `• "Publie l'article" - Publier sur le blog`;
+      result += `• "Publie l'article" - Publier sur le blog\n`;
+      result += `• "Mes brouillons" - Voir tous les brouillons\n\n`;
+      result += `🔄 *Dis "James" ou "emails" pour passer aux emails*\n`;
+      result += `🚪 *Dis "quitter" ou "Brian" pour terminer avec Kiara*`;
 
       return result;
 
@@ -705,6 +701,69 @@ Réponds en JSON avec ce format exact:
     }
     
     return 'Actualités Tech';
+  }
+
+  /**
+   * Génère un article complet en fallback quand le parsing JSON échoue
+   */
+  async generateFallbackArticle(subject, category, relatedTrends = []) {
+    // Prompt simplifié pour obtenir juste le contenu
+    const contentPrompt = `Rédige un article de blog TRÈS COMPLET sur "${subject}".
+
+L'article doit avoir:
+- Une introduction de 2-3 paragraphes
+- 5-6 sections détaillées avec des sous-titres
+- Des exemples concrets et données chiffrées
+- Une conclusion avec call-to-action
+
+Format: Markdown pur, commence directement par l'introduction (pas de titre #).
+Longueur: minimum 1500 mots.`;
+
+    let content;
+    try {
+      content = await openaiService.chat(this.systemPrompt, contentPrompt);
+    } catch (e) {
+      content = `Dans cet article, nous allons explorer en détail ${subject}, un sujet crucial dans le paysage technologique actuel.
+
+## Comprendre ${subject}
+
+${subject} représente aujourd'hui un enjeu majeur pour les professionnels et les entreprises. Cette technologie/ce concept a considérablement évolué ces dernières années, transformant la façon dont nous travaillons et innovons.
+
+## Les avantages clés
+
+- **Performance améliorée** : Des gains significatifs en termes d'efficacité
+- **Innovation continue** : De nouvelles possibilités émergent régulièrement  
+- **Accessibilité accrue** : De plus en plus de ressources disponibles
+
+## Applications pratiques
+
+De nombreuses entreprises adoptent ${subject} pour optimiser leurs processus. Les cas d'usage sont variés et touchent de nombreux secteurs.
+
+## Tendances et perspectives
+
+L'avenir de ${subject} s'annonce prometteur avec des évolutions majeures attendues dans les prochains mois.
+
+## Conclusion
+
+${subject} continue de façonner notre industrie. Restez informé des dernières évolutions en suivant notre blog !
+
+---
+*Article rédigé par Brian Biendou - Expert Tech*`;
+    }
+
+    const keywords = subject.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    
+    return {
+      title: `${subject} : Guide Complet ${new Date().getFullYear()}`,
+      meta_description: `Découvrez notre guide complet sur ${subject}. Analyse détaillée, tendances et conseils pratiques pour ${new Date().getFullYear()}.`,
+      keywords: [...keywords, 'guide', 'tutoriel', '2025'],
+      excerpt: `Un guide complet et actualisé sur ${subject}. Découvrez les dernières tendances, les meilleures pratiques et des conseils d'experts pour maîtriser ce sujet incontournable.`,
+      content: `# ${subject} : Guide Complet\n\n${content}`,
+      category: category,
+      reading_time_minutes: Math.max(6, Math.ceil(content.split(/\s+/).length / 200)),
+      tags: keywords.slice(0, 5),
+      sources: relatedTrends.map(t => t.title).filter(Boolean)
+    };
   }
 
   async saveArticleDraft(article) {
