@@ -10,26 +10,26 @@ const OUTLOOK_AUTH_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   : 'https://agent-production-c8ea.up.railway.app/auth/outlook';
 
 /**
- * Agent Mail (James) - Gère les emails Outlook
+ * Agent Mail (James) - GÃ¨re les emails Outlook
  */
 class MailAgent {
   constructor() {
     this.name = 'James';
     this.role = 'Mail Assistant';
     
-    // Cache du dernier email trouvé (pour "réponds au dernier mail de X")
+    // Cache du dernier email trouvÃ© (pour "rÃ©ponds au dernier mail de X")
     this.lastSearchResults = new Map(); // phoneNumber -> emails[]
   }
 
   /**
-   * Message d'erreur quand Outlook n'est pas connecté
+   * Message d'erreur quand Outlook n'est pas connectÃ©
    */
   getNotConnectedMessage() {
-    return `❌ Outlook n'est pas connecté.\n\n🔗 Connectez-vous ici:\n${OUTLOOK_AUTH_URL}`;
+    return `âŒ Outlook n'est pas connectÃ©.\n\nðŸ”— Connectez-vous ici:\n${OUTLOOK_AUTH_URL}`;
   }
 
   /**
-   * Filtrer les emails selon un critère temporel ou d'importance
+   * Filtrer les emails selon un critÃ¨re temporel ou d'importance
    */
   filterEmails(emails, filter) {
     if (!filter) return emails;
@@ -67,8 +67,8 @@ class MailAgent {
   }
 
   /**
-   * Récupérer et résumer les derniers emails
-   * @param {number} count - Nombre d'emails à récupérer
+   * RÃ©cupÃ©rer et rÃ©sumer les derniers emails
+   * @param {number} count - Nombre d'emails Ã  rÃ©cupÃ©rer
    * @param {string} filter - Filtre optionnel (today, yesterday, week, important)
    */
   async getEmailSummary(count = 50, filter = null) {
@@ -83,7 +83,7 @@ class MailAgent {
 
       statsService.logConnectionCheck('outlook', true);
       
-      // Si on a un filtre temporel, on récupère plus d'emails pour filtrer ensuite
+      // Si on a un filtre temporel, on rÃ©cupÃ¨re plus d'emails pour filtrer ensuite
       const fetchCount = filter ? Math.max(count * 3, 100) : count;
       let emails = await outlookService.getEmails(fetchCount);
       
@@ -92,18 +92,18 @@ class MailAgent {
         emails = this.filterEmails(emails, filter);
       }
       
-      // Limiter au nombre demandé
+      // Limiter au nombre demandÃ©
       emails = emails.slice(0, count);
       
       if (emails.length === 0) {
         const filterMsg = filter ? ` correspondant au filtre "${filter}"` : '';
         return {
           success: true,
-          message: `📭 Aucun email${filterMsg} trouvé.`
+          message: `ðŸ“­ Aucun email${filterMsg} trouvÃ©.`
         };
       }
 
-      // Compter les emails traités
+      // Compter les emails traitÃ©s
       emails.forEach(email => {
         const isUrgent = email.importance === 'high' || 
                          email.subject?.toLowerCase().includes('urgent');
@@ -112,10 +112,10 @@ class MailAgent {
 
       const summary = await openaiService.summarizeEmails(emails);
       
-      // Logger l'activité
+      // Logger l'activitÃ©
       statsService.logSummarySent();
       const filterInfo = filter ? ` (filtre: ${filter})` : '';
-      statsService.addActivity('james', `Résumé de ${emails.length} emails envoyé${filterInfo}`);
+      statsService.addActivity('james', `RÃ©sumÃ© de ${emails.length} emails envoyÃ©${filterInfo}`);
       
       return {
         success: true,
@@ -123,19 +123,19 @@ class MailAgent {
         emailCount: emails.length
       };
     } catch (error) {
-      console.error('❌ Erreur MailAgent.getEmailSummary:', error);
-      statsService.addActivity('james', `Erreur résumé: ${error.message}`, 'error');
+      console.error('âŒ Erreur MailAgent.getEmailSummary:', error);
+      statsService.addActivity('james', `Erreur rÃ©sumÃ©: ${error.message}`, 'error');
       return {
         success: false,
-        message: `❌ Erreur lors de la récupération des emails: ${error.message}`
+        message: `âŒ Erreur lors de la rÃ©cupÃ©ration des emails: ${error.message}`
       };
     }
   }
 
   /**
-   * Récupérer les emails importants/urgents
-   * @param {number} count - Nombre max d'emails à retourner
-   * @param {string} filter - 'important', 'urgent', ou filtre temporel combiné
+   * RÃ©cupÃ©rer les emails importants/urgents
+   * @param {number} count - Nombre max d'emails Ã  retourner
+   * @param {string} filter - 'important', 'urgent', ou filtre temporel combinÃ©
    */
   async getImportantEmails(count = 50, filter = 'important') {
     try {
@@ -143,52 +143,52 @@ class MailAgent {
         statsService.logConnectionCheck('outlook', false);
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
       statsService.logConnectionCheck('outlook', true);
       
-      // Récupérer plus d'emails pour pouvoir filtrer
+      // RÃ©cupÃ©rer plus d'emails pour pouvoir filtrer
       let emails = await outlookService.getEmails(200);
       
       // Appliquer le filtre d'importance
       emails = this.filterEmails(emails, filter);
       
-      // Limiter au nombre demandé
+      // Limiter au nombre demandÃ©
       emails = emails.slice(0, count);
       
       if (emails.length === 0) {
         return {
           success: true,
-          message: `📭 Aucun email ${filter} trouvé.`
+          message: `ðŸ“­ Aucun email ${filter} trouvÃ©.`
         };
       }
 
-      // Créer un résumé spécifique pour les emails importants
+      // CrÃ©er un rÃ©sumÃ© spÃ©cifique pour les emails importants
       const summary = await openaiService.summarizeEmails(emails, {
         focus: 'importance',
-        instruction: `Ces emails sont marqués comme ${filter}. Mets en avant les points critiques et les actions requises.`
+        instruction: `Ces emails sont marquÃ©s comme ${filter}. Mets en avant les points critiques et les actions requises.`
       });
       
-      statsService.addActivity('james', `${emails.length} emails ${filter} résumés`);
+      statsService.addActivity('james', `${emails.length} emails ${filter} rÃ©sumÃ©s`);
       
       return {
         success: true,
-        message: `⭐ **${emails.length} email(s) ${filter}(s) trouvé(s):**\n\n${summary}`,
+        message: `â­ **${emails.length} email(s) ${filter}(s) trouvÃ©(s):**\n\n${summary}`,
         emailCount: emails.length
       };
     } catch (error) {
-      console.error('❌ Erreur MailAgent.getImportantEmails:', error);
+      console.error('âŒ Erreur MailAgent.getImportantEmails:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Récupérer les emails non lus
+   * RÃ©cupÃ©rer les emails non lus
    */
   async getUnreadSummary(count = 20) {
     try {
@@ -196,7 +196,7 @@ class MailAgent {
         statsService.logConnectionCheck('outlook', false);
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
@@ -204,14 +204,14 @@ class MailAgent {
       const emails = await outlookService.getUnreadEmails(count);
       
       if (emails.length === 0) {
-        statsService.addActivity('james', 'Vérification emails non lus: 0 trouvé');
+        statsService.addActivity('james', 'VÃ©rification emails non lus: 0 trouvÃ©');
         return {
           success: true,
-          message: "✅ Aucun email non lu ! Votre boîte est à jour."
+          message: "âœ… Aucun email non lu ! Votre boÃ®te est Ã  jour."
         };
       }
 
-      // Compter les emails traités
+      // Compter les emails traitÃ©s
       let urgentCount = 0;
       emails.forEach(email => {
         const isUrgent = email.importance === 'high' || 
@@ -222,28 +222,28 @@ class MailAgent {
 
       const summary = await openaiService.summarizeEmails(emails);
       
-      // Logger l'activité
+      // Logger l'activitÃ©
       if (urgentCount > 0) {
-        statsService.addActivity('james', `${urgentCount} email(s) urgent(s) détecté(s)`, 'warning');
+        statsService.addActivity('james', `${urgentCount} email(s) urgent(s) dÃ©tectÃ©(s)`, 'warning');
       }
-      statsService.addActivity('james', `${emails.length} emails non lus résumés`);
+      statsService.addActivity('james', `${emails.length} emails non lus rÃ©sumÃ©s`);
       
       return {
         success: true,
-        message: `📬 **${emails.length} emails non lus**\n\n${summary}`,
+        message: `ðŸ“¬ **${emails.length} emails non lus**\n\n${summary}`,
         emailCount: emails.length
       };
     } catch (error) {
       statsService.addActivity('james', `Erreur emails non lus: ${error.message}`, 'error');
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Classifier un email spécifique
+   * Classifier un email spÃ©cifique
    */
   async classifyEmail(emailId) {
     try {
@@ -261,14 +261,14 @@ class MailAgent {
     } catch (error) {
       return {
         success: false,
-        message: `❌ Erreur classification: ${error.message}`
+        message: `âŒ Erreur classification: ${error.message}`
       };
     }
   }
 
   /**
-   * Classifier et déplacer les emails dans les dossiers Outlook
-   * Cette fonction crée les dossiers si nécessaire et classe les X derniers emails
+   * Classifier et dÃ©placer les emails dans les dossiers Outlook
+   * Cette fonction crÃ©e les dossiers si nÃ©cessaire et classe les X derniers emails
    */
   async classifyAndOrganizeEmails(count = 50) {
     try {
@@ -276,12 +276,12 @@ class MailAgent {
         statsService.logConnectionCheck('outlook', false);
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©. Connectez-vous d'abord via le lien d'authentification."
         };
       }
 
       statsService.logConnectionCheck('outlook', true);
-      statsService.addActivity('james', `Début classification de ${count} emails...`, 'info');
+      statsService.addActivity('james', `DÃ©but classification de ${count} emails...`, 'info');
       
       // Lancer la classification
       const result = await outlookService.classifyEmails(count);
@@ -290,7 +290,7 @@ class MailAgent {
         statsService.addActivity('james', `Erreur classification: ${result.error}`, 'error');
         return {
           success: false,
-          message: `❌ Erreur lors de la classification: ${result.error}`
+          message: `âŒ Erreur lors de la classification: ${result.error}`
         };
       }
 
@@ -301,10 +301,10 @@ class MailAgent {
         }
       });
 
-      // Créer le message de résumé
+      // CrÃ©er le message de rÃ©sumÃ©
       const summary = this.formatClassificationSummary(result);
       
-      statsService.addActivity('james', `${result.summary.total} emails classifiés avec succès`, 'success');
+      statsService.addActivity('james', `${result.summary.total} emails classifiÃ©s avec succÃ¨s`, 'success');
       statsService.logSummarySent();
       
       return {
@@ -313,66 +313,66 @@ class MailAgent {
         details: result
       };
     } catch (error) {
-      console.error('❌ Erreur MailAgent.classifyAndOrganizeEmails:', error);
+      console.error('âŒ Erreur MailAgent.classifyAndOrganizeEmails:', error);
       statsService.addActivity('james', `Erreur classification: ${error.message}`, 'error');
       return {
         success: false,
-        message: `❌ Erreur lors de la classification: ${error.message}`
+        message: `âŒ Erreur lors de la classification: ${error.message}`
       };
     }
   }
 
   /**
-   * Formater le résumé de classification pour WhatsApp
+   * Formater le rÃ©sumÃ© de classification pour WhatsApp
    */
   formatClassificationSummary(result) {
     const { summary, results } = result;
     
-    let message = `📬 **Classification terminée !**\n\n`;
-    message += `📊 **Résumé:**\n`;
-    message += `• Total traité: ${summary.total} emails\n`;
-    message += `• ✅ Classés: ${summary.success}\n`;
+    let message = `ðŸ“¬ **Classification terminÃ©e !**\n\n`;
+    message += `ðŸ“Š **RÃ©sumÃ©:**\n`;
+    message += `â€¢ Total traitÃ©: ${summary.total} emails\n`;
+    message += `â€¢ âœ… ClassÃ©s: ${summary.success}\n`;
     
     if (summary.failed > 0) {
-      message += `• ❌ Échoués: ${summary.failed}\n`;
+      message += `â€¢ âŒ Ã‰chouÃ©s: ${summary.failed}\n`;
     }
     
-    message += `\n📁 **Par dossier:**\n`;
+    message += `\nðŸ“ **Par dossier:**\n`;
     
-    // Trier par nombre décroissant
+    // Trier par nombre dÃ©croissant
     const folderEntries = Object.entries(summary.byFolder)
       .sort((a, b) => b[1] - a[1]);
     
     const folderEmojis = {
-      'Urgent': '🚨',
-      'Professionnel': '💼',
-      'Shopping': '🛒',
-      'Newsletter': '📰',
-      'Finance': '💰',
-      'Social': '👥',
-      'ISCOD': '🎓'
+      'Urgent': 'ðŸš¨',
+      'Professionnel': 'ðŸ’¼',
+      'Shopping': 'ðŸ›’',
+      'Newsletter': 'ðŸ“°',
+      'Finance': 'ðŸ’°',
+      'Social': 'ðŸ‘¥',
+      'ISCOD': 'ðŸŽ“'
     };
     
     folderEntries.forEach(([folder, count]) => {
-      const emoji = folderEmojis[folder] || '📁';
+      const emoji = folderEmojis[folder] || 'ðŸ“';
       message += `${emoji} ${folder}: ${count}\n`;
     });
     
     // Ajouter quelques exemples
-    message += `\n📝 **Exemples de classification:**\n`;
+    message += `\nðŸ“ **Exemples de classification:**\n`;
     const examples = results.filter(r => r.success).slice(0, 5);
     examples.forEach(item => {
       const subject = item.subject.length > 40 
         ? item.subject.substring(0, 40) + '...' 
         : item.subject;
-      message += `• "${subject}" → ${item.folder}\n`;
+      message += `â€¢ "${subject}" â†’ ${item.folder}\n`;
     });
     
     return message;
   }
 
   /**
-   * Obtenir le résumé de la dernière classification (depuis la mémoire)
+   * Obtenir le rÃ©sumÃ© de la derniÃ¨re classification (depuis la mÃ©moire)
    */
   getLastClassificationSummary() {
     const memory = outlookService.getClassificationMemory();
@@ -380,40 +380,40 @@ class MailAgent {
     if (memory.length === 0) {
       return {
         success: true,
-        message: "📭 Aucune classification récente en mémoire. Utilisez 'classe mes emails' pour lancer une classification."
+        message: "ðŸ“­ Aucune classification rÃ©cente en mÃ©moire. Utilisez 'classe mes emails' pour lancer une classification."
       };
     }
     
     const summary = outlookService.getClassificationSummary();
     
-    let message = `📊 **Mémoire de classification (${memory.length} emails)**\n\n`;
-    message += `📁 **Répartition:**\n`;
+    let message = `ðŸ“Š **MÃ©moire de classification (${memory.length} emails)**\n\n`;
+    message += `ðŸ“ **RÃ©partition:**\n`;
     
     const folderEmojis = {
-      'Urgent': '🚨',
-      'Professionnel': '💼',
-      'Shopping': '🛒',
-      'Newsletter': '📰',
-      'Finance': '💰',
-      'Social': '👥',
-      'ISCOD': '🎓'
+      'Urgent': 'ðŸš¨',
+      'Professionnel': 'ðŸ’¼',
+      'Shopping': 'ðŸ›’',
+      'Newsletter': 'ðŸ“°',
+      'Finance': 'ðŸ’°',
+      'Social': 'ðŸ‘¥',
+      'ISCOD': 'ðŸŽ“'
     };
     
     Object.entries(summary)
       .sort((a, b) => b[1] - a[1])
       .forEach(([folder, count]) => {
-        const emoji = folderEmojis[folder] || '📁';
+        const emoji = folderEmojis[folder] || 'ðŸ“';
         message += `${emoji} ${folder}: ${count}\n`;
       });
     
-    // Dernières classifications
-    message += `\n📝 **Dernières classifications:**\n`;
+    // DerniÃ¨res classifications
+    message += `\nðŸ“ **DerniÃ¨res classifications:**\n`;
     memory.slice(-5).reverse().forEach(item => {
       const subject = item.subject.length > 35 
         ? item.subject.substring(0, 35) + '...' 
         : item.subject;
       const time = new Date(item.classifiedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      message += `• [${time}] "${subject}" → ${item.folder}\n`;
+      message += `â€¢ [${time}] "${subject}" â†’ ${item.folder}\n`;
     });
     
     return {
@@ -431,37 +431,37 @@ class MailAgent {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
       await outlookService.sendEmail(to, subject, body);
       
       // Logger l'envoi
-      statsService.addActivity('james', `Email envoyé à ${to}`);
+      statsService.addActivity('james', `Email envoyÃ© Ã  ${to}`);
       
       return {
         success: true,
-        message: `✅ Email envoyé à ${to}`
+        message: `âœ… Email envoyÃ© Ã  ${to}`
       };
     } catch (error) {
-      statsService.addActivity('james', `Échec envoi email: ${error.message}`, 'error');
+      statsService.addActivity('james', `Ã‰chec envoi email: ${error.message}`, 'error');
       return {
         success: false,
-        message: `❌ Erreur envoi: ${error.message}`
+        message: `âŒ Erreur envoi: ${error.message}`
       };
     }
   }
 
   /**
-   * Générer un brouillon de réponse
+   * GÃ©nÃ©rer un brouillon de rÃ©ponse
    */
   async draftReply(emailId, instructions) {
     try {
       const email = await outlookService.getEmailContent(emailId);
       const draft = await openaiService.draftEmailReply(email, instructions);
       
-      statsService.addActivity('james', 'Brouillon de réponse généré');
+      statsService.addActivity('james', 'Brouillon de rÃ©ponse gÃ©nÃ©rÃ©');
       
       return {
         success: true,
@@ -471,14 +471,14 @@ class MailAgent {
     } catch (error) {
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Rechercher et déplacer les emails qui correspondent à un pattern
-   * @param {string} pattern - Le pattern à rechercher (dans sujet, expéditeur, corps)
+   * Rechercher et dÃ©placer les emails qui correspondent Ã  un pattern
+   * @param {string} pattern - Le pattern Ã  rechercher (dans sujet, expÃ©diteur, corps)
    * @param {string} folder - Le dossier de destination
    */
   async searchAndMoveEmails(pattern, folder) {
@@ -486,15 +486,15 @@ class MailAgent {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage(),
+          message: "âŒ Outlook n'est pas connectÃ©.",
           found: 0,
           moved: 0
         };
       }
 
-      console.log(`🔍 Recherche des emails contenant "${pattern}" pour les déplacer vers ${folder}...`);
+      console.log(`ðŸ” Recherche des emails contenant "${pattern}" pour les dÃ©placer vers ${folder}...`);
       
-      // Récupérer plus d'emails pour la recherche
+      // RÃ©cupÃ©rer plus d'emails pour la recherche
       const emails = await outlookService.getEmails(200);
       
       // Filtrer les emails qui correspondent au pattern
@@ -511,50 +511,50 @@ class MailAgent {
                body.includes(patternLower);
       });
 
-      console.log(`📧 ${matchingEmails.length} emails trouvés correspondant à "${pattern}"`);
+      console.log(`ðŸ“§ ${matchingEmails.length} emails trouvÃ©s correspondant Ã  "${pattern}"`);
 
       if (matchingEmails.length === 0) {
         return {
           success: true,
-          message: `Aucun email trouvé contenant "${pattern}"`,
+          message: `Aucun email trouvÃ© contenant "${pattern}"`,
           found: 0,
           moved: 0
         };
       }
 
-      // S'assurer que le dossier existe (createFolder vérifie et crée si nécessaire)
+      // S'assurer que le dossier existe (createFolder vÃ©rifie et crÃ©e si nÃ©cessaire)
       try {
         await outlookService.createFolder(folder);
       } catch (folderError) {
-        // Le dossier existe probablement déjà, on continue
-        console.log(`📁 Dossier "${folder}" prêt`);
+        // Le dossier existe probablement dÃ©jÃ , on continue
+        console.log(`ðŸ“ Dossier "${folder}" prÃªt`);
       }
 
-      // Déplacer chaque email
+      // DÃ©placer chaque email
       let movedCount = 0;
       for (const email of matchingEmails) {
         try {
           await outlookService.moveEmailToFolder(email.id, folder);
           movedCount++;
-          console.log(`  ✅ Déplacé: "${email.subject?.substring(0, 50)}..." → ${folder}`);
+          console.log(`  âœ… DÃ©placÃ©: "${email.subject?.substring(0, 50)}..." â†’ ${folder}`);
           
           // Logger la classification
           statsService.logEmailClassified(folder);
         } catch (error) {
-          console.error(`  ❌ Erreur déplacement: ${error.message}`);
+          console.error(`  âŒ Erreur dÃ©placement: ${error.message}`);
         }
       }
 
-      statsService.addActivity('james', `${movedCount} emails "${pattern}" déplacés vers ${folder}`, 'success');
+      statsService.addActivity('james', `${movedCount} emails "${pattern}" dÃ©placÃ©s vers ${folder}`, 'success');
 
       return {
         success: true,
-        message: `${movedCount}/${matchingEmails.length} emails déplacés vers ${folder}`,
+        message: `${movedCount}/${matchingEmails.length} emails dÃ©placÃ©s vers ${folder}`,
         found: matchingEmails.length,
         moved: movedCount
       };
     } catch (error) {
-      console.error('❌ Erreur searchAndMoveEmails:', error);
+      console.error('âŒ Erreur searchAndMoveEmails:', error);
       return {
         success: false,
         message: `Erreur: ${error.message}`,
@@ -565,70 +565,70 @@ class MailAgent {
   }
 
   /**
-   * Créer un dossier personnalisé dans Outlook
-   * @param {string} folderName - Nom du dossier à créer
+   * CrÃ©er un dossier personnalisÃ© dans Outlook
+   * @param {string} folderName - Nom du dossier Ã  crÃ©er
    */
   async createFolder(folderName) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
       const result = await outlookService.createCustomFolder(folderName);
       
       if (result.success) {
-        statsService.addActivity('james', `Dossier "${folderName}" créé`, 'success');
+        statsService.addActivity('james', `Dossier "${folderName}" crÃ©Ã©`, 'success');
       }
       
       return result;
     } catch (error) {
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Supprimer un dossier Outlook (emails déplacés vers Inbox)
-   * @param {string} folderName - Nom du dossier à supprimer
+   * Supprimer un dossier Outlook (emails dÃ©placÃ©s vers Inbox)
+   * @param {string} folderName - Nom du dossier Ã  supprimer
    */
   async deleteFolder(folderName) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
       const result = await outlookService.deleteFolder(folderName);
       
       if (result.success) {
-        statsService.addActivity('james', `Dossier "${folderName}" supprimé`, 'success');
+        statsService.addActivity('james', `Dossier "${folderName}" supprimÃ©`, 'success');
       }
       
       return result;
     } catch (error) {
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Lister les dossiers personnalisés
+   * Lister les dossiers personnalisÃ©s
    */
   async listFolders() {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
@@ -637,52 +637,52 @@ class MailAgent {
       if (!result.success || result.folders.length === 0) {
         return {
           success: true,
-          message: "📁 Aucun dossier personnalisé trouvé."
+          message: "ðŸ“ Aucun dossier personnalisÃ© trouvÃ©."
         };
       }
 
-      const folderList = result.folders.map(f => `  • ${f.name}`).join('\n');
+      const folderList = result.folders.map(f => `  â€¢ ${f.name}`).join('\n');
       return {
         success: true,
-        message: `📁 **Dossiers Outlook**\n\n${folderList}`,
+        message: `ðŸ“ **Dossiers Outlook**\n\n${folderList}`,
         folders: result.folders
       };
     } catch (error) {
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Re-classifier les emails déjà classés selon les nouvelles règles
-   * Analyse tous les dossiers (ou un dossier spécifique) et re-déplace les emails si nécessaire
-   * @param {number} count - Nombre total d'emails à analyser
-   * @param {string} sourceFolder - Nom du dossier source (optionnel, si non spécifié = tous les dossiers)
+   * Re-classifier les emails dÃ©jÃ  classÃ©s selon les nouvelles rÃ¨gles
+   * Analyse tous les dossiers (ou un dossier spÃ©cifique) et re-dÃ©place les emails si nÃ©cessaire
+   * @param {number} count - Nombre total d'emails Ã  analyser
+   * @param {string} sourceFolder - Nom du dossier source (optionnel, si non spÃ©cifiÃ© = tous les dossiers)
    */
   async reclassifyEmails(count = 30, sourceFolder = null) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
-      // Recharger les règles depuis Supabase pour avoir la dernière version
+      // Recharger les rÃ¨gles depuis Supabase pour avoir la derniÃ¨re version
       await openaiService.initFromSupabase();
-      console.log(`📋 Règles rechargées: ${openaiService.customClassificationRules?.length || 0} règles actives`);
+      console.log(`ðŸ“‹ RÃ¨gles rechargÃ©es: ${openaiService.customClassificationRules?.length || 0} rÃ¨gles actives`);
 
       let allEmails;
       
       if (sourceFolder) {
-        // Récupérer les emails d'un dossier spécifique
-        console.log(`🔄 Re-classification des ${count} derniers emails du dossier "${sourceFolder}"...`);
+        // RÃ©cupÃ©rer les emails d'un dossier spÃ©cifique
+        console.log(`ðŸ”„ Re-classification des ${count} derniers emails du dossier "${sourceFolder}"...`);
         allEmails = await outlookService.getEmailsFromFolder(sourceFolder, count);
       } else {
-        // Récupérer de tous les dossiers
-        console.log(`🔄 Re-classification des emails (${count} par dossier)...`);
+        // RÃ©cupÃ©rer de tous les dossiers
+        console.log(`ðŸ”„ Re-classification des emails (${count} par dossier)...`);
         allEmails = await outlookService.getEmailsFromAllFolders(count);
       }
       
@@ -690,8 +690,8 @@ class MailAgent {
         return {
           success: true,
           message: sourceFolder 
-            ? `📭 Aucun email trouvé dans le dossier "${sourceFolder}".`
-            : "📭 Aucun email à re-classifier."
+            ? `ðŸ“­ Aucun email trouvÃ© dans le dossier "${sourceFolder}".`
+            : "ðŸ“­ Aucun email Ã  re-classifier."
         };
       }
 
@@ -701,15 +701,15 @@ class MailAgent {
         moved: 0,
         unchanged: 0,
         errors: 0,
-        movements: [] // Pour le rapport détaillé
+        movements: [] // Pour le rapport dÃ©taillÃ©
       };
 
-      // Analyser chaque email avec les règles actuelles
+      // Analyser chaque email avec les rÃ¨gles actuelles
       for (const email of allEmails) {
         try {
           stats.analyzed++;
           
-          // Demander à l'IA de classifier avec les règles actuelles
+          // Demander Ã  l'IA de classifier avec les rÃ¨gles actuelles
           const classification = await openaiService.classifyEmailForFolder({
             from: email.from?.emailAddress?.address || '',
             fromName: email.from?.emailAddress?.name || '',
@@ -717,24 +717,24 @@ class MailAgent {
             preview: email.bodyPreview || ''
           });
           
-          // Déterminer le dossier cible (nom)
+          // DÃ©terminer le dossier cible (nom)
           const targetFolderName = this.mapCategoryToFolder(classification.category);
           
           // Comparer avec le dossier actuel (normaliser pour comparaison)
-          const currentFolderNormalized = email.currentFolder?.toLowerCase().replace(/[🔴💼🛒📰🏦🤝\s]/g, '');
-          const targetFolderNormalized = targetFolderName?.toLowerCase().replace(/[🔴💼🛒📰🏦🤝\s]/g, '');
+          const currentFolderNormalized = email.currentFolder?.toLowerCase().replace(/[ðŸ”´ðŸ’¼ðŸ›’ðŸ“°ðŸ¦ðŸ¤\s]/g, '');
+          const targetFolderNormalized = targetFolderName?.toLowerCase().replace(/[ðŸ”´ðŸ’¼ðŸ›’ðŸ“°ðŸ¦ðŸ¤\s]/g, '');
           
           if (currentFolderNormalized !== targetFolderNormalized && targetFolderName) {
             // Convertir le nom du dossier cible en ID
             const targetFolderId = await outlookService.getFolderIdByName(targetFolderName);
             
             if (!targetFolderId) {
-              console.log(`  ⚠️ Dossier cible "${targetFolderName}" non trouvé, email ignoré`);
+              console.log(`  âš ï¸ Dossier cible "${targetFolderName}" non trouvÃ©, email ignorÃ©`);
               stats.errors++;
               continue;
             }
             
-            // Déplacer vers le nouveau dossier (avec sourceFolderId pour les sous-dossiers)
+            // DÃ©placer vers le nouveau dossier (avec sourceFolderId pour les sous-dossiers)
             try {
               await outlookService.moveEmailToFolder(email.id, targetFolderId, email.currentFolderId);
               stats.moved++;
@@ -742,46 +742,46 @@ class MailAgent {
                 subject: email.subject?.substring(0, 40) || 'Sans sujet',
                 from: email.currentFolder,
                 to: targetFolderName,
-                reason: classification.reason || 'Règle mise à jour'
+                reason: classification.reason || 'RÃ¨gle mise Ã  jour'
               });
-              console.log(`  ↪️ "${email.subject?.substring(0, 30)}..." : ${email.currentFolder} → ${targetFolderName}`);
+              console.log(`  â†ªï¸ "${email.subject?.substring(0, 30)}..." : ${email.currentFolder} â†’ ${targetFolderName}`);
             } catch (moveError) {
               stats.errors++;
-              console.error(`  ❌ Erreur déplacement:`, moveError.message);
+              console.error(`  âŒ Erreur dÃ©placement:`, moveError.message);
             }
           } else {
             stats.unchanged++;
           }
         } catch (emailError) {
           stats.errors++;
-          console.error(`  ⚠️ Erreur analyse email:`, emailError.message);
+          console.error(`  âš ï¸ Erreur analyse email:`, emailError.message);
         }
       }
 
-      // Générer le rapport
-      let message = `🔄 **Re-classification terminée**\n\n`;
+      // GÃ©nÃ©rer le rapport
+      let message = `ðŸ”„ **Re-classification terminÃ©e**\n\n`;
       if (sourceFolder) {
-        message += `📁 Dossier analysé: ${sourceFolder}\n\n`;
+        message += `ðŸ“ Dossier analysÃ©: ${sourceFolder}\n\n`;
       }
-      message += `📊 **Statistiques:**\n`;
-      message += `• ${stats.analyzed} emails analysés\n`;
-      message += `• ${stats.moved} emails déplacés\n`;
-      message += `• ${stats.unchanged} emails inchangés\n`;
+      message += `ðŸ“Š **Statistiques:**\n`;
+      message += `â€¢ ${stats.analyzed} emails analysÃ©s\n`;
+      message += `â€¢ ${stats.moved} emails dÃ©placÃ©s\n`;
+      message += `â€¢ ${stats.unchanged} emails inchangÃ©s\n`;
       if (stats.errors > 0) {
-        message += `• ${stats.errors} erreurs\n`;
+        message += `â€¢ ${stats.errors} erreurs\n`;
       }
       
       if (stats.movements.length > 0) {
-        message += `\n📦 **Déplacements:**\n`;
-        for (const mv of stats.movements.slice(0, 10)) { // Max 10 pour lisibilité
-          message += `• "${mv.subject}..."\n  ${mv.from} → ${mv.to}\n`;
+        message += `\nðŸ“¦ **DÃ©placements:**\n`;
+        for (const mv of stats.movements.slice(0, 10)) { // Max 10 pour lisibilitÃ©
+          message += `â€¢ "${mv.subject}..."\n  ${mv.from} â†’ ${mv.to}\n`;
         }
         if (stats.movements.length > 10) {
-          message += `\n... et ${stats.movements.length - 10} autres déplacements`;
+          message += `\n... et ${stats.movements.length - 10} autres dÃ©placements`;
         }
       }
 
-      statsService.addActivity('james', `Re-classification: ${stats.moved}/${stats.analyzed} emails déplacés`, 'success');
+      statsService.addActivity('james', `Re-classification: ${stats.moved}/${stats.analyzed} emails dÃ©placÃ©s`, 'success');
 
       return {
         success: true,
@@ -789,44 +789,44 @@ class MailAgent {
         stats
       };
     } catch (error) {
-      console.error('❌ Erreur reclassifyEmails:', error);
+      console.error('âŒ Erreur reclassifyEmails:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
   /**
-   * Mapper une catégorie vers un nom de dossier
+   * Mapper une catÃ©gorie vers un nom de dossier
    */
   mapCategoryToFolder(category) {
     const mapping = {
-      'urgent': '🔴 Urgent',
-      'professionnel': '💼 Professionnel',
-      'shopping': '🛒 Shopping',
-      'newsletter': '📰 Newsletter',
-      'finance': '🏦 Finance',
-      'social': '🤝 Social',
+      'urgent': 'ðŸ”´ Urgent',
+      'professionnel': 'ðŸ’¼ Professionnel',
+      'shopping': 'ðŸ›’ Shopping',
+      'newsletter': 'ðŸ“° Newsletter',
+      'finance': 'ðŸ¦ Finance',
+      'social': 'ðŸ¤ Social',
       'iscod': 'ISCOD'
     };
     
     const lowerCategory = (category || '').toLowerCase();
     
-    // Vérifier le mapping direct
+    // VÃ©rifier le mapping direct
     if (mapping[lowerCategory]) {
       return mapping[lowerCategory];
     }
     
-    // Sinon retourner la catégorie telle quelle (pour les dossiers personnalisés)
+    // Sinon retourner la catÃ©gorie telle quelle (pour les dossiers personnalisÃ©s)
     return category;
   }
 
   // ==================== GESTION DES BROUILLONS D'EMAILS ====================
 
   /**
-   * Créer un brouillon d'email à partir d'une demande en langage naturel
-   * @param {string} phoneNumber - Numéro de téléphone de l'utilisateur
+   * CrÃ©er un brouillon d'email Ã  partir d'une demande en langage naturel
+   * @param {string} phoneNumber - NumÃ©ro de tÃ©lÃ©phone de l'utilisateur
    * @param {string} request - La demande de l'utilisateur
    */
   async composeDraft(phoneNumber, request) {
@@ -834,7 +834,7 @@ class MailAgent {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©. Connectez-vous d'abord pour envoyer des emails."
         };
       }
 
@@ -844,7 +844,7 @@ class MailAgent {
       if (parsed.action === 'unclear' || !parsed.to) {
         return {
           success: false,
-          message: `❓ Je n'ai pas compris la demande d'email.\n\nPrécisez le destinataire et le message.\n\n**Exemple:**\n"Envoie un mail à jean@example.com pour lui dire bonjour et demander des nouvelles du projet"`
+          message: `â“ Je n'ai pas compris la demande d'email.\n\nPrÃ©cisez le destinataire et le message.\n\n**Exemple:**\n"Envoie un mail Ã  jean@example.com pour lui dire bonjour et demander des nouvelles du projet"`
         };
       }
 
@@ -853,11 +853,11 @@ class MailAgent {
       if (!emailRegex.test(parsed.to)) {
         return {
           success: false,
-          message: `❌ L'adresse email "${parsed.to}" ne semble pas valide.\n\nVérifiez l'adresse et réessayez.`
+          message: `âŒ L'adresse email "${parsed.to}" ne semble pas valide.\n\nVÃ©rifiez l'adresse et rÃ©essayez.`
         };
       }
 
-      // Générer le brouillon avec l'IA
+      // GÃ©nÃ©rer le brouillon avec l'IA
       const composed = await openaiService.composeEmail({
         to: parsed.to,
         intent: parsed.intent,
@@ -873,7 +873,7 @@ class MailAgent {
         context: request
       });
 
-      statsService.addActivity('james', `Brouillon créé pour ${parsed.to}`);
+      statsService.addActivity('james', `Brouillon crÃ©Ã© pour ${parsed.to}`);
 
       return {
         success: true,
@@ -881,16 +881,16 @@ class MailAgent {
         message: draftService.formatForDisplay(draftEntry)
       };
     } catch (error) {
-      console.error('❌ Erreur composeDraft:', error);
+      console.error('âŒ Erreur composeDraft:', error);
       return {
         success: false,
-        message: `❌ Erreur lors de la rédaction: ${error.message}`
+        message: `âŒ Erreur lors de la rÃ©daction: ${error.message}`
       };
     }
   }
 
   /**
-   * Vérifier si l'utilisateur a un brouillon en attente
+   * VÃ©rifier si l'utilisateur a un brouillon en attente
    * @param {string} phoneNumber 
    */
   hasPendingDraft(phoneNumber) {
@@ -898,7 +898,7 @@ class MailAgent {
   }
 
   /**
-   * Récupérer le brouillon en attente
+   * RÃ©cupÃ©rer le brouillon en attente
    * @param {string} phoneNumber 
    */
   getPendingDraft(phoneNumber) {
@@ -906,9 +906,9 @@ class MailAgent {
   }
 
   /**
-   * Réviser un brouillon existant
+   * RÃ©viser un brouillon existant
    * @param {string} phoneNumber 
-   * @param {string} instructions - Les modifications demandées
+   * @param {string} instructions - Les modifications demandÃ©es
    */
   async reviseDraft(phoneNumber, instructions) {
     try {
@@ -917,14 +917,14 @@ class MailAgent {
       if (!draftEntry) {
         return {
           success: false,
-          message: "📭 Aucun brouillon en cours. Commencez par demander un nouvel email."
+          message: "ðŸ“­ Aucun brouillon en cours. Commencez par demander un nouvel email."
         };
       }
 
-      // Réviser avec l'IA
+      // RÃ©viser avec l'IA
       const revised = await openaiService.reviseDraft(draftEntry.draft, instructions);
 
-      // Mettre à jour le brouillon
+      // Mettre Ã  jour le brouillon
       const updated = draftService.updateDraft(phoneNumber, {
         subject: revised.subject,
         body: revised.body
@@ -937,10 +937,10 @@ class MailAgent {
         message: draftService.formatForDisplay(updated)
       };
     } catch (error) {
-      console.error('❌ Erreur reviseDraft:', error);
+      console.error('âŒ Erreur reviseDraft:', error);
       return {
         success: false,
-        message: `❌ Erreur lors de la révision: ${error.message}`
+        message: `âŒ Erreur lors de la rÃ©vision: ${error.message}`
       };
     }
   }
@@ -956,14 +956,14 @@ class MailAgent {
       if (!draftEntry) {
         return {
           success: false,
-          message: "📭 Aucun brouillon à envoyer. Rédigez d'abord un email."
+          message: "ðŸ“­ Aucun brouillon Ã  envoyer. RÃ©digez d'abord un email."
         };
       }
 
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
@@ -972,20 +972,20 @@ class MailAgent {
       // Envoyer l'email
       await outlookService.sendEmail(to, subject, body);
 
-      // Marquer comme envoyé
+      // Marquer comme envoyÃ©
       draftService.markAsSent(phoneNumber);
 
-      statsService.addActivity('james', `Email envoyé à ${to}`);
+      statsService.addActivity('james', `Email envoyÃ© Ã  ${to}`);
 
       return {
         success: true,
-        message: `✅ **Email envoyé avec succès !**\n\n📧 **À:** ${to}\n📌 **Sujet:** ${subject}\n\n_L'email a été envoyé depuis votre compte Outlook._`
+        message: `âœ… **Email envoyÃ© avec succÃ¨s !**\n\nðŸ“§ **Ã€:** ${to}\nðŸ“Œ **Sujet:** ${subject}\n\n_L'email a Ã©tÃ© envoyÃ© depuis votre compte Outlook._`
       };
     } catch (error) {
-      console.error('❌ Erreur sendDraft:', error);
+      console.error('âŒ Erreur sendDraft:', error);
       return {
         success: false,
-        message: `❌ Erreur lors de l'envoi: ${error.message}`
+        message: `âŒ Erreur lors de l'envoi: ${error.message}`
       };
     }
   }
@@ -1000,87 +1000,87 @@ class MailAgent {
     if (existed) {
       return {
         success: true,
-        message: "🗑️ Brouillon annulé. L'email ne sera pas envoyé."
+        message: "ðŸ—‘ï¸ Brouillon annulÃ©. L'email ne sera pas envoyÃ©."
       };
     }
     
     return {
       success: true,
-      message: "📭 Aucun brouillon en cours."
+      message: "ðŸ“­ Aucun brouillon en cours."
     };
   }
 
   // ==================== RECHERCHE INTELLIGENTE ====================
 
   /**
-   * Rechercher des emails avec des critères en langage naturel
+   * Rechercher des emails avec des critÃ¨res en langage naturel
    * @param {string} phoneNumber - Pour garder en cache
-   * @param {Object} criteria - Critères de recherche
+   * @param {Object} criteria - CritÃ¨res de recherche
    */
   async searchEmails(phoneNumber, criteria) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
-      console.log('🔍 James recherche des emails:', criteria);
+      console.log('ðŸ” James recherche des emails:', criteria);
       
       const emails = await outlookService.searchEmails(criteria);
       
-      // Sauvegarder en cache pour "réponds au dernier"
+      // Sauvegarder en cache pour "rÃ©ponds au dernier"
       this.lastSearchResults.set(phoneNumber, emails);
       
       if (emails.length === 0) {
         return {
           success: true,
-          message: `📭 Aucun email trouvé pour cette recherche.`,
+          message: `ðŸ“­ Aucun email trouvÃ© pour cette recherche.`,
           count: 0
         };
       }
 
-      // Résumer les résultats avec l'IA
+      // RÃ©sumer les rÃ©sultats avec l'IA
       const summary = await openaiService.summarizeEmails(emails, {
-        instruction: 'Résume les résultats de recherche de manière concise, en mettant en avant les emails les plus pertinents.'
+        instruction: 'RÃ©sume les rÃ©sultats de recherche de maniÃ¨re concise, en mettant en avant les emails les plus pertinents.'
       });
 
-      statsService.addActivity('james', `Recherche: ${emails.length} emails trouvés`);
+      statsService.addActivity('james', `Recherche: ${emails.length} emails trouvÃ©s`);
 
       return {
         success: true,
-        message: `🔍 **${emails.length} email(s) trouvé(s)**\n\n${summary}`,
+        message: `ðŸ” **${emails.length} email(s) trouvÃ©(s)**\n\n${summary}`,
         count: emails.length,
         emails: emails
       };
     } catch (error) {
-      console.error('❌ Erreur searchEmails:', error);
+      console.error('âŒ Erreur searchEmails:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
-  // ==================== RÉPONSE RAPIDE ====================
+  // ==================== RÃ‰PONSE RAPIDE ====================
 
   /**
-   * Répondre au dernier email d'un expéditeur
+   * RÃ©pondre au dernier email d'un expÃ©diteur
    * @param {string} phoneNumber 
-   * @param {string} from - Expéditeur (nom ou email)
-   * @param {string} instructions - Instructions pour la réponse
+   * @param {string} from - ExpÃ©diteur (nom ou email)
+   * @param {string} instructions - Instructions pour la rÃ©ponse
    */
   async replyToEmail(phoneNumber, from, instructions) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
-      // Chercher le dernier email de cet expéditeur
+      // Chercher le dernier email de cet expÃ©diteur
       const emails = await outlookService.searchEmails({
         from: from,
         limit: 1
@@ -1089,19 +1089,19 @@ class MailAgent {
       if (emails.length === 0) {
         return {
           success: false,
-          message: `📭 Aucun email trouvé de "${from}".`
+          message: `ðŸ“­ Aucun email trouvÃ© de "${from}".`
         };
       }
 
       const originalEmail = emails[0];
       
-      // Récupérer le contenu complet
+      // RÃ©cupÃ©rer le contenu complet
       const fullEmail = await outlookService.getEmailById(originalEmail.id);
       
-      // Générer la réponse avec l'IA
+      // GÃ©nÃ©rer la rÃ©ponse avec l'IA
       const replyContent = await openaiService.draftEmailReply(fullEmail, instructions);
       
-      // Créer un brouillon pour validation
+      // CrÃ©er un brouillon pour validation
       const replySubject = fullEmail.subject.startsWith('Re:') 
         ? fullEmail.subject 
         : `Re: ${fullEmail.subject}`;
@@ -1110,12 +1110,12 @@ class MailAgent {
         to: fullEmail.from,
         subject: replySubject,
         body: replyContent,
-        context: `Réponse à l'email de ${fullEmail.fromName || fullEmail.from}`
+        context: `RÃ©ponse Ã  l'email de ${fullEmail.fromName || fullEmail.from}`
       });
 
       const draftEntry = draftService.getDraft(phoneNumber);
 
-      statsService.addActivity('james', `Réponse préparée pour ${fullEmail.from}`);
+      statsService.addActivity('james', `RÃ©ponse prÃ©parÃ©e pour ${fullEmail.from}`);
 
       return {
         success: true,
@@ -1125,13 +1125,13 @@ class MailAgent {
           subject: fullEmail.subject,
           preview: fullEmail.preview?.substring(0, 100)
         },
-        message: `📩 **Réponse à l'email de ${fullEmail.fromName || fullEmail.from}**\n\n📌 **Sujet original:** ${fullEmail.subject}\n\n${draftService.formatForDisplay(draftEntry)}`
+        message: `ðŸ“© **RÃ©ponse Ã  l'email de ${fullEmail.fromName || fullEmail.from}**\n\nðŸ“Œ **Sujet original:** ${fullEmail.subject}\n\n${draftService.formatForDisplay(draftEntry)}`
       };
     } catch (error) {
-      console.error('❌ Erreur replyToEmail:', error);
+      console.error('âŒ Erreur replyToEmail:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
@@ -1140,18 +1140,18 @@ class MailAgent {
 
   /**
    * Supprimer des emails en masse
-   * @param {Object} criteria - Critères de suppression
+   * @param {Object} criteria - CritÃ¨res de suppression
    */
   async cleanupEmails(criteria) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
-      console.log('🗑️ James nettoie les emails:', criteria);
+      console.log('ðŸ—‘ï¸ James nettoie les emails:', criteria);
 
       const result = await outlookService.deleteEmails(criteria);
 
@@ -1159,20 +1159,20 @@ class MailAgent {
         return result;
       }
 
-      statsService.addActivity('james', `Nettoyage: ${result.deleted} emails supprimés`);
+      statsService.addActivity('james', `Nettoyage: ${result.deleted} emails supprimÃ©s`);
 
-      let message = `🗑️ **Nettoyage terminé**\n\n`;
-      message += `📊 **Résultat:**\n`;
-      message += `• ${result.deleted} email(s) supprimé(s)\n`;
+      let message = `ðŸ—‘ï¸ **Nettoyage terminÃ©**\n\n`;
+      message += `ðŸ“Š **RÃ©sultat:**\n`;
+      message += `â€¢ ${result.deleted} email(s) supprimÃ©(s)\n`;
       
       if (criteria.folder) {
-        message += `• Dossier: ${criteria.folder}\n`;
+        message += `â€¢ Dossier: ${criteria.folder}\n`;
       }
       if (criteria.from) {
-        message += `• Expéditeur: ${criteria.from}\n`;
+        message += `â€¢ ExpÃ©diteur: ${criteria.from}\n`;
       }
       if (criteria.olderThanDays) {
-        message += `• Plus vieux que ${criteria.olderThanDays} jours\n`;
+        message += `â€¢ Plus vieux que ${criteria.olderThanDays} jours\n`;
       }
 
       return {
@@ -1181,10 +1181,10 @@ class MailAgent {
         deleted: result.deleted
       };
     } catch (error) {
-      console.error('❌ Erreur cleanupEmails:', error);
+      console.error('âŒ Erreur cleanupEmails:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
@@ -1192,7 +1192,7 @@ class MailAgent {
   // ==================== RAPPELS ====================
 
   /**
-   * Créer un rappel
+   * CrÃ©er un rappel
    * @param {string} phoneNumber 
    * @param {string} text - Demande en langage naturel
    */
@@ -1204,7 +1204,7 @@ class MailAgent {
       if (!parsed.isValid) {
         return {
           success: false,
-          message: `❓ Je n'ai pas compris quand vous rappeler.\n\n**Exemples:**\n• "Rappelle-moi demain à 9h d'envoyer le rapport"\n• "Rappelle-moi dans 2 heures de répondre à Pierre"\n• "Rappelle-moi lundi à 14h de la réunion"`
+          message: `â“ Je n'ai pas compris quand vous rappeler.\n\n**Exemples:**\nâ€¢ "Rappelle-moi demain Ã  9h d'envoyer le rapport"\nâ€¢ "Rappelle-moi dans 2 heures de rÃ©pondre Ã  Pierre"\nâ€¢ "Rappelle-moi lundi Ã  14h de la rÃ©union"`
         };
       }
 
@@ -1217,10 +1217,10 @@ class MailAgent {
 
       return result;
     } catch (error) {
-      console.error('❌ Erreur createReminder:', error);
+      console.error('âŒ Erreur createReminder:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
@@ -1236,11 +1236,11 @@ class MailAgent {
       if (reminders.length === 0) {
         return {
           success: true,
-          message: "📭 Aucun rappel programmé."
+          message: "ðŸ“­ Aucun rappel programmÃ©."
         };
       }
 
-      let message = `⏰ **Vos rappels (${reminders.length})**\n\n`;
+      let message = `â° **Vos rappels (${reminders.length})**\n\n`;
       
       reminders.forEach((r, i) => {
         const dateStr = r.triggerAt.toLocaleDateString('fr-FR', {
@@ -1253,7 +1253,7 @@ class MailAgent {
           minute: '2-digit'
         });
         
-        message += `${i + 1}. 📅 ${dateStr} à ${timeStr}\n   📝 ${r.message}\n\n`;
+        message += `${i + 1}. ðŸ“… ${dateStr} Ã  ${timeStr}\n   ðŸ“ ${r.message}\n\n`;
       });
 
       return {
@@ -1264,27 +1264,27 @@ class MailAgent {
     } catch (error) {
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
 
-  // ==================== RÉSUMÉ QUOTIDIEN ====================
+  // ==================== RÃ‰SUMÃ‰ QUOTIDIEN ====================
 
   /**
-   * Générer un résumé de la journée mail
-   * @param {number} count - Nombre d'emails à analyser
+   * GÃ©nÃ©rer un rÃ©sumÃ© de la journÃ©e mail
+   * @param {number} count - Nombre d'emails Ã  analyser
    */
   async getDailySummary(count = 50) {
     try {
       if (!outlookService.isConnected()) {
         return {
           success: false,
-          message: this.getNotConnectedMessage()
+          message: "âŒ Outlook n'est pas connectÃ©."
         };
       }
 
-      // Récupérer les emails d'aujourd'hui
+      // RÃ©cupÃ©rer les emails d'aujourd'hui
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -1300,40 +1300,40 @@ class MailAgent {
         e.subject?.toLowerCase().includes('urgent')
       );
       
-      // Emails flaggés (à suivre)
+      // Emails flaggÃ©s (Ã  suivre)
       const flaggedEmails = emails.filter(e => e.isFlagged);
 
-      // Générer le résumé avec l'IA
-      let message = `📊 **Résumé de votre journée mail**\n\n`;
-      message += `📬 **Aujourd'hui:** ${todayEmails.length} email(s) reçu(s)\n`;
-      message += `📭 **Non lus:** ${unreadEmails.length} email(s)\n`;
-      message += `⚠️ **Urgents/Importants:** ${importantEmails.length} email(s)\n`;
-      message += `🚩 **À suivre:** ${flaggedEmails.length} email(s)\n\n`;
+      // GÃ©nÃ©rer le rÃ©sumÃ© avec l'IA
+      let message = `ðŸ“Š **RÃ©sumÃ© de votre journÃ©e mail**\n\n`;
+      message += `ðŸ“¬ **Aujourd'hui:** ${todayEmails.length} email(s) reÃ§u(s)\n`;
+      message += `ðŸ“­ **Non lus:** ${unreadEmails.length} email(s)\n`;
+      message += `âš ï¸ **Urgents/Importants:** ${importantEmails.length} email(s)\n`;
+      message += `ðŸš© **Ã€ suivre:** ${flaggedEmails.length} email(s)\n\n`;
 
       if (importantEmails.length > 0) {
-        message += `🔴 **Emails prioritaires:**\n`;
+        message += `ðŸ”´ **Emails prioritaires:**\n`;
         for (const email of importantEmails.slice(0, 5)) {
-          message += `• ${email.fromName || email.from}: "${email.subject?.substring(0, 40)}..."\n`;
+          message += `â€¢ ${email.fromName || email.from}: "${email.subject?.substring(0, 40)}..."\n`;
         }
         message += '\n';
       }
 
       if (unreadEmails.length > 0) {
-        // Résumer les non lus
+        // RÃ©sumer les non lus
         const unreadSummary = await openaiService.summarizeEmails(unreadEmails.slice(0, 10), {
-          instruction: 'Résume très brièvement les emails non lus en mettant en avant les actions requises.'
+          instruction: 'RÃ©sume trÃ¨s briÃ¨vement les emails non lus en mettant en avant les actions requises.'
         });
-        message += `📝 **Résumé des non lus:**\n${unreadSummary}\n\n`;
+        message += `ðŸ“ **RÃ©sumÃ© des non lus:**\n${unreadSummary}\n\n`;
       }
 
       if (flaggedEmails.length > 0) {
-        message += `🚩 **Emails à suivre:**\n`;
+        message += `ðŸš© **Emails Ã  suivre:**\n`;
         for (const email of flaggedEmails.slice(0, 3)) {
-          message += `• ${email.fromName || email.from}: "${email.subject?.substring(0, 40)}..."\n`;
+          message += `â€¢ ${email.fromName || email.from}: "${email.subject?.substring(0, 40)}..."\n`;
         }
       }
 
-      statsService.addActivity('james', 'Résumé quotidien généré');
+      statsService.addActivity('james', 'RÃ©sumÃ© quotidien gÃ©nÃ©rÃ©');
 
       return {
         success: true,
@@ -1346,10 +1346,10 @@ class MailAgent {
         }
       };
     } catch (error) {
-      console.error('❌ Erreur getDailySummary:', error);
+      console.error('âŒ Erreur getDailySummary:', error);
       return {
         success: false,
-        message: `❌ Erreur: ${error.message}`
+        message: `âŒ Erreur: ${error.message}`
       };
     }
   }
