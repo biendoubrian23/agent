@@ -484,6 +484,9 @@ EXEMPLES:
       case 'email_search':
         return { action: 'email_search', params: { query: params.query, filter: params.filter } };
       
+      case 'contact_search':
+        return { action: 'contact_search', params: { name: params.name || params.query, text: params.text } };
+      
       case 'set_reminder':
       case 'create_reminder':
         return { action: 'create_reminder', params: { message: params.message || params.text, delay: params.delay, time: params.time, text: params.text } };
