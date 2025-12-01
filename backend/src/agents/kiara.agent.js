@@ -725,30 +725,39 @@ Réponds en JSON avec ce format exact:
       });
     }
 
+    // Utiliser le user_id du profil si disponible
+    const userId = supabaseService.defaultUserId;
+    
+    const insertData = {
+      title: article.title,
+      slug: slug,
+      excerpt: article.excerpt,
+      content: article.content,
+      meta_title: article.meta_title || article.title,
+      meta_description: article.meta_description,
+      keywords: article.keywords,
+      canonical_url: null,
+      sources: formattedSources,
+      category: article.category,
+      tags: article.tags,
+      author_name: 'Brian Biendou',
+      author_avatar_url: null,
+      status: 'draft',
+      published_at: null,
+      scheduled_for: null,
+      reading_time_minutes: article.reading_time_minutes || 5,
+      views_count: 0,
+      cover_image_url: article.cover_image || article.cover_image_url || null
+    };
+
+    // Ajouter user_id seulement si c'est un UUID valide (pas le fictif)
+    if (userId && userId !== '00000000-0000-0000-0000-000000000001') {
+      insertData.user_id = userId;
+    }
+
     const { data, error } = await supabaseService.client
       .from('blog_posts')
-      .insert({
-        // user_id: supabaseService.defaultUserId, // Désactivé - contrainte FK vers table users inexistante
-        title: article.title,
-        slug: slug,
-        excerpt: article.excerpt,
-        content: article.content,
-        meta_title: article.meta_title || article.title,
-        meta_description: article.meta_description,
-        keywords: article.keywords,
-        canonical_url: null,
-        sources: formattedSources,
-        category: article.category,
-        tags: article.tags,
-        author_name: 'Brian Biendou',
-        author_avatar_url: null,
-        status: 'draft',
-        published_at: null,
-        scheduled_for: null,
-        reading_time_minutes: article.reading_time_minutes || 5,
-        views_count: 0,
-        cover_image_url: article.cover_image || article.cover_image_url || null
-      })
+      .insert(insertData)
       .select()
       .single();
 

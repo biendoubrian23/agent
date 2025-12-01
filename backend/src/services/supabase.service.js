@@ -18,9 +18,8 @@ class SupabaseService {
       console.log('✅ Supabase connecté' + (process.env.SUPABASE_SERVICE_ROLE_KEY ? ' (service_role)' : ' (anon)'));
     }
 
-    // ID utilisateur par défaut pour le développement
-    // Utilise un UUID fixe si pas d'auth Supabase
-    this.defaultUserId = process.env.SUPABASE_DEFAULT_USER_ID || '00000000-0000-0000-0000-000000000001';
+    // ID utilisateur par défaut - ton vrai user_id de la table profiles
+    this.defaultUserId = process.env.SUPABASE_DEFAULT_USER_ID || 'f2167a40-043d-4941-bea4-f1dfe3fdd0f1';
     console.log('👤 User ID par défaut:', this.defaultUserId);
   }
 
