@@ -109,6 +109,74 @@ class WhatsAppService {
     
     return null;
   }
+
+  /**
+   * Envoyer un document (PDF, etc.) via WhatsApp
+   * Note: Nécessite que le fichier soit accessible via une URL publique
+   */
+  async sendDocument(to, documentUrl, filename, caption = '') {
+    try {
+      const response = await axios.post(
+        this.apiUrl,
+        {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: to,
+          type: 'document',
+          document: {
+            link: documentUrl,
+            filename: filename,
+            caption: caption
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('✅ Document WhatsApp envoyé:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur envoi document WhatsApp:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Envoyer une image via WhatsApp
+   */
+  async sendImage(to, imageUrl, caption = '') {
+    try {
+      const response = await axios.post(
+        this.apiUrl,
+        {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: to,
+          type: 'image',
+          image: {
+            link: imageUrl,
+            caption: caption
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('✅ Image WhatsApp envoyée:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur envoi image WhatsApp:', error.response?.data || error.message);
+      throw error;
+    }
+  }
 }
 
 module.exports = new WhatsAppService();

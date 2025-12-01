@@ -1,6 +1,7 @@
 const openaiService = require('../services/openai.service');
 const whatsappService = require('../services/whatsapp.service');
 const mailAgent = require('./mail.agent');
+const kiaraAgent = require('./kiara.agent');
 const outlookService = require('../services/outlook.service');
 const statsService = require('../services/stats.service');
 
@@ -26,6 +27,10 @@ class PrincipalAgent {
 - **James** (Mail Assistant): Gère TOUT ce qui concerne les emails (Outlook)
   - Classification, résumés, envoi, règles de tri
   - Mots-clés: mail, email, message, boîte de réception, outlook, dossier, classe, trie
+  
+- **Kiara** (SEO & Blog Manager): Gère TOUT ce qui concerne le blog et le contenu SEO
+  - Tendances, articles, statistiques, publications
+  - Mots-clés: blog, article, tendance, seo, stats, vues, publier, kiara, rédiger
   
 - **Magali** (Conseillère Bancaire): Analyse financière (pas encore actif)
   - Relevés bancaires, budgets, analyses PDF financiers
@@ -211,6 +216,8 @@ EXEMPLES:
       statsService.logRequest(intent.agent);
     } else if (intent.action && intent.action.startsWith('email')) {
       statsService.logRequest('james');
+    } else if (intent.action && intent.action.startsWith('kiara')) {
+      statsService.logRequest('kiara');
     } else {
       statsService.logRequest('brian');
     }
@@ -332,6 +339,39 @@ EXEMPLES:
 
       case 'describe_james':
         response = this.getJamesCapabilities();
+        break;
+
+      // ========== KIARA ACTIONS ==========
+      case 'kiara_trends':
+        response = await this.handleKiaraTrends(intent.params);
+        break;
+
+      case 'kiara_generate_article':
+        response = await this.handleKiaraGenerateArticle(intent.params);
+        break;
+
+      case 'kiara_publish':
+        response = await this.handleKiaraPublish(intent.params);
+        break;
+
+      case 'kiara_daily_stats':
+        response = await this.handleKiaraDailyStats();
+        break;
+
+      case 'kiara_global_stats':
+        response = await this.handleKiaraGlobalStats();
+        break;
+
+      case 'kiara_article_stats':
+        response = await this.handleKiaraArticleStats(intent.params);
+        break;
+
+      case 'kiara_general':
+        response = await this.handleKiaraGeneral(from, intent.params);
+        break;
+
+      case 'kiara_complete_workflow':
+        response = await this.handleKiaraCompleteWorkflow(from, intent.params);
         break;
 
       default:
@@ -743,6 +783,92 @@ EXEMPLES:
       return { action: 'daily_summary', params: {} };
     }
 
+    // ========== KIARA - SEO & Blog ==========
+    
+    // Détection des demandes Kiara
+    const isKiaraRequest = (
+      lowerText.includes('kiara') ||
+      lowerText.includes('blog') ||
+      lowerText.includes('article') ||
+      lowerText.includes('seo') ||
+      lowerText.includes('tendance') ||
+      lowerText.includes('trend') ||
+      (lowerText.includes('stats') && !lowerText.includes('mail')) ||
+      (lowerText.includes('statistique') && !lowerText.includes('mail')) ||
+      lowerText.includes('vues') ||
+      lowerText.includes('rédige') ||
+      lowerText.includes('redige') ||
+      lowerText.includes('écris un article') ||
+      lowerText.includes('publie') ||
+      lowerText.includes('publish') ||
+      lowerText.includes('pdf') ||
+      lowerText.includes('poster sur') ||
+      lowerText.includes('site internet') ||
+      lowerText.includes('portfolio') ||
+      (lowerText.includes('meilleur') && !lowerText.includes('mail')) ||
+      (lowerText.includes('recherche') && (lowerText.includes('article') || lowerText.includes('sujet') || lowerText.includes('tech'))) ||
+      lowerText.includes('programme pour') ||
+      lowerText.includes('carte graphique') ||
+      lowerText.includes('gpu') ||
+      lowerText.includes('actualité tech')
+    );
+
+    if (isKiaraRequest) {
+      // Workflow complet: recherche + rédaction + PDF + publication
+      const isCompleteWorkflow = (
+        (lowerText.includes('recherche') || lowerText.includes('meilleur')) &&
+        (lowerText.includes('rédige') || lowerText.includes('redige') || lowerText.includes('écris') || lowerText.includes('article')) &&
+        (lowerText.includes('publie') || lowerText.includes('poster') || lowerText.includes('site'))
+      );
+      
+      if (isCompleteWorkflow) {
+        return { action: 'kiara_complete_workflow', params: { query: text } };
+      }
+
+      // Stats du blog
+      if (lowerText.includes('stats') || lowerText.includes('statistique') || 
+          lowerText.includes('vues') || lowerText.includes('views') || lowerText.includes('performance')) {
+        
+        // Stats d'un article spécifique
+        if (lowerText.includes('article') || lowerText.includes('slug')) {
+          const articleMatch = lowerText.match(/article\s+["']?([^"'\s]+)["']?|slug\s+["']?([^"'\s]+)["']?/i);
+          const articleSlug = articleMatch ? (articleMatch[1] || articleMatch[2]) : null;
+          return { action: 'kiara_article_stats', params: { slug: articleSlug, query: text } };
+        }
+        
+        // Stats globales ou du jour
+        if (lowerText.includes('aujourd') || lowerText.includes('jour') || lowerText.includes('daily') || lowerText.includes('today')) {
+          return { action: 'kiara_daily_stats', params: {} };
+        }
+        
+        return { action: 'kiara_global_stats', params: {} };
+      }
+
+      // Tendances
+      if (lowerText.includes('tendance') || lowerText.includes('trend') || lowerText.includes('actualité')) {
+        const topicMatch = lowerText.match(/tendance[s]?\s+(?:sur|de|du|en)?\s*["']?([^"'\n]+?)["']?(?:\s|$|!|\?)/i) ||
+                          lowerText.match(/trend[s]?\s+(?:on|about|in)?\s*["']?([^"'\n]+?)["']?(?:\s|$|!|\?)/i);
+        const topic = topicMatch ? topicMatch[1].trim() : 'tech';
+        return { action: 'kiara_trends', params: { topic } };
+      }
+
+      // Génération d'article
+      if (lowerText.includes('rédige') || lowerText.includes('redige') || lowerText.includes('génère') || 
+          lowerText.includes('genere') || lowerText.includes('écris') || lowerText.includes('ecris') ||
+          lowerText.includes('créer un article') || lowerText.includes('creer un article') ||
+          (lowerText.includes('article') && (lowerText.includes('sur') || lowerText.includes('à propos')))) {
+        return { action: 'kiara_generate_article', params: { query: text } };
+      }
+
+      // Publication
+      if (lowerText.includes('publie') || lowerText.includes('publish')) {
+        return { action: 'kiara_publish', params: { query: text } };
+      }
+
+      // Demande générique à Kiara
+      return { action: 'kiara_general', params: { message: text } };
+    }
+
     return { action: 'general', params: { text } };
   }
 
@@ -751,9 +877,9 @@ EXEMPLES:
    */
   async handleGreeting(params) {
     const greetings = [
-      `👋 Salut ! Je suis Brian, ton assistant principal.\n\nJe manage une équipe d'agents IA:\n• 📧 **James** - Gestion des emails\n• 💰 **Magali** - Conseils bancaires (bientôt)\n\nQue puis-je faire pour toi ?`,
-      `Hey ! 👋 Brian à ton service !\n\nDis-moi ce dont tu as besoin:\n• Emails ? Je passe le relais à James\n• Questions ? Je réponds directement\n\nTape "aide" pour voir toutes mes capacités !`,
-      `Bonjour ! 🙌 Je suis Brian.\n\nJe suis là pour t'aider avec tes emails (via James) et bientôt tes finances (via Magali).\n\nQu'est-ce que je peux faire pour toi ?`
+      `👋 Salut ! Je suis Brian, ton assistant principal.\n\nJe manage une équipe d'agents IA:\n• 📧 **James** - Gestion des emails\n• ✍️ **Kiara** - SEO & Blog\n• 💰 **Magali** - Conseils bancaires (bientôt)\n\nQue puis-je faire pour toi ?`,
+      `Hey ! 👋 Brian à ton service !\n\nDis-moi ce dont tu as besoin:\n• Emails ? Je passe le relais à James\n• Blog/SEO ? Kiara s'en occupe\n• Questions ? Je réponds directement\n\nTape "aide" pour voir toutes mes capacités !`,
+      `Bonjour ! 🙌 Je suis Brian.\n\nJe suis là pour t'aider avec:\n• 📧 Tes emails (via James)\n• ✍️ Ton blog (via Kiara)\n• 💰 Tes finances (via Magali - bientôt)\n\nQu'est-ce que je peux faire pour toi ?`
     ];
     
     return greetings[Math.floor(Math.random() * greetings.length)];
@@ -1314,7 +1440,40 @@ EXEMPLES:
 
 🔧 **STATUS & CONNEXION**
 • "Quel est le status de ma connexion Outlook ?"
-• "Reconnecte mon compte email"`;
+• "Reconnecte mon compte email"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✍️ **KIARA - SEO & BLOG MANAGER**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 **RECHERCHE DE TENDANCES**
+• "Kiara, quelles sont les tendances IA ?"
+• "Tendances tech du moment"
+• "Actualités sur le développement web"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✍️ **GÉNÉRATION D'ARTICLES**
+• "Kiara, rédige un article sur l'IA générative"
+• "Écris un article SEO sur le machine learning"
+• "Génère un article à propos des tendances tech 2025"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 **STATISTIQUES DU BLOG**
+• "Stats du blog aujourd'hui"
+• "Stats globales du blog"
+• "Stats de l'article intelligence-artificielle"
+• "Quelles sont les performances du blog ?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📤 **PUBLICATION**
+• "Publie l'article sur le blog"
+• "Programme cet article pour demain 9h"`;
   }
 
   /**
@@ -1656,6 +1815,153 @@ Agents disponibles:
     const message = `📬 **Nouveaux emails détectés !**\n\n${summary}`;
 
     await whatsappService.sendLongMessage(this.myPhoneNumber, message);
+  }
+
+  // ========================================
+  // ========== KIARA HANDLERS =============
+  // ========================================
+
+  /**
+   * Recherche de tendances
+   */
+  async handleKiaraTrends(params) {
+    const topic = params.topic || 'tech';
+    console.log(`🔍 Kiara recherche les tendances: ${topic}...`);
+    
+    try {
+      const result = await kiaraAgent.searchTrends(topic);
+      
+      if (result.success) {
+        return `🎯 **Kiara** - Tendances "${topic}":\n\n${result.message}`;
+      } else {
+        return `❌ Kiara n'a pas pu trouver les tendances: ${result.message}`;
+      }
+    } catch (error) {
+      console.error('Erreur Kiara trends:', error);
+      return `❌ Erreur lors de la recherche de tendances: ${error.message}`;
+    }
+  }
+
+  /**
+   * Génération d'article
+   */
+  async handleKiaraGenerateArticle(params) {
+    console.log(`✍️ Kiara génère un article...`);
+    
+    try {
+      const result = await kiaraAgent.handleMessage(params.query, 'user');
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara article:', error);
+      return `❌ Erreur lors de la génération de l'article: ${error.message}`;
+    }
+  }
+
+  /**
+   * Publication d'article
+   */
+  async handleKiaraPublish(params) {
+    console.log(`📤 Kiara prépare la publication...`);
+    
+    try {
+      const result = await kiaraAgent.handleMessage(params.query, 'user');
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara publish:', error);
+      return `❌ Erreur lors de la publication: ${error.message}`;
+    }
+  }
+
+  /**
+   * Stats du jour
+   */
+  async handleKiaraDailyStats() {
+    console.log(`📊 Kiara récupère les stats du jour...`);
+    
+    try {
+      const result = await kiaraAgent.getDailyStats();
+      
+      if (result.success) {
+        return `📊 **Kiara** - Stats du jour:\n\n${result.message}`;
+      } else {
+        return `❌ Kiara n'a pas pu récupérer les stats: ${result.message}`;
+      }
+    } catch (error) {
+      console.error('Erreur Kiara daily stats:', error);
+      return `❌ Erreur lors de la récupération des stats: ${error.message}`;
+    }
+  }
+
+  /**
+   * Stats globales du blog
+   */
+  async handleKiaraGlobalStats() {
+    console.log(`📈 Kiara récupère les stats globales...`);
+    
+    try {
+      const result = await kiaraAgent.getGlobalStats();
+      
+      if (result.success) {
+        return `📈 **Kiara** - Stats globales du blog:\n\n${result.message}`;
+      } else {
+        return `❌ Kiara n'a pas pu récupérer les stats: ${result.message}`;
+      }
+    } catch (error) {
+      console.error('Erreur Kiara global stats:', error);
+      return `❌ Erreur lors de la récupération des stats: ${error.message}`;
+    }
+  }
+
+  /**
+   * Stats d'un article spécifique
+   */
+  async handleKiaraArticleStats(params) {
+    console.log(`📊 Kiara récupère les stats de l'article...`);
+    
+    try {
+      // Si on a un slug, on l'utilise, sinon on passe la query
+      const identifier = params.slug || params.query;
+      const result = await kiaraAgent.getArticleStats(identifier);
+      
+      if (result.success) {
+        return `📊 **Kiara** - Stats de l'article:\n\n${result.message}`;
+      } else {
+        return `❌ Kiara n'a pas pu trouver l'article: ${result.message}`;
+      }
+    } catch (error) {
+      console.error('Erreur Kiara article stats:', error);
+      return `❌ Erreur lors de la récupération des stats: ${error.message}`;
+    }
+  }
+
+  /**
+   * Demande générale à Kiara
+   */
+  async handleKiaraGeneral(from, params) {
+    console.log(`🤖 Kiara traite une demande générale...`);
+    
+    try {
+      const result = await kiaraAgent.handleMessage(params.message, { from });
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara general:', error);
+      return `❌ Kiara a rencontré une erreur: ${error.message}`;
+    }
+  }
+
+  /**
+   * Workflow complet Kiara: Recherche → Rédaction → PDF → Publication
+   */
+  async handleKiaraCompleteWorkflow(from, params) {
+    console.log(`🚀 Kiara exécute le workflow complet...`);
+    
+    try {
+      const result = await kiaraAgent.executeCompleteWorkflow(params.query, { from });
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara workflow:', error);
+      return `❌ Kiara a rencontré une erreur lors du workflow: ${error.message}`;
+    }
   }
 }
 

@@ -50,6 +50,9 @@ ngrok
 # Vercel
 .vercel/
 
+# Portfolio (géré séparément sur son propre Vercel)
+portfolio/
+
 # Misc
 *.tmp
 *.temp
