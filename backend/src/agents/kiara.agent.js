@@ -644,11 +644,16 @@ ${sourcesForPrompt}
       // Sauvegarder en brouillon
       const savedArticle = await this.saveArticleDraft(article);
 
-      // Stocker l'article en mémoire pour le PDF
-      this.lastGeneratedArticle = { ...article, id: savedArticle?.id };
+      // Stocker l'article en mémoire pour le PDF (inclure id et slug de la DB)
+      this.lastGeneratedArticle = { 
+        ...article, 
+        id: savedArticle?.id,
+        slug: savedArticle?.slug || this.generateSlug(article.title),
+        title: savedArticle?.title || article.title // Utiliser le titre tronqué si disponible
+      };
 
       let result = `✅ **Article généré avec succès !**\n\n`;
-      result += `📝 **Titre:** ${article.title}\n`;
+      result += `📝 **Titre:** ${this.lastGeneratedArticle.title}\n`;
       result += `📂 **Catégorie:** ${article.category}\n`;
       result += `⏱️ **Temps de lecture:** ${article.reading_time_minutes} min\n`;
       result += `🏷️ **Tags:** ${article.tags?.join(', ') || 'Aucun'}\n`;
@@ -804,7 +809,9 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
   }
 
   async saveArticleDraft(article) {
-    const slug = this.generateSlug(article.title);
+    // Limiter le titre à 70 caractères max (contrainte DB)
+    const safeTitle = (article.title || 'Article Sans Titre').substring(0, 70);
+    const slug = this.generateSlug(safeTitle);
     
     // Formater les sources pour le blog (array d'objets avec title, url, date)
     let formattedSources = null;
@@ -825,12 +832,12 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
     const userId = supabaseService.defaultUserId;
     
     const insertData = {
-      title: article.title,
+      title: safeTitle,
       slug: slug,
-      excerpt: article.excerpt,
+      excerpt: (article.excerpt || '').substring(0, 500),
       content: article.content,
-      meta_title: article.meta_title || article.title,
-      meta_description: article.meta_description,
+      meta_title: (article.meta_title || safeTitle).substring(0, 70),
+      meta_description: (article.meta_description || '').substring(0, 160),
       keywords: article.keywords,
       canonical_url: null,
       sources: formattedSources,
@@ -866,7 +873,9 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
   }
 
   generateSlug(title) {
-    return title
+    // Sécuriser le slug même si le titre est undefined ou vide
+    const safeTitle = title || `article-${Date.now()}`;
+    return safeTitle
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Supprimer accents
@@ -1387,7 +1396,9 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
    */
   async generatePdf(article) {
     return new Promise(async (resolve, reject) => {
-      const filename = `${article.slug}-${Date.now()}.pdf`;
+      // Sécuriser le slug pour le nom du fichier
+      const safeSlug = article.slug || this.generateSlug(article.title) || `article-${Date.now()}`;
+      const filename = `${safeSlug}-${Date.now()}.pdf`;
       const filepath = path.join(this.pdfFolder, filename);
       
       const doc = new PDFDocument({
@@ -2048,15 +2059,22 @@ Réponds en JSON:
 
       // Sauvegarder en brouillon
       const savedArticle = await this.saveArticleDraft(article);
-      this.lastGeneratedArticle = { ...article, id: savedArticle?.id };
+      
+      // Stocker l'article avec id et slug de la DB
+      this.lastGeneratedArticle = { 
+        ...article, 
+        id: savedArticle?.id,
+        slug: savedArticle?.slug || this.generateSlug(article.title),
+        title: savedArticle?.title || article.title
+      };
 
-      progressMessages.push(`✅ Article "${article.title}" généré !`);
+      progressMessages.push(`✅ Article "${this.lastGeneratedArticle.title}" généré !`);
 
       // 4. GÉNÉRER LE PDF ET L'ENVOYER SUR WHATSAPP
       progressMessages.push('📄 **Étape 4/4:** Génération du PDF...');
       
       const pdfResult = await this.generateAndUploadPdf(
-        { ...article, id: savedArticle?.id, sources },
+        this.lastGeneratedArticle,
         whatsappNumber
       );
 
