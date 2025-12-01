@@ -19,6 +19,9 @@ class MailAgent {
     
     // Cache du dernier email trouvé (pour "réponds au dernier mail de X")
     this.lastSearchResults = new Map(); // phoneNumber -> emails[]
+    
+    // Cache pour les recherches de destinataires en attente (pour "envoie un mail à Brian")
+    this.pendingRecipientSearch = new Map(); // phoneNumber -> { name, matches, originalRequest, timestamp }
   }
 
   /**
@@ -874,10 +877,51 @@ class MailAgent {
       // Valider l'adresse email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(parsed.to)) {
-        return {
-          success: false,
-          message: `❌ L'adresse email "${parsed.to}" ne semble pas valide.\n\nVérifiez l'adresse et réessayez.`
-        };
+        // Ce n'est pas une adresse email valide, c'est peut-être un nom
+        // Chercher dans les contacts
+        console.log(`🔍 "${parsed.to}" n'est pas un email, recherche de contacts...`);
+        
+        const contacts = await outlookService.searchContactsByName(parsed.to);
+        
+        if (contacts.length === 0) {
+          return {
+            success: false,
+            message: `❌ Je n'ai pas trouvé de contact correspondant à **"${parsed.to}"** dans vos emails.\n\n💡 **Essayez de:**\n• Préciser l'adresse email complète\n• Vérifier l'orthographe du nom\n• Utiliser un autre nom pour cette personne`
+          };
+        }
+        
+        if (contacts.length === 1) {
+          // Un seul contact trouvé, on l'utilise directement
+          parsed.to = contacts[0].email;
+          console.log(`✅ Contact unique trouvé: ${contacts[0].name} <${contacts[0].email}>`);
+        } else {
+          // Plusieurs contacts trouvés, demander à l'utilisateur de choisir
+          this.pendingRecipientSearch.set(phoneNumber, {
+            name: parsed.to,
+            matches: contacts,
+            originalRequest: request,
+            parsedRequest: parsed,
+            timestamp: new Date()
+          });
+          
+          let message = `🔍 J'ai trouvé **${contacts.length} contacts** pour "${parsed.to}":\n\n`;
+          
+          contacts.forEach((contact, index) => {
+            const lastContactStr = contact.lastContact 
+              ? ` _(dernier échange: ${new Date(contact.lastContact).toLocaleDateString('fr-FR')})_`
+              : '';
+            const direction = contact.fromMe ? '📤' : '📥';
+            message += `**${index + 1}.** ${direction} ${contact.name}\n   📧 ${contact.email}${lastContactStr}\n\n`;
+          });
+          
+          message += `📝 **Répondez avec le numéro** (1-${contacts.length}) ou l'adresse email pour continuer.`;
+          
+          return {
+            success: true,
+            needsRecipientSelection: true,
+            message
+          };
+        }
       }
 
       // Générer le brouillon avec l'IA
@@ -910,6 +954,110 @@ class MailAgent {
         message: `❌ Erreur lors de la rédaction: ${error.message}`
       };
     }
+  }
+
+  /**
+   * Vérifier si l'utilisateur a une recherche de destinataire en attente
+   * @param {string} phoneNumber 
+   */
+  hasPendingRecipientSearch(phoneNumber) {
+    const pending = this.pendingRecipientSearch.get(phoneNumber);
+    if (!pending) return false;
+    
+    // Expiration après 5 minutes
+    const fiveMinutes = 5 * 60 * 1000;
+    if (Date.now() - pending.timestamp.getTime() > fiveMinutes) {
+      this.pendingRecipientSearch.delete(phoneNumber);
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Gérer la sélection d'un destinataire parmi les résultats de recherche
+   * @param {string} phoneNumber 
+   * @param {string} selection - Numéro (1-N) ou adresse email
+   */
+  async handleRecipientSelection(phoneNumber, selection) {
+    const pending = this.pendingRecipientSearch.get(phoneNumber);
+    
+    if (!pending) {
+      return {
+        success: false,
+        message: "❌ Aucune recherche de contact en cours. Reformulez votre demande d'email."
+      };
+    }
+
+    let selectedEmail = null;
+    let selectedName = null;
+    const selectionTrimmed = selection.trim();
+
+    // Vérifier si c'est un numéro
+    const numericSelection = parseInt(selectionTrimmed, 10);
+    if (!isNaN(numericSelection) && numericSelection >= 1 && numericSelection <= pending.matches.length) {
+      const contact = pending.matches[numericSelection - 1];
+      selectedEmail = contact.email;
+      selectedName = contact.name;
+    }
+    // Vérifier si c'est une adresse email directe
+    else if (selectionTrimmed.includes('@')) {
+      selectedEmail = selectionTrimmed;
+      const match = pending.matches.find(c => c.email.toLowerCase() === selectionTrimmed.toLowerCase());
+      selectedName = match ? match.name : selectionTrimmed;
+    }
+    // Vérifier si c'est un nom partiel
+    else {
+      const lowerSelection = selectionTrimmed.toLowerCase();
+      const match = pending.matches.find(c => 
+        c.name.toLowerCase().includes(lowerSelection) || 
+        c.email.toLowerCase().includes(lowerSelection)
+      );
+      if (match) {
+        selectedEmail = match.email;
+        selectedName = match.name;
+      }
+    }
+
+    if (!selectedEmail) {
+      return {
+        success: false,
+        message: `❌ Sélection invalide.\n\n📝 Répondez avec:\n• Un numéro entre 1 et ${pending.matches.length}\n• Ou l'adresse email exacte`
+      };
+    }
+
+    // Nettoyer le cache
+    this.pendingRecipientSearch.delete(phoneNumber);
+
+    // Mettre à jour la requête parsée avec le bon destinataire
+    const parsed = pending.parsedRequest;
+    parsed.to = selectedEmail;
+
+    console.log(`✅ Destinataire sélectionné: ${selectedName} <${selectedEmail}>`);
+
+    // Générer le brouillon avec l'IA
+    const composed = await openaiService.composeEmail({
+      to: parsed.to,
+      intent: parsed.intent,
+      context: parsed.context,
+      tone: parsed.tone
+    });
+
+    // Sauvegarder le brouillon
+    const draftEntry = draftService.createDraft(phoneNumber, {
+      to: selectedEmail,
+      subject: parsed.subject_hint || composed.subject,
+      body: composed.body,
+      context: pending.originalRequest
+    });
+
+    statsService.addActivity('james', `Brouillon créé pour ${selectedName} (${selectedEmail})`);
+
+    return {
+      success: true,
+      hasDraft: true,
+      message: `✅ **Contact sélectionné:** ${selectedName}\n\n${draftService.formatForDisplay(draftEntry)}`
+    };
   }
 
   /**

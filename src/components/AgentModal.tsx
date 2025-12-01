@@ -346,15 +346,22 @@ Tu es professionnel, efficace et tu communiques en français.`
                     <div className="capability-item">
                       <span className="capability-icon">🔍</span>
                       <div className="capability-info">
-                        <span className="capability-name">Recherche</span>
+                        <span className="capability-name">Recherche emails</span>
                         <span className="capability-example">"Cherche tous les mails d'Amazon des 7 derniers jours"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📇</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Recherche contact</span>
+                        <span className="capability-example">"Quel est le mail de Brian ?" ou "Trouve le contact Pierre"</span>
                       </div>
                     </div>
                     <div className="capability-item">
                       <span className="capability-icon">📤</span>
                       <div className="capability-info">
                         <span className="capability-name">Envoi d'email</span>
-                        <span className="capability-example">"Envoie un mail à pierre@email.com pour lui dire bonjour"</span>
+                        <span className="capability-example">"Envoie un mail à Brian" (recherche auto si pas d'adresse)</span>
                       </div>
                     </div>
                     <div className="capability-item">

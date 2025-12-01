@@ -1299,6 +1299,100 @@ class OutlookService {
     }
   }
 
+  // ==================== RECHERCHE DE CONTACTS ====================
+
+  /**
+   * Rechercher des contacts/expéditeurs par nom
+   * Cherche dans les emails récents pour trouver les adresses correspondant à un nom
+   * @param {string} name - Nom à rechercher
+   * @param {number} limit - Nombre max de contacts à retourner
+   */
+  async searchContactsByName(name) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      const nameLower = name.toLowerCase();
+      const contactsMap = new Map(); // email -> {name, email, count, lastSeen}
+      
+      // 1. Chercher dans les emails récents (expéditeurs)
+      const emailsResponse = await axios.get(
+        `${this.graphBaseUrl}/me/messages?$top=200&$select=from,receivedDateTime&$orderby=receivedDateTime desc`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      );
+      
+      const emails = emailsResponse.data.value || [];
+      
+      for (const email of emails) {
+        const fromEmail = email.from?.emailAddress?.address?.toLowerCase() || '';
+        const fromName = email.from?.emailAddress?.name || '';
+        const fromNameLower = fromName.toLowerCase();
+        
+        // Vérifier si le nom correspond
+        if (fromNameLower.includes(nameLower) || fromEmail.includes(nameLower)) {
+          if (!contactsMap.has(fromEmail)) {
+            contactsMap.set(fromEmail, {
+              name: fromName,
+              email: fromEmail,
+              count: 1,
+              lastSeen: email.receivedDateTime
+            });
+          } else {
+            contactsMap.get(fromEmail).count++;
+          }
+        }
+      }
+      
+      // 2. Chercher aussi dans les destinataires des emails envoyés
+      try {
+        const sentResponse = await axios.get(
+          `${this.graphBaseUrl}/me/mailFolders/sentitems/messages?$top=100&$select=toRecipients,ccRecipients,receivedDateTime&$orderby=receivedDateTime desc`,
+          { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+        
+        const sentEmails = sentResponse.data.value || [];
+        
+        for (const email of sentEmails) {
+          const allRecipients = [...(email.toRecipients || []), ...(email.ccRecipients || [])];
+          
+          for (const recipient of allRecipients) {
+            const toEmail = recipient.emailAddress?.address?.toLowerCase() || '';
+            const toName = recipient.emailAddress?.name || '';
+            const toNameLower = toName.toLowerCase();
+            
+            if (toNameLower.includes(nameLower) || toEmail.includes(nameLower)) {
+              if (!contactsMap.has(toEmail)) {
+                contactsMap.set(toEmail, {
+                  name: toName,
+                  email: toEmail,
+                  count: 1,
+                  lastSeen: email.receivedDateTime,
+                  source: 'sent'
+                });
+              } else {
+                contactsMap.get(toEmail).count++;
+              }
+            }
+          }
+        }
+      } catch (sentError) {
+        // Ignorer si on ne peut pas lire les emails envoyés
+      }
+      
+      // 3. Convertir en array et trier par fréquence
+      const contacts = Array.from(contactsMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10); // Max 10 contacts
+      
+      console.log(`🔍 Recherche contacts "${name}": ${contacts.length} trouvés`);
+      
+      return contacts;
+      
+    } catch (error) {
+      console.error('❌ Erreur searchContactsByName:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
   // ==================== SUPPRESSION EN MASSE ====================
 
   /**

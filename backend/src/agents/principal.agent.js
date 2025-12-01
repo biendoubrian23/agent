@@ -114,21 +114,27 @@ class PrincipalAgent {
    - "cherche les mails concernant le devis" → action: "email_search", params: { query: "devis" }
    - "emails de la semaine dernière de Amazon" → action: "email_search"
 
-11. **RÉPONSE RAPIDE:**
+11. **RECHERCHE DE CONTACT:**
+   - "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" }
+   - "trouve l'adresse email de Pierre" → action: "contact_search", params: { name: "Pierre" }
+   - "cherche le contact Jean-Marc" → action: "contact_search", params: { name: "Jean-Marc" }
+   - "comment contacter Dupont" → action: "contact_search", params: { name: "Dupont" }
+
+12. **RÉPONSE RAPIDE:**
    - "réponds au dernier mail de Pierre" → action: "email_reply", params: { from: "Pierre" }
    - "réponds à l'email de Marie pour confirmer" → action: "email_reply"
 
-12. **RAPPELS:**
+13. **RAPPELS:**
    - "rappelle-moi demain à 9h de..." → action: "create_reminder"
    - "rappelle-moi dans 2 heures" → action: "create_reminder"
    - "mes rappels" ou "liste mes rappels" → action: "list_reminders"
 
-13. **NETTOYAGE/SUPPRESSION:**
+14. **NETTOYAGE/SUPPRESSION:**
    - "supprime les newsletters de plus de 30 jours" → action: "email_cleanup"
    - "nettoie le dossier Newsletter" → action: "email_cleanup"
    - "supprime les mails de LinkedIn" → action: "email_cleanup"
 
-14. **RÉSUMÉ QUOTIDIEN:**
+15. **RÉSUMÉ QUOTIDIEN:**
    - "résumé de ma journée mail" → action: "daily_summary"
    - "résumé quotidien" → action: "daily_summary"
    - "comment va ma boîte mail" → action: "daily_summary"
@@ -136,7 +142,7 @@ class PrincipalAgent {
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
   "target_agent": "brian" | "james" | "magali",
-  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "unknown",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "unknown",
   "params": {
     "count": number (OBLIGATOIRE pour les emails - extrait du message, défaut 50),
     "filter": "today" | "yesterday" | "week" | "important" | "urgent" | null,
@@ -148,6 +154,7 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "text": string (le message original - TOUJOURS inclure pour send_email, create_reminder),
     "from": string (optionnel, expéditeur pour recherche/réponse),
     "query": string (optionnel, terme de recherche),
+    "name": string (optionnel, nom du contact à chercher),
     "olderThanDays": number (optionnel, pour nettoyage)
   },
   "confidence": number (0-100),
@@ -160,6 +167,7 @@ EXEMPLES:
 - "le dernier mail" → action: "email_summary", count: 1
 - "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
 - "envoie un mail à jean@test.com pour lui dire bonjour" → action: "send_email", text: "..."
+- "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" }
 - "rappelle moi mes mails" → action: "email_summary", count: 10`;
   }
 
@@ -178,6 +186,13 @@ EXEMPLES:
         await whatsappService.sendLongMessage(from, draftResponse);
         return draftResponse;
       }
+    }
+
+    // PRIORITÉ 2: Vérifier si l'utilisateur a une sélection de destinataire en attente
+    if (mailAgent.hasPendingRecipientSearch(from)) {
+      const selectionResult = await mailAgent.handleRecipientSelection(from, text);
+      await whatsappService.sendLongMessage(from, selectionResult.message);
+      return selectionResult.message;
     }
 
     // Analyser l'intention du message
@@ -277,6 +292,10 @@ EXEMPLES:
 
       case 'email_search':
         response = await this.handleEmailSearch(intent.params);
+        break;
+
+      case 'contact_search':
+        response = await this.handleContactSearch(intent.params);
         break;
 
       case 'email_reply':
@@ -1222,9 +1241,18 @@ EXEMPLES:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+📇 **RECHERCHE DE CONTACT**
+• "Quel est le mail de Brian ?"
+• "Trouve l'adresse email de Pierre"
+• "Cherche le contact Jean-Marc"
+• "Comment contacter Dupont ?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 📤 **ENVOI D'EMAILS**
 • "Envoie un mail à pierre@email.com pour lui dire que je serai en retard demain"
 • "Écris un email professionnel à mon chef pour demander un jour de congé"
+• "Envoie un mail à Brian" _(si plusieurs contacts, James propose une liste)_
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1294,14 +1322,20 @@ EXEMPLES:
 • "Reclasse le dossier Newsletter"
 • "Analyse et trie mes emails"
 
-━━━━━ 🔍 RECHERCHE ━━━━━
+━━━━━ 🔍 RECHERCHE EMAILS ━━━━━
 • "Cherche les mails d'Amazon"
 • "Trouve les emails de facture"
 • "Recherche les mails de Jean"
 
+━━━━━ 📇 RECHERCHE CONTACT ━━━━━
+• "Quel est le mail de Brian ?"
+• "Trouve l'adresse email de Pierre"
+• "Cherche le contact Jean-Marc"
+
 ━━━━━ 📤 ENVOI ━━━━━
 • "Envoie un mail à pierre@email.com pour dire..."
 • "Écris un email à mon chef pour demander..."
+• "Envoie un mail à Brian" _(recherche auto)_
 
 ━━━━━ ✉️ RÉPONSE ━━━━━
 • "Réponds au mail de Marie pour accepter"
@@ -1356,6 +1390,55 @@ EXEMPLES:
     const result = await mailAgent.searchEmails(query);
     
     return `🤖 **James** rapporte:\n\n${result.message}`;
+  }
+
+  /**
+   * Rechercher un contact par nom
+   */
+  async handleContactSearch(params) {
+    const name = params.name || params.query || params.text;
+    
+    if (!name) {
+      return `🔍 **Recherche de contact**\n\nQuel contact cherchez-vous ?\n\nExemples:\n• "Quel est le mail de Brian"\n• "Trouve l'adresse email de Pierre"\n• "Cherche le contact Jean-Marc"`;
+    }
+
+    if (!outlookService.isConnected()) {
+      return `❌ Outlook n'est pas connecté.\n\n🔗 Connectez-vous ici:\n${process.env.FRONTEND_URL || 'https://agent-nine-psi.vercel.app'}/auth/outlook`;
+    }
+
+    console.log(`🔍 James recherche le contact: "${name}"...`);
+    
+    try {
+      const contacts = await outlookService.searchContactsByName(name);
+      
+      if (contacts.length === 0) {
+        return `🤖 **James** rapporte:\n\n❌ Aucun contact trouvé pour **"${name}"**.\n\n💡 **Conseils:**\n• Vérifiez l'orthographe\n• Essayez un autre nom/prénom\n• Cette personne vous a-t-elle déjà envoyé un email ?`;
+      }
+
+      let message = `🤖 **James** rapporte:\n\n📇 **${contacts.length} contact(s) trouvé(s)** pour "${name}":\n\n`;
+      
+      contacts.forEach((contact, index) => {
+        const lastContactStr = contact.lastContact 
+          ? new Date(contact.lastContact).toLocaleDateString('fr-FR')
+          : 'N/A';
+        const direction = contact.fromMe ? '📤 Envoyé' : '📥 Reçu';
+        
+        message += `**${index + 1}. ${contact.name}**\n`;
+        message += `   📧 ${contact.email}\n`;
+        message += `   📅 Dernier échange: ${lastContactStr} (${direction})\n\n`;
+      });
+
+      if (contacts.length === 1) {
+        message += `💡 Vous pouvez maintenant dire: "Envoie un mail à ${contacts[0].email}"`;
+      } else {
+        message += `💡 Copiez l'adresse email souhaitée pour envoyer un message.`;
+      }
+
+      return message;
+    } catch (error) {
+      console.error('❌ Erreur recherche contact:', error);
+      return `❌ Erreur lors de la recherche: ${error.message}`;
+    }
   }
 
   /**
