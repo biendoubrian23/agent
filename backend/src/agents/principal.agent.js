@@ -149,10 +149,26 @@ class PrincipalAgent {
    - "résumé quotidien" → action: "daily_summary"
    - "comment va ma boîte mail" → action: "daily_summary"
 
+16. **KIARA - BLOG & SEO** (PRIORITÉ HAUTE si contient: article, blog, tendance, GPU, IA, tech, rédige, génère, publie, programme, PDF article):
+   ⚠️ IMPORTANT: Si le message parle d'articles WEB, tendances TECH, blogs, PDF d'articles → C'est Kiara, PAS James !
+   - "recherche les articles sur les GPU" → action: "kiara_complete_workflow", target_agent: "kiara"
+   - "recherche X articles sur [sujet] et génère un blog" → action: "kiara_complete_workflow"
+   - "trouve les tendances sur [sujet]" → action: "kiara_complete_workflow"
+   - "rédige un article sur [sujet]" → action: "kiara_generate_article"
+   - "génère un article avec PDF" → action: "kiara_complete_workflow"
+   - "quelles sont les tendances tech" → action: "kiara_trends"
+   - "tendances actuelles" → action: "kiara_trends"
+   - "publie l'article" → action: "kiara_publish"
+   - "programme l'article pour demain" → action: "kiara_schedule"
+   - "stats du blog" → action: "kiara_global_stats"
+   - "modifie le titre par..." → action: "kiara_modify"
+   
+   🔑 MOTS-CLÉS KIARA: article, blog, tendance, trend, GPU, IA, tech, rédige, génère, publie, programme, PDF (dans contexte blog), SEO, vues, statistiques blog
+
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
-  "target_agent": "brian" | "james" | "magali",
-  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "unknown",
+  "target_agent": "brian" | "james" | "kiara" | "magali",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "unknown",
   "params": {
     "count": number (OBLIGATOIRE pour les emails - extrait du message, défaut 50),
     "filter": "today" | "yesterday" | "week" | "important" | "urgent" | null,
@@ -163,7 +179,9 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "ruleNumber": number (optionnel, numéro de règle à supprimer),
     "text": string (le message original - TOUJOURS inclure pour send_email, create_reminder),
     "from": string (optionnel, expéditeur pour recherche/réponse),
-    "query": string (optionnel, terme de recherche),
+    "query": string (optionnel, terme de recherche OU sujet pour Kiara),
+    "topic": string (optionnel, sujet pour Kiara),
+    "articleCount": number (optionnel, nombre d'articles à rechercher pour Kiara),
     "name": string (optionnel, nom du contact à chercher),
     "olderThanDays": number (optionnel, pour nettoyage)
   },
@@ -181,7 +199,11 @@ EXEMPLES:
 - "retrouve moi le mail de ISCOD" → action: "contact_search", params: { name: "ISCOD" }
 - "retrouve moi l'email de Jean" → action: "contact_search", params: { name: "Jean" }
 - "cherche les mails concernant le projet" → action: "email_search", params: { query: "projet" }
-- "rappelle moi mes mails" → action: "email_summary", count: 10`;
+- "rappelle moi mes mails" → action: "email_summary", count: 10
+- "Recherche les 2 articles sur les GPU et génère un blog" → action: "kiara_complete_workflow", target_agent: "kiara", topic: "GPU", articleCount: 2
+- "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
+- "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
+- "publie l'article" → action: "kiara_publish", target_agent: "kiara"`;
   }
 
   /**
@@ -351,7 +373,15 @@ EXEMPLES:
         break;
 
       case 'kiara_publish':
-        response = await this.handleKiaraPublish(intent.params);
+        response = await this.handleKiaraPublish(from, intent.params);
+        break;
+
+      case 'kiara_schedule':
+        response = await this.handleKiaraSchedule(from, intent.params);
+        break;
+
+      case 'kiara_modify':
+        response = await this.handleKiaraModify(from, intent.params);
         break;
 
       case 'kiara_daily_stats':
@@ -552,6 +582,62 @@ EXEMPLES:
       
       case 'daily_summary':
         return { action: 'daily_summary', params };
+      
+      // ========== KIARA ACTIONS (depuis mapIntentToAction) ==========
+      case 'kiara_complete_workflow':
+        return { 
+          action: 'kiara_complete_workflow', 
+          params: { 
+            query: originalText,
+            topic: params.topic,
+            articleCount: params.articleCount || params.count || 3
+          } 
+        };
+      
+      case 'kiara_generate_article':
+        return { 
+          action: 'kiara_generate_article', 
+          params: { 
+            query: originalText,
+            topic: params.topic 
+          } 
+        };
+      
+      case 'kiara_trends':
+        return { 
+          action: 'kiara_trends', 
+          params: { 
+            topic: params.topic 
+          } 
+        };
+      
+      case 'kiara_publish':
+        return { 
+          action: 'kiara_publish', 
+          params: { 
+            title: params.title,
+            text: originalText 
+          } 
+        };
+      
+      case 'kiara_schedule':
+        return { 
+          action: 'kiara_schedule', 
+          params: { 
+            text: originalText 
+          } 
+        };
+      
+      case 'kiara_global_stats':
+        return { action: 'kiara_global_stats', params: {} };
+      
+      case 'kiara_modify':
+        return { 
+          action: 'kiara_modify', 
+          params: { 
+            text: originalText 
+          } 
+        };
       
       default:
         return { action: 'general', params };
@@ -1860,15 +1946,45 @@ Agents disponibles:
   /**
    * Publication d'article
    */
-  async handleKiaraPublish(params) {
+  async handleKiaraPublish(from, params) {
     console.log(`📤 Kiara prépare la publication...`);
     
     try {
-      const result = await kiaraAgent.handleMessage(params.query, 'user');
+      const result = await kiaraAgent.handlePublishRequest(params.text || 'publie l\'article', { from });
       return result;
     } catch (error) {
       console.error('Erreur Kiara publish:', error);
       return `❌ Erreur lors de la publication: ${error.message}`;
+    }
+  }
+
+  /**
+   * Programmation d'article
+   */
+  async handleKiaraSchedule(from, params) {
+    console.log(`📅 Kiara programme un article...`);
+    
+    try {
+      const result = await kiaraAgent.handleScheduleRequest(params.text, { from });
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara schedule:', error);
+      return `❌ Erreur lors de la programmation: ${error.message}`;
+    }
+  }
+
+  /**
+   * Modification d'article
+   */
+  async handleKiaraModify(from, params) {
+    console.log(`✏️ Kiara modifie un article...`);
+    
+    try {
+      const result = await kiaraAgent.handleModifyRequest(params.text, { from });
+      return result;
+    } catch (error) {
+      console.error('Erreur Kiara modify:', error);
+      return `❌ Erreur lors de la modification: ${error.message}`;
     }
   }
 
