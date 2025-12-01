@@ -803,13 +803,15 @@ class OutlookService {
   // ==================== EMAILS ====================
 
   /**
-   * Récupérer les emails les plus récents de TOUS les dossiers (Inbox + classifiés)
+   * Récupérer les emails les plus récents de TOUS les dossiers
+   * Inclut: Inbox, sous-dossiers, Courrier indésirable, et dossiers racine personnalisés
    * Triés par date de réception (du plus récent au plus ancien)
    * @param {number} count - Nombre total d'emails à retourner
    */
   async getAllRecentEmails(count = 50) {
     const accessToken = await this.ensureValidToken();
     const allEmails = [];
+    const foldersScanned = [];
     
     try {
       // 1. Récupérer les emails de l'Inbox principal
@@ -819,7 +821,7 @@ class OutlookService {
           headers: { 'Authorization': `Bearer ${accessToken}` },
           params: {
             '$top': count,
-            '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance,parentFolderId',
+            '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance',
             '$orderby': 'receivedDateTime desc'
           }
         }
@@ -834,9 +836,10 @@ class OutlookService {
         preview: email.bodyPreview,
         isRead: email.isRead,
         importance: email.importance,
-        folder: 'Inbox'
+        folder: '📥 Inbox'
       }));
       allEmails.push(...inboxEmails);
+      if (inboxEmails.length > 0) foldersScanned.push('📥 Inbox');
       
       // 2. Récupérer les sous-dossiers de Inbox (dossiers de classification)
       const childFoldersResponse = await axios.get(
@@ -849,7 +852,7 @@ class OutlookService {
       
       const classificationFolders = childFoldersResponse.data.value || [];
       
-      // 3. Pour chaque dossier, récupérer les emails récents
+      // 3. Pour chaque sous-dossier de Inbox, récupérer les emails récents
       for (const folder of classificationFolders) {
         try {
           const folderResponse = await axios.get(
@@ -857,7 +860,7 @@ class OutlookService {
             {
               headers: { 'Authorization': `Bearer ${accessToken}` },
               params: {
-                '$top': Math.ceil(count / 2), // Limiter par dossier
+                '$top': Math.ceil(count / 3),
                 '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance',
                 '$orderby': 'receivedDateTime desc'
               }
@@ -876,17 +879,113 @@ class OutlookService {
             folder: folder.displayName
           }));
           allEmails.push(...folderEmails);
+          if (folderEmails.length > 0) foldersScanned.push(folder.displayName);
         } catch (folderError) {
           // Ignorer les erreurs de dossiers individuels
         }
       }
       
-      // 4. Trier TOUS les emails par date (du plus récent au plus ancien)
+      // 4. Récupérer le Courrier indésirable (Junk Email)
+      try {
+        const junkResponse = await axios.get(
+          `${this.graphBaseUrl}/me/mailFolders/junkemail/messages`,
+          {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+            params: {
+              '$top': Math.ceil(count / 4),
+              '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance',
+              '$orderby': 'receivedDateTime desc'
+            }
+          }
+        );
+        
+        const junkEmails = (junkResponse.data.value || []).map(email => ({
+          id: email.id,
+          subject: email.subject,
+          from: email.from?.emailAddress?.address || 'Inconnu',
+          fromName: email.from?.emailAddress?.name || 'Inconnu',
+          receivedAt: email.receivedDateTime,
+          preview: email.bodyPreview,
+          isRead: email.isRead,
+          importance: email.importance,
+          folder: '🚫 Courrier indésirable'
+        }));
+        allEmails.push(...junkEmails);
+        if (junkEmails.length > 0) foldersScanned.push('🚫 Courrier indésirable');
+      } catch (junkError) {
+        console.log('⚠️ Impossible de lire le courrier indésirable');
+      }
+      
+      // 5. Récupérer les dossiers racine personnalisés (comme ISCOD)
+      try {
+        const rootFoldersResponse = await axios.get(
+          `${this.graphBaseUrl}/me/mailFolders`,
+          {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+            params: { '$top': 50 }
+          }
+        );
+        
+        const rootFolders = rootFoldersResponse.data.value || [];
+        // Exclure les dossiers système standard
+        const systemFolders = ['inbox', 'drafts', 'sentitems', 'deleteditems', 'junkemail', 'outbox', 'archive', 'conversationhistory', 'scheduled'];
+        
+        for (const folder of rootFolders) {
+          // Ignorer les dossiers système (vérifier par wellKnownName ou displayName)
+          const isSystem = systemFolders.some(sf => 
+            folder.displayName?.toLowerCase() === sf ||
+            folder.displayName?.toLowerCase() === 'boîte de réception' ||
+            folder.displayName?.toLowerCase() === 'éléments envoyés' ||
+            folder.displayName?.toLowerCase() === 'éléments supprimés' ||
+            folder.displayName?.toLowerCase() === 'brouillons' ||
+            folder.displayName?.toLowerCase() === 'courrier indésirable'
+          );
+          
+          if (!isSystem) {
+            try {
+              const customFolderResponse = await axios.get(
+                `${this.graphBaseUrl}/me/mailFolders/${folder.id}/messages`,
+                {
+                  headers: { 'Authorization': `Bearer ${accessToken}` },
+                  params: {
+                    '$top': Math.ceil(count / 3),
+                    '$select': 'id,subject,from,receivedDateTime,bodyPreview,isRead,importance',
+                    '$orderby': 'receivedDateTime desc'
+                  }
+                }
+              );
+              
+              const customEmails = (customFolderResponse.data.value || []).map(email => ({
+                id: email.id,
+                subject: email.subject,
+                from: email.from?.emailAddress?.address || 'Inconnu',
+                fromName: email.from?.emailAddress?.name || 'Inconnu',
+                receivedAt: email.receivedDateTime,
+                preview: email.bodyPreview,
+                isRead: email.isRead,
+                importance: email.importance,
+                folder: `📁 ${folder.displayName}`
+              }));
+              allEmails.push(...customEmails);
+              if (customEmails.length > 0) foldersScanned.push(`📁 ${folder.displayName}`);
+            } catch (customError) {
+              // Ignorer les erreurs
+            }
+          }
+        }
+      } catch (rootError) {
+        console.log('⚠️ Impossible de lire les dossiers racine');
+      }
+      
+      // 6. Trier TOUS les emails par date (du plus récent au plus ancien)
       allEmails.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
       
-      // 5. Retourner seulement le nombre demandé
+      // 7. Retourner seulement le nombre demandé
       const result = allEmails.slice(0, count);
-      console.log(`📬 getAllRecentEmails: ${result.length} emails récents (tous dossiers confondus)`);
+      console.log(`📬 getAllRecentEmails: ${result.length} emails de ${foldersScanned.length} dossiers: ${foldersScanned.join(', ')}`);
+      
+      // Ajouter les infos de dossiers scannés au résultat
+      result.foldersScanned = foldersScanned;
       
       return result;
       

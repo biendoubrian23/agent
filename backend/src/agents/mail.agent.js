@@ -89,10 +89,13 @@ class MailAgent {
       
       // Récupérer depuis TOUS les dossiers (Inbox + classifiés) par défaut
       let emails;
+      let foldersScanned = [];
       if (allFolders) {
         emails = await outlookService.getAllRecentEmails(fetchCount);
+        foldersScanned = emails.foldersScanned || [];
       } else {
         emails = await outlookService.getEmails(fetchCount);
+        foldersScanned = ['📥 Inbox'];
       }
       
       // Appliquer le filtre
@@ -111,8 +114,12 @@ class MailAgent {
         };
       }
 
-      // Compter les emails traités
+      // Compter les emails par dossier pour le résumé
+      const folderCounts = {};
       emails.forEach(email => {
+        const folder = email.folder || 'Inconnu';
+        folderCounts[folder] = (folderCounts[folder] || 0) + 1;
+        
         const isUrgent = email.importance === 'high' || 
                          email.subject?.toLowerCase().includes('urgent');
         statsService.logEmailProcessed(isUrgent);
@@ -120,16 +127,23 @@ class MailAgent {
 
       const summary = await openaiService.summarizeEmails(emails);
       
+      // Créer le header avec les sources des emails
+      const folderList = Object.entries(folderCounts)
+        .map(([folder, cnt]) => `${folder}: ${cnt}`)
+        .join(' | ');
+      
+      const sourceInfo = `📂 **Sources:** ${folderList}\n\n`;
+      
       // Logger l'activité
       statsService.logSummarySent();
       const filterInfo = filter ? ` (filtre: ${filter})` : '';
-      const folderInfo = allFolders ? ' (tous dossiers)' : '';
-      statsService.addActivity('james', `Résumé de ${emails.length} emails envoyé${filterInfo}${folderInfo}`);
+      statsService.addActivity('james', `Résumé de ${emails.length} emails depuis ${Object.keys(folderCounts).length} dossiers${filterInfo}`);
       
       return {
         success: true,
-        message: summary,
-        emailCount: emails.length
+        message: sourceInfo + summary,
+        emailCount: emails.length,
+        folders: folderCounts
       };
     } catch (error) {
       console.error('❌ Erreur MailAgent.getEmailSummary:', error);
