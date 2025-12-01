@@ -235,7 +235,7 @@ Réponds toujours de manière professionnelle et utile.`;
   }
 
   async getDailyStats() {
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*')
       .eq('status', 'published');
@@ -295,7 +295,7 @@ Réponds toujours de manière professionnelle et utile.`;
   }
 
   async getArticleStats(searchTerm) {
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*')
       .eq('status', 'published');
@@ -343,7 +343,7 @@ Réponds toujours de manière professionnelle et utile.`;
   }
 
   async getGlobalStats() {
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*')
       .eq('status', 'published');
@@ -725,7 +725,7 @@ Réponds en JSON avec ce format exact:
       });
     }
 
-    const { data, error } = await supabaseService.supabase
+    const { data, error } = await supabaseService.client
       .from('blog_posts')
       .insert({
         title: article.title,
@@ -783,7 +783,7 @@ Réponds en JSON avec ce format exact:
     if (!titleMatch || titleMatch[1].trim() === 'article' || titleMatch[1].trim() === "l'article") {
       if (this.lastGeneratedArticle?.id) {
         // Récupérer le dernier article généré
-        const { data, error } = await supabaseService.supabase
+        const { data, error } = await supabaseService.client
           .from('blog_posts')
           .select('*')
           .eq('id', this.lastGeneratedArticle.id)
@@ -802,7 +802,7 @@ Réponds en JSON avec ce format exact:
       const searchTerm = titleMatch[1].trim();
       
       // Chercher le brouillon
-      const { data: drafts, error } = await supabaseService.supabase
+      const { data: drafts, error } = await supabaseService.client
         .from('blog_posts')
         .select('*')
         .eq('status', 'draft');
@@ -827,7 +827,7 @@ Réponds en JSON avec ce format exact:
     }
 
     // Publier l'article
-    const { error: updateError } = await supabaseService.supabase
+    const { error: updateError } = await supabaseService.client
       .from('blog_posts')
       .update({
         status: 'published',
@@ -844,7 +844,7 @@ Réponds en JSON avec ce format exact:
   }
 
   async listDrafts() {
-    const { data: drafts, error } = await supabaseService.supabase
+    const { data: drafts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*')
       .eq('status', 'draft')
@@ -874,7 +874,7 @@ Réponds en JSON avec ce format exact:
   // ============================================
 
   async handleArticleList() {
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*')
       .eq('status', 'published')
@@ -920,7 +920,7 @@ Réponds en JSON avec ce format exact:
     const titleMatch = message.match(/(?:article|l'article)\s+["']?([^"']+?)["']?\s+(?:pour|à|a)/i);
     if (titleMatch) {
       const searchTerm = titleMatch[1].trim();
-      const { data: posts } = await supabaseService.supabase
+      const { data: posts } = await supabaseService.client
         .from('blog_posts')
         .select('*')
         .eq('status', 'draft');
@@ -940,7 +940,7 @@ Réponds en JSON avec ce format exact:
     // Sauvegarder la programmation dans Supabase
     const scheduledDate = dateTimeInfo.date;
     
-    const { data: scheduled, error } = await supabaseService.supabase
+    const { data: scheduled, error } = await supabaseService.client
       .from('scheduled_posts')
       .insert({
         post_id: article.id,
@@ -1149,7 +1149,7 @@ Réponds en JSON avec ce format exact:
     const searchTerm = titleMatch[1].trim();
     
     // Chercher l'article
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*');
 
@@ -1190,7 +1190,7 @@ Réponds en JSON avec ce format exact:
     // Uploader sur Supabase Storage
     let publicUrl = null;
     try {
-      const { data, error } = await supabaseService.supabase.storage
+      const { data, error } = await supabaseService.client.storage
         .from('pdfs')
         .upload(`articles/${filename}`, pdfBuffer, {
           contentType: 'application/pdf',
@@ -1199,7 +1199,7 @@ Réponds en JSON avec ce format exact:
 
       if (!error) {
         // Obtenir l'URL publique
-        const { data: urlData } = supabaseService.supabase.storage
+        const { data: urlData } = supabaseService.client.storage
           .from('pdfs')
           .getPublicUrl(`articles/${filename}`);
         
@@ -1255,7 +1255,7 @@ Réponds en JSON avec ce format exact:
   }
 
   async listArticlesForPdf() {
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('title, slug, category')
       .order('created_at', { ascending: false })
@@ -1777,7 +1777,7 @@ Réponds en JSON avec ce format exact:
     const searchTerm = articleMatch[1].trim();
     
     // Chercher l'article
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('*');
 
@@ -1834,7 +1834,7 @@ Réponds en JSON avec ce format exact:
     // Appliquer les modifications
     updates.updated_at = new Date().toISOString();
 
-    const { error: updateError } = await supabaseService.supabase
+    const { error: updateError } = await supabaseService.client
       .from('blog_posts')
       .update(updates)
       .eq('id', article.id);
@@ -1854,7 +1854,7 @@ Réponds en JSON avec ce format exact:
   }
 
   async listArticlesForModification() {
-    const { data: posts, error } = await supabaseService.supabase
+    const { data: posts, error } = await supabaseService.client
       .from('blog_posts')
       .select('title, slug, status, category')
       .order('updated_at', { ascending: false })
