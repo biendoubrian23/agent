@@ -1,16 +1,21 @@
 /**
  * Service de statistiques pour les agents
  * Stocke et gère toutes les métriques des agents
+ * Avec persistance Supabase
  */
+
+const supabaseService = require('./supabase.service');
 
 class StatsService {
   constructor() {
-    // Statistiques globales par agent
+    // Statistiques globales par agent (cache mémoire)
     this.stats = {
       james: {
         emailsProcessed: 0,
         emailsToday: 0,
         urgentEmails: 0,
+        requestsTotal: 0,
+        requestsToday: 0,
         lastSync: null,
         lastSyncDate: null
       },
@@ -18,12 +23,16 @@ class StatsService {
         transactionsProcessed: 0,
         transactionsToday: 0,
         alertsTriggered: 0,
+        requestsTotal: 0,
+        requestsToday: 0,
         lastSync: null
       },
       kiara: {
         tasksCreated: 0,
         meetingsScheduled: 0,
         decisionsLogged: 0,
+        requestsTotal: 0,
+        requestsToday: 0,
         lastSync: null
       }
     };
@@ -44,6 +53,90 @@ class StatsService {
 
     // Compteur quotidien - reset à minuit
     this.dailyResetDate = new Date().toDateString();
+    
+    // Charger les stats depuis Supabase au démarrage
+    this.loadFromSupabase();
+  }
+
+  /**
+   * Charger les stats depuis Supabase
+   */
+  async loadFromSupabase() {
+    if (!supabaseService.isAvailable()) {
+      console.log('⚠️ Supabase non disponible - stats en mémoire uniquement');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabaseService.client
+        .from('agent_stats')
+        .select('*');
+
+      if (error) {
+        console.error('Erreur chargement stats:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        data.forEach(row => {
+          const agent = row.agent_name.toLowerCase();
+          if (this.stats[agent]) {
+            this.stats[agent] = {
+              ...this.stats[agent],
+              emailsProcessed: row.emails_processed || 0,
+              emailsToday: row.emails_today || 0,
+              urgentEmails: row.urgent_emails || 0,
+              requestsTotal: row.requests_total || 0,
+              requestsToday: row.requests_today || 0,
+              transactionsProcessed: row.transactions_processed || 0,
+              transactionsToday: row.transactions_today || 0,
+              tasksCreated: row.tasks_created || 0,
+              lastSync: row.last_sync ? new Date(row.last_sync) : null
+            };
+          }
+        });
+        console.log('✅ Stats chargées depuis Supabase');
+      }
+    } catch (error) {
+      console.error('Erreur loadFromSupabase:', error);
+    }
+  }
+
+  /**
+   * Sauvegarder les stats dans Supabase
+   */
+  async saveToSupabase(agentName) {
+    if (!supabaseService.isAvailable()) return;
+
+    const agent = agentName.toLowerCase();
+    const stats = this.stats[agent];
+    if (!stats) return;
+
+    try {
+      const { error } = await supabaseService.client
+        .from('agent_stats')
+        .upsert({
+          agent_name: agent,
+          emails_processed: stats.emailsProcessed || 0,
+          emails_today: stats.emailsToday || 0,
+          urgent_emails: stats.urgentEmails || 0,
+          requests_total: stats.requestsTotal || 0,
+          requests_today: stats.requestsToday || 0,
+          transactions_processed: stats.transactionsProcessed || 0,
+          transactions_today: stats.transactionsToday || 0,
+          tasks_created: stats.tasksCreated || 0,
+          last_sync: stats.lastSync || new Date(),
+          updated_at: new Date()
+        }, {
+          onConflict: 'agent_name'
+        });
+
+      if (error) {
+        console.error('Erreur sauvegarde stats:', error);
+      }
+    } catch (error) {
+      console.error('Erreur saveToSupabase:', error);
+    }
   }
 
   /**
@@ -55,9 +148,31 @@ class StatsService {
       this.dailyResetDate = today;
       this.stats.james.emailsToday = 0;
       this.stats.james.urgentEmails = 0;
+      this.stats.james.requestsToday = 0;
       this.stats.magali.transactionsToday = 0;
+      this.stats.magali.requestsToday = 0;
       this.stats.kiara.tasksCreated = 0;
+      this.stats.kiara.requestsToday = 0;
       console.log('📊 Compteurs quotidiens réinitialisés');
+      
+      // Sauvegarder le reset
+      this.saveToSupabase('james');
+      this.saveToSupabase('magali');
+      this.saveToSupabase('kiara');
+    }
+  }
+
+  /**
+   * Logger une requête/question à un agent
+   */
+  logRequest(agentName) {
+    this.checkDailyReset();
+    
+    const agent = agentName.toLowerCase();
+    if (this.stats[agent]) {
+      this.stats[agent].requestsTotal = (this.stats[agent].requestsTotal || 0) + 1;
+      this.stats[agent].requestsToday = (this.stats[agent].requestsToday || 0) + 1;
+      this.saveToSupabase(agent);
     }
   }
 
@@ -95,6 +210,8 @@ class StatsService {
     const agent = agentName.toLowerCase();
     if (this.stats[agent] && typeof this.stats[agent][statName] === 'number') {
       this.stats[agent][statName] += amount;
+      // Sauvegarder dans Supabase
+      this.saveToSupabase(agent);
     }
   }
 
@@ -106,6 +223,8 @@ class StatsService {
     if (this.stats[agent]) {
       this.stats[agent].lastSync = new Date();
       this.stats[agent].lastSyncDate = new Date();
+      // Sauvegarder dans Supabase
+      this.saveToSupabase(agent);
     }
   }
 

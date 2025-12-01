@@ -22,7 +22,8 @@ interface AgentStats {
   emailsToday: number
   urgentEmails: number
   lastSync: string
-  totalRequests?: number
+  requestsTotal?: number
+  requestsToday?: number
   remindersSet?: number
   emailsSent?: number
   foldersCreated?: number
@@ -297,6 +298,14 @@ Tu es professionnel, efficace et tu communiques en français.`
                       <div className="stat-item">
                         <span className="stat-value">{stats.urgentEmails}</span>
                         <span className="stat-label">Urgents</span>
+                      </div>
+                      <div className="stat-item">
+                        <span className="stat-value">{stats.requestsTotal || 0}</span>
+                        <span className="stat-label">Requêtes totales</span>
+                      </div>
+                      <div className="stat-item">
+                        <span className="stat-value">{stats.requestsToday || 0}</span>
+                        <span className="stat-label">Requêtes du jour</span>
                       </div>
                       <div className="stat-item">
                         <span className="stat-value">{stats.lastSync}</span>

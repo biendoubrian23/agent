@@ -2,6 +2,7 @@ const openaiService = require('../services/openai.service');
 const whatsappService = require('../services/whatsapp.service');
 const mailAgent = require('./mail.agent');
 const outlookService = require('../services/outlook.service');
+const statsService = require('../services/stats.service');
 
 /**
  * Agent Principal (Brian) - Orchestre les autres agents
@@ -181,6 +182,15 @@ EXEMPLES:
 
     // Analyser l'intention du message
     const intent = await this.analyzeIntent(text);
+    
+    // Logger la requête pour les stats (détermine quel agent est sollicité)
+    if (intent.agent) {
+      statsService.logRequest(intent.agent);
+    } else if (intent.action && intent.action.startsWith('email')) {
+      statsService.logRequest('james');
+    } else {
+      statsService.logRequest('brian');
+    }
     
     let response;
 
