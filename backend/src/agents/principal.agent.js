@@ -1277,9 +1277,9 @@ EXEMPLES:
 
     console.log(`⏰ Création d'un rappel pour ${from}...`);
     
-    const result = await mailAgent.setReminder(from, message);
+    const result = await mailAgent.createReminder(from, message);
     
-    return `⏰ **Rappel créé !**\n\n${result.message}`;
+    return result.message;
   }
 
   /**
