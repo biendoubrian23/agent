@@ -1212,6 +1212,119 @@ class MailAgent {
     }
   }
 
+  /**
+   * Supprimer des emails par date précise (aujourd'hui, hier)
+   * @param {Object} criteria - Critères incluant period, from, folder
+   */
+  async cleanEmailsByDate(criteria) {
+    try {
+      if (!outlookService.isConnected()) {
+        return {
+          success: false,
+          message: this.getNotConnectedMessage()
+        };
+      }
+
+      console.log('🗑️ James nettoie les emails par date:', criteria);
+
+      // Déterminer la plage de dates
+      const now = new Date();
+      let startDate, endDate;
+      
+      if (criteria.period === 'today') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      } else if (criteria.period === 'yesterday') {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
+        endDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+      }
+
+      // Récupérer les emails de la période
+      let emails = await outlookService.getAllRecentEmails(200);
+      
+      // Filtrer par date
+      emails = emails.filter(e => {
+        const emailDate = new Date(e.receivedAt);
+        return emailDate >= startDate && emailDate <= endDate;
+      });
+      
+      // Filtrer par expéditeur si spécifié
+      if (criteria.from) {
+        const fromLower = criteria.from.toLowerCase();
+        emails = emails.filter(e => {
+          const from = (e.from || '').toLowerCase();
+          const fromName = (e.fromName || '').toLowerCase();
+          return from.includes(fromLower) || fromName.includes(fromLower);
+        });
+      }
+      
+      // Filtrer par dossier si spécifié
+      if (criteria.folder) {
+        const folderLower = criteria.folder.toLowerCase();
+        emails = emails.filter(e => {
+          const folder = (e.folder || '').toLowerCase();
+          return folder.includes(folderLower);
+        });
+      }
+
+      if (emails.length === 0) {
+        let msg = `📭 Aucun email trouvé`;
+        if (criteria.from) msg += ` de "${criteria.from}"`;
+        if (criteria.period === 'today') msg += ` aujourd'hui`;
+        if (criteria.period === 'yesterday') msg += ` hier`;
+        if (criteria.folder) msg += ` dans "${criteria.folder}"`;
+        return { success: true, message: msg, deleted: 0 };
+      }
+
+      // Demander confirmation avant suppression
+      const emailList = emails.slice(0, 5).map(e => 
+        `• ${e.fromName || e.from}: "${(e.subject || 'Sans sujet').substring(0, 40)}..." [${e.folder}]`
+      ).join('\n');
+      
+      // Supprimer les emails
+      let deletedCount = 0;
+      for (const email of emails) {
+        try {
+          await outlookService.deleteEmail(email.id);
+          deletedCount++;
+        } catch (err) {
+          console.error(`Erreur suppression ${email.id}:`, err.message);
+        }
+      }
+
+      statsService.addActivity('james', `Nettoyage: ${deletedCount} emails supprimés (${criteria.period})`);
+
+      let message = `🗑️ **Nettoyage terminé**\n\n`;
+      message += `📊 **Résultat:** ${deletedCount} email(s) supprimé(s)\n\n`;
+      
+      if (criteria.from) message += `📤 **Expéditeur:** ${criteria.from}\n`;
+      if (criteria.period === 'today') message += `📅 **Période:** Aujourd'hui\n`;
+      if (criteria.period === 'yesterday') message += `📅 **Période:** Hier\n`;
+      if (criteria.folder) message += `📁 **Dossier:** ${criteria.folder}\n`;
+      
+      if (deletedCount > 0) {
+        message += `\n**Exemples supprimés:**\n${emailList}`;
+        if (emails.length > 5) {
+          message += `\n... et ${emails.length - 5} autres`;
+        }
+      }
+
+      return {
+        success: true,
+        message,
+        deleted: deletedCount
+      };
+    } catch (error) {
+      console.error('❌ Erreur cleanEmailsByDate:', error);
+      return {
+        success: false,
+        message: `❌ Erreur: ${error.message}`
+      };
+    }
+  }
+
   // ==================== RAPPELS ====================
 
   /**

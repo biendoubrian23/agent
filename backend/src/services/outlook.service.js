@@ -1393,6 +1393,25 @@ class OutlookService {
   // ==================== FLAG / MARQUER POUR SUIVI ====================
 
   /**
+   * Supprimer un email unique
+   * @param {string} emailId - ID de l'email à supprimer
+   */
+  async deleteEmail(emailId) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      await axios.delete(
+        `${this.graphBaseUrl}/me/messages/${emailId}`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      );
+      return true;
+    } catch (error) {
+      console.error(`❌ Erreur suppression email ${emailId}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Marquer un email pour suivi (flag)
    * @param {string} emailId - ID de l'email
    * @param {boolean} flagged - true pour flag, false pour unflag

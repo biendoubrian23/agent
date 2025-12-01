@@ -1337,35 +1337,112 @@ EXEMPLES:
   }
 
   /**
-   * Nettoyage intelligent des vieux emails
+   * Nettoyage intelligent des emails avec filtres avancés
+   * Supporte: expéditeur, dossier, période (aujourd'hui, semaine, X jours)
    */
   async handleCleanEmails(params) {
     const text = params.text || '';
-    
-    // Extraire le dossier et le nombre de jours
-    let folder = 'Deleted Items';
-    let daysOld = 30;
-    
     const lowerText = text.toLowerCase();
     
-    // Détecter le dossier
-    if (lowerText.includes('newsletter')) folder = '📰 Newsletter';
-    else if (lowerText.includes('pub') || lowerText.includes('spam')) folder = 'Junk Email';
-    else if (lowerText.includes('corbeille') || lowerText.includes('trash') || lowerText.includes('deleted')) folder = 'Deleted Items';
-    else if (lowerText.includes('sent') || lowerText.includes('envoyé')) folder = 'Sent Items';
+    // Construire les critères de suppression
+    const criteria = {
+      limit: 100
+    };
     
-    // Détecter la durée
-    const daysMatch = text.match(/(\d+)\s*(jour|day)/i);
-    const weeksMatch = text.match(/(\d+)\s*(semaine|week)/i);
-    const monthsMatch = text.match(/(\d+)\s*(mois|month)/i);
+    // 1. Détecter l'expéditeur (LinkedIn, Amazon, etc.)
+    const senderPatterns = [
+      { pattern: /linkedin/i, name: 'linkedin' },
+      { pattern: /amazon/i, name: 'amazon' },
+      { pattern: /facebook/i, name: 'facebook' },
+      { pattern: /twitter|x\.com/i, name: 'twitter' },
+      { pattern: /instagram/i, name: 'instagram' },
+      { pattern: /google/i, name: 'google' },
+      { pattern: /microsoft/i, name: 'microsoft' },
+      { pattern: /apple/i, name: 'apple' },
+      { pattern: /netflix/i, name: 'netflix' },
+      { pattern: /spotify/i, name: 'spotify' },
+      { pattern: /uber/i, name: 'uber' },
+      { pattern: /airbnb/i, name: 'airbnb' },
+    ];
     
-    if (daysMatch) daysOld = parseInt(daysMatch[1]);
-    else if (weeksMatch) daysOld = parseInt(weeksMatch[1]) * 7;
-    else if (monthsMatch) daysOld = parseInt(monthsMatch[1]) * 30;
+    for (const { pattern, name } of senderPatterns) {
+      if (pattern.test(text)) {
+        criteria.from = name;
+        break;
+      }
+    }
+    
+    // Ou extraction générique "mails de X" ou "emails X"
+    if (!criteria.from) {
+      const fromMatch = text.match(/(?:mails?|emails?)\s+(?:de\s+)?(\w+)/i);
+      if (fromMatch && fromMatch[1].length > 2) {
+        // Vérifier que ce n'est pas un mot-clé de dossier ou de temps
+        const excluded = ['dossier', 'folder', 'aujourd', 'today', 'hier', 'yesterday', 'semaine', 'week', 'mois', 'month', 'vieux', 'old', 'derniers', 'last'];
+        if (!excluded.includes(fromMatch[1].toLowerCase())) {
+          criteria.from = fromMatch[1];
+        }
+      }
+    }
+    
+    // 2. Détecter le dossier cible
+    const folderPatterns = [
+      { pattern: /newsletter/i, folder: '📰 Newsletter' },
+      { pattern: /spam|ind[eé]sirable|junk/i, folder: 'Junk Email' },
+      { pattern: /corbeille|trash|deleted|supprim/i, folder: 'Deleted Items' },
+      { pattern: /envoy[eé]|sent/i, folder: 'Sent Items' },
+      { pattern: /urgent/i, folder: '🔴 Urgent' },
+      { pattern: /professionnel/i, folder: '💼 Professionnel' },
+      { pattern: /shopping/i, folder: '🛒 Shopping' },
+      { pattern: /social/i, folder: '🤝 Social' },
+      { pattern: /finance/i, folder: '🏦 Finance' },
+      { pattern: /iscod/i, folder: 'ISCOD' },
+      { pattern: /inbox|bo[îi]te\s*de\s*r[eé]ception/i, folder: 'Inbox' },
+    ];
+    
+    // Chercher "du dossier X" ou "dans le dossier X"
+    const folderNameMatch = text.match(/(?:du|dans\s+le?|from)\s+(?:dossier|folder)?\s*["']?(\w+)["']?/i);
+    if (folderNameMatch) {
+      criteria.folder = folderNameMatch[1];
+    } else {
+      for (const { pattern, folder } of folderPatterns) {
+        if (pattern.test(text)) {
+          criteria.folder = folder;
+          break;
+        }
+      }
+    }
+    
+    // 3. Détecter la période
+    if (lowerText.includes("aujourd'hui") || lowerText.includes('today') || lowerText.includes('du jour') || lowerText.includes('de la journ')) {
+      // Emails d'aujourd'hui = moins de 1 jour
+      criteria.period = 'today';
+      criteria.olderThanDays = 0; // On utilisera un filtre différent
+    } else if (lowerText.includes('hier') || lowerText.includes('yesterday')) {
+      criteria.period = 'yesterday';
+    } else if (lowerText.includes('semaine') || lowerText.includes('week')) {
+      const weeksMatch = text.match(/(\d+)\s*semaine/i);
+      criteria.olderThanDays = weeksMatch ? parseInt(weeksMatch[1]) * 7 : 7;
+    } else if (lowerText.includes('mois') || lowerText.includes('month')) {
+      const monthsMatch = text.match(/(\d+)\s*mois/i);
+      criteria.olderThanDays = monthsMatch ? parseInt(monthsMatch[1]) * 30 : 30;
+    } else {
+      const daysMatch = text.match(/(\d+)\s*jour/i);
+      if (daysMatch) {
+        criteria.olderThanDays = parseInt(daysMatch[1]);
+      }
+    }
+    
+    // 4. Si on a des critères de période spéciale (aujourd'hui, hier), les traiter différemment
+    if (criteria.period === 'today' || criteria.period === 'yesterday') {
+      // Utiliser une méthode de suppression par date exacte
+      const result = await mailAgent.cleanEmailsByDate(criteria);
+      return `🤖 **James** rapporte:\n\n${result.message}`;
+    }
 
-    console.log(`🗑️ James nettoie ${folder} (> ${daysOld} jours)...`);
+    console.log(`🗑️ James nettoie avec critères:`, criteria);
     
-    const result = await mailAgent.cleanEmails(folder, daysOld);
+    // 5. Exécuter la suppression
+    const result = await mailAgent.cleanupEmails(criteria);
     
     return `🤖 **James** rapporte:\n\n${result.message}`;
   }
