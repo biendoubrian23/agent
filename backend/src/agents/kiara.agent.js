@@ -419,69 +419,96 @@ Réponds toujours de manière professionnelle et utile.`;
 
     const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
 
-    const articlePrompt = `Tu es un EXCELLENT rédacteur web FRANÇAIS et expert SEO. Tu écris UNIQUEMENT en français.
-Rédige un article de blog captivant ET optimisé SEO qui traite de ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
+    const articlePrompt = `Tu es un EXCELLENT rédacteur web français, expert en articles professionnels bien structurés.
+Rédige un article captivant EN FRANÇAIS sur ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
 
-🔍 SUJETS/SOURCES À ANALYSER (les titres sont en anglais, TRADUIS-LES en français):
+🔍 SOURCES (traduis les titres anglais en français):
 ${sourcesForPrompt}
 
+1. 
 📝 TON STYLE:
 - **HUMOUR**: Ajoute des touches d'humour, des jeux de mots
-- **ACCROCHEUR**: Titre EN FRANÇAIS avec un clin d'œil humoristique
+- **ACCROCHEUR**: Titre percutant qui donne envie de lire
 - **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
 - **ACCESSIBLE**: Explique les concepts complexes simplement
-${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets' : ''}
+**PARAGRAPHES COURTS ET AÉRÉS**
+   - Maximum 3-4 phrases par paragraphe
+   - Une ligne vide entre chaque paragraphe
+   - JAMAIS de gros blocs de texte compacts
 
-🔍 OPTIMISATION SEO OBLIGATOIRE:
-1. **TITRE**: 50-60 caractères, mot-clé principal au début
-2. **META DESCRIPTION**: 150-160 caractères, incite au clic, contient le mot-clé
-3. **KEYWORDS**: 5-8 mots-clés pertinents (principal + secondaires + longue traîne)
-4. **STRUCTURE H2/H3**: Titres avec mots-clés, hiérarchie logique
-5. **MOTS-CLÉS DANS LE CONTENU**: Densité 1-2%, répartis naturellement
-6. **LIENS INTERNES SUGGÉRÉS**: Propose 2-3 sujets liés pour maillage interne
-7. **FAQ SEO**: 2-3 questions fréquentes à la fin (format ## FAQ)
 
-⚠️ RÈGLES STRICTES:
-1. **TITRE EN FRANÇAIS** - 50-60 caractères, mot-clé au début, accrocheur
-2. **100% FRANÇAIS** - Tout l'article en français
-3. **PAS DE 'Introduction' ou 'Conclusion'** - Commence directement par l'accroche
-4. **MARKDOWN BIEN FORMATÉ** - ## pour H2, ### pour H3, **gras** pour mots clés
+   ⚠️ RÈGLES STRICTES:
+1. **100% FRANÇAIS** - Tout l'article en français
+2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun
+3. **MARKDOWN BIEN FORMATÉ** - Utilise ## pour les titres, **gras** pour les mots clés, listes à puces
+4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées
 
-📏 LONGUEUR: 800-1200 mots (meilleur pour le SEO)
 
-📋 STRUCTURE DU CONTENU MARKDOWN:
-1. **Accroche** (2-3 phrases percutantes avec mot-clé principal)
-2. **## Titre Section 1** (mot-clé secondaire)
-   - Paragraphe explicatif avec **mots clés en gras**
-   - Liste à puces si pertinent
-3. **## Titre Section 2** (angle différent, autre mot-clé)
-   - Exemples concrets, chiffres, données
-4. **## Titre Section 3** (impact/futur/tendances)
-   - Analyse, point de vue expert
-5. **## FAQ** (2-3 questions SEO-friendly)
-   - ### Question 1 ?
-   - Réponse courte et claire
-6. **Phrase de fin** engageante avec CTA
+2. **GRAS STRATÉGIQUE** avec **double astérisque**:
+   - Noms propres: **Google**, **OpenAI**, **Nvidia**, **Apple**
+   - Chiffres importants: **15 millions d'euros**, **depuis 2013**
+   - Concepts clés: **intelligence artificielle**, **Formule 1**
+   - Actions: **a déclaré**, **vient d'annoncer**, **a révélé**
+
+3. **ITALIQUE** avec *simple astérisque*:
+   - Citations directes: *« Je ne pense pas que nous le reverrons »*
+   - Mots étrangers: *deep learning*, *machine learning*
+   - Emphase émotionnelle: C'est *exactement* ce qui s'est passé
+
+4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
+   - Courts et accrocheurs
+   - Jamais "Introduction" ni "Conclusion"
+
+5. **LISTES À PUCES** si approprié:
+   - Pour les énumérations claires
+   - Maximum 4-5 points
+
+📏 LONGUEUR: 800-1200 mots bien espacés
+
+📋 EXEMPLE DE STRUCTURE:
+
+La nouvelle a sidéré les fans du monde entier. Plus de onze ans après l'accident, **Michael Schumacher** semble désormais hors d'atteinte du monde public.
+
+Un ancien proche du paddock, **Richard Hopkins**, a déclaré : *« Je ne pense pas que nous reverrons Michael. »* Une phrase simple, mais qui sonne comme un point final.
+
+## Le silence de la famille
+
+Depuis **2013**, la famille de la légende de la **Formule 1** a choisi le silence total. **Corinna Schumacher** protège son mari avec une détermination inflexible, empêchant toute fuite sur son état.
+
+Même des figures emblématiques comme **Jean Todt** ou **Ross Brawn** ne livrent aucune précision.
+
+## Un mystère unique dans l'histoire du sport
+
+Cette discrétion absolue alimente un mystère unique. Et aujourd'hui, ce mystère s'assombrit.
+
+Selon Hopkins, le champion ne pourrait plus parler ni communiquer normalement. Des propos durs à entendre, mais qui éclairent d'un jour nouveau les onze années de silence.
+
+## Les conséquences pour les fans
+
+À ce drame personnel s'ajoute une affaire de **chantage** sordide : un ancien employé a volé près de **900 photos** et des dossiers médicaux, exigeant **15 millions d'euros**.
+
+Cette phrase prononcée cette semaine agit comme une déchirure pour tous ceux qui espéraient revoir la légende.
+
+Un choc pour le monde du sport. Un moment charnière. Et une vérité difficile à accepter : le champion que l'on connaissait ne reviendra probablement jamais.
 
 📄 FORMAT JSON:
 {
-  "title": "Titre SEO 50-60 car avec mot-clé au début",
-  "meta_description": "Description 150-160 car engageante avec mot-clé",
-  "keywords": ["mot-clé principal", "mot-clé 2", "mot-clé 3", "longue traîne 1", "longue traîne 2"],
-  "excerpt": "2-3 phrases accrocheuses pour les réseaux sociaux",
-  "content": "Contenu Markdown complet avec FAQ",
+  "title": "Titre accrocheur (50-60 car, mot-clé au début)",
+  "meta_description": "Description engageante (150-160 car)",
+  "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
+  "excerpt": "2-3 phrases d'accroche",
+  "content": "Contenu avec paragraphes courts, **gras**, *italique*, ## sous-titres, lignes vides",
   "category": "${category}",
   "reading_time_minutes": 5,
-  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "tags": ["tag1", "tag2", "tag3"],
   "sources": [${sources.map(s => `"${s.link}"`).join(', ')}],
-  "internal_links_suggestions": ["sujet lié 1", "sujet lié 2"],
-  "focus_keyword": "mot-clé principal ciblé"
+  "focus_keyword": "mot-clé principal"
 }`;
 
     try {
       const response = await openaiService.chat(this.systemPrompt, articlePrompt, { 
         json: true,
-        maxTokens: 3500 
+        maxTokens: 4000 
       });
       
       let cleanResponse = response.trim();
@@ -1348,54 +1375,79 @@ Réponds en JSON avec ce format:
       ? relatedTrends.map(t => `- "${t.title}" - ${t.link}`).join('\n')
       : 'Aucune source externe trouvée.';
 
-    const articlePrompt = `Tu es un EXCELLENT rédacteur web français avec un style ENGAGEANT et une touche d'HUMOUR. 
-Rédige un article de blog captivant EN FRANÇAIS sur: "${subject}"
+    const articlePrompt = `Tu es un EXCELLENT rédacteur web français, expert en articles bien structurés et agréables à lire.
+Rédige un article de blog professionnel EN FRANÇAIS sur: "${subject}"
 
-🔍 SOURCES À ANALYSER (utilise SEULEMENT si pertinentes pour "${subject}"):
+🔍 SOURCES À ANALYSER (utilise si pertinentes):
 ${sourcesForPrompt}
 
-📝 TON STYLE:
-- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots
-- **ACCROCHEUR**: Titre percutant qui donne envie de lire
-- **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
-- **ACCESSIBLE**: Explique les concepts complexes simplement
+📝 STYLE D'ÉCRITURE PROFESSIONNEL:
 
-⚠️ RÈGLES STRICTES:
-1. **100% FRANÇAIS** - Tout l'article en français
-2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun
-3. **MARKDOWN BIEN FORMATÉ** - Utilise ## pour les titres, **gras** pour les mots clés, listes à puces
-4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées
+1. **PARAGRAPHES COURTS ET AÉRÉS**
+   - Maximum 3-4 phrases par paragraphe
+   - Une ligne vide entre chaque paragraphe
+   - JAMAIS de gros blocs de texte compacts
 
-📏 LONGUEUR: 600-800 mots
+2. **GRAS STRATÉGIQUE** avec **double astérisque**:
+   - Noms propres: **Google**, **OpenAI**, **Tesla**
+   - Chiffres clés: **15 millions**, **90%**, **depuis 2013**
+   - Concepts importants: **intelligence artificielle**
+   - Verbes d'action: **a déclaré**, **vient d'annoncer**
 
-📋 STRUCTURE DU CONTENU MARKDOWN:
-1. **Accroche** (2-3 phrases percutantes, PAS de titre "Introduction")
-2. **## Titre Section 1** (créatif, pas "Qu'est-ce que...")
-   - Paragraphe explicatif avec **mots clés en gras**
-   - Liste à puces si pertinent
-3. **## Titre Section 2** (autre angle)
-   - Exemples concrets, chiffres
-4. **## Titre Section 3** (impact/futur)
-   - Analyse, point de vue
-5. **Phrase de fin fun** (PAS de titre "Conclusion")
+3. **ITALIQUE** avec *simple astérisque*:
+   - Citations: *« Je ne pense pas que nous le reverrons »*
+   - Mots étrangers ou techniques
+   - Emphase émotionnelle
 
-📄 FORMAT JSON:
+4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
+   - Courts et accrocheurs
+   - Pas de "Introduction" ni "Conclusion"
+
+5. **LISTES À PUCES** si pertinent:
+   - Pour énumérer clairement
+   - Maximum 4-5 points
+
+📏 LONGUEUR: 700-1000 mots bien espacés
+
+📋 STRUCTURE EXEMPLE:
+
+[Accroche - 1-2 paragraphes percutants sans titre]
+La nouvelle a sidéré les fans du monde entier. Après des années de silence, **Michael Schumacher** semble désormais hors d'atteinte.
+
+Un ancien proche du paddock a déclaré : *« Je ne pense pas que nous reverrons Michael. »* Une phrase simple, mais qui sonne comme un point final.
+
+## Le mystère s'épaissit
+
+Depuis **2013**, la famille de la légende de la **Formule 1** a choisi le silence total. **Corinna Schumacher** protège son mari avec une détermination inflexible.
+
+Même des figures emblématiques comme **Jean Todt** ne livrent aucune précision.
+
+## Un choc pour le monde du sport
+
+Cette discrétion absolue alimente un mystère unique dans l'histoire du sport. Et aujourd'hui, ce mystère s'assombrit.
+
+Selon les sources, le champion ne pourrait plus parler ni communiquer normalement. Des propos durs à entendre.
+
+[Fin sans titre "Conclusion"]
+Un moment charnière. Et une vérité difficile à accepter : le champion que l'on connaissait ne reviendra probablement jamais.
+
+📄 FORMAT JSON REQUIS:
 {
-  "title": "Titre accrocheur (max 55 car)",
+  "title": "Titre accrocheur (max 60 car)",
   "meta_description": "Description engageante (150 car)",
-  "keywords": ["mot1", "mot2"],
-  "excerpt": "2-3 phrases accrocheuses",
-  "content": "Contenu Markdown bien formaté avec ## titres et **gras**",
+  "keywords": ["mot1", "mot2", "mot3"],
+  "excerpt": "2-3 phrases d'accroche pour les réseaux",
+  "content": "Contenu avec paragraphes courts, **gras**, *italique*, ## sous-titres, lignes vides entre paragraphes",
   "category": "${category}",
   "reading_time_minutes": 5,
   "tags": ["tag1", "tag2"],
-  "sources": ["https://url1.com"]
+  "sources": ["https://..."]
 }`;
 
     try {
       const response = await openaiService.chat(this.systemPrompt, articlePrompt, { 
         json: true,
-        maxTokens: 3500 
+        maxTokens: 4000 
       });
       
       // Nettoyer la réponse si elle contient des backticks markdown
@@ -3143,46 +3195,63 @@ Réponds UNIQUEMENT en JSON valide (pas de markdown, pas de \`\`\`):
     const images = await this.searchFreeImages(topic, 1);
     const coverImage = images.length > 0 ? images[0] : null;
 
-    const mergePrompt = `Tu es Kiara, experte SEO. Rédige un article de blog COMPLET et PROFESSIONNEL sur "${topic}".
+    const mergePrompt = `Tu es un rédacteur web professionnel. Rédige un article BIEN STRUCTURÉ sur "${topic}".
 
-📰 SOURCES À FUSIONNER ET CITER:
+📰 SOURCES À FUSIONNER:
 ${sources.map((s, i) => `
 Source ${i + 1}: ${s.title} (${s.source})
 ${s.description}
 `).join('\n')}
 
-📋 STRUCTURE REQUISE:
+📝 STYLE D'ÉCRITURE PROFESSIONNEL:
 
-1. **Titre accrocheur** (optimisé SEO, mentionnant le sujet)
-2. **Meta description** (150-160 caractères)
-3. **Mots-clés** (5-8 mots-clés pertinents)
-4. **Extrait** (2-3 phrases résumant l'article)
-5. **Contenu principal** (1500+ mots) en Markdown avec:
-   - Introduction captivante
-   - 4-6 sections avec sous-titres (## et ###)
-   - Synthèse des informations des sources
-   - Exemples concrets et chiffres
-   - Citations des sources (ex: "Selon TechCrunch...")
-   - Listes à puces pour la lisibilité
-   - Conclusion avec perspectives et call-to-action
-6. **Section Sources** à la fin
+1. **PARAGRAPHES COURTS ET AÉRÉS**
+   - Maximum 3-4 phrases par paragraphe
+   - Une ligne vide entre chaque paragraphe
+   - JAMAIS de gros blocs de texte compacts
 
-IMPORTANT: 
-- Fusionne intelligemment les informations des ${sources.length} sources
-- Cite les sources dans le texte
-- Ajoute ta propre analyse
-- L'article doit être signé "Brian Biendou"
+2. **GRAS STRATÉGIQUE** avec **double astérisque**:
+   - Noms propres: **Google**, **OpenAI**, **Tesla**
+   - Chiffres: **15 millions**, **90%**, **depuis 2020**
+   - Concepts clés: **intelligence artificielle**
+   - Actions: **a déclaré**, **vient d'annoncer**
 
-Réponds en JSON:
+3. **ITALIQUE** avec *simple astérisque*:
+   - Citations: *« Ceci est une citation »*
+   - Mots étrangers: *machine learning*
+
+4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
+   - Courts et accrocheurs
+   - Pas de "Introduction" ni "Conclusion"
+
+📋 EXEMPLE DE STRUCTURE:
+
+La nouvelle a surpris tout le monde. **OpenAI** vient d'annoncer une avancée majeure qui pourrait changer la donne.
+
+Selon les experts, cette technologie représente *« un bond en avant considérable »*. Une affirmation qui mérite d'être analysée.
+
+## Un tournant pour l'industrie
+
+Depuis **2022**, le marché de l'IA connaît une croissance fulgurante. Les investissements ont atteint **50 milliards de dollars** cette année.
+
+**Google** et **Microsoft** ne sont pas en reste. Les deux géants ont multiplié les annonces ces derniers mois.
+
+## Les implications concrètes
+
+Pour les utilisateurs, cela signifie des outils plus performants. Mais aussi de nouvelles questions sur l'éthique et la régulation.
+
+L'avenir s'annonce passionnant. Et ce n'est que le début d'une transformation profonde.
+
+📄 RÉPONDS EN JSON:
 {
-  "title": "...",
-  "meta_description": "...",
-  "keywords": ["..."],
-  "excerpt": "...",
-  "content": "# Titre\\n\\n## Introduction\\n...",
+  "title": "Titre accrocheur (60 car max)",
+  "meta_description": "Description engageante (150 car)",
+  "keywords": ["mot1", "mot2", "mot3"],
+  "excerpt": "2-3 phrases d'accroche",
+  "content": "Contenu avec paragraphes courts, **gras**, *italique*, ## sous-titres, lignes vides entre paragraphes",
   "category": "${category}",
-  "reading_time_minutes": 8,
-  "tags": ["..."],
+  "reading_time_minutes": 6,
+  "tags": ["tag1", "tag2"],
   "sources": ["Source 1", "Source 2"]
 }`;
 
