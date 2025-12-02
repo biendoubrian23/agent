@@ -1176,57 +1176,185 @@ Message utilisateur: "${text}"
   }
 
   /**
-   * Analyse IA pour James quand le regex ne trouve pas
+   * Analyse IA avancée pour James - extrait l'action ET tous les paramètres
    */
   async analyzeJamesIntentWithAI(text) {
-    const prompt = `Tu es un assistant qui analyse les intentions utilisateur pour James (gestionnaire d'emails Outlook).
+    const prompt = `Tu es un assistant expert qui analyse les intentions utilisateur pour James (gestionnaire d'emails Outlook).
 
 Message utilisateur: "${text}"
 
-Analyse ce message et détermine l'action à effectuer parmi:
-- email_summary: résumer les emails récents
-- email_unread: voir les emails non lus
-- email_classify: classer/trier les emails dans des dossiers
-- email_reclassify: reclasser des emails déjà classés
-- email_important: voir les emails importants/urgents
-- send_email: envoyer un email à quelqu'un
-- email_search: chercher un email spécifique
-- contact_search: chercher un contact
-- email_reply: répondre à un email
-- create_reminder: créer un rappel
-- list_reminders: voir mes rappels
-- email_cleanup: nettoyer/supprimer des emails
-- daily_summary: résumé quotidien complet
-- create_folder: créer un dossier
-- delete_folder: supprimer un dossier
-- list_folders: voir mes dossiers
-- config_james: configurer une règle de classement
-- config_list_rules: voir les règles
-- delete_rule: supprimer une règle
-- describe_james: expliquer les capacités de James
-- james_general: question générale
+🎯 ACTIONS DISPONIBLES ET LEURS PARAMÈTRES:
 
-Réponds en JSON:
+1. **email_summary** - Résumer les emails récents
+   Params:
+   - count: number | null (nombre d'emails, défaut: 10)
+   - filter: string | null ("today", "yesterday", "week", "month", "Xdays")
+   - from: string | null (nom de l'expéditeur pour filtrer)
+   Exemples:
+   - "résume mes emails" → count: 10, filter: null, from: null
+   - "mes 20 derniers emails" → count: 20
+   - "les mails de cette semaine" → filter: "week"
+   - "les emails de LinkedIn" → from: "LinkedIn"
+   - "mails d'hier de Amazon" → filter: "yesterday", from: "Amazon"
+   - "résume les mails de Adrian" → from: "Adrian"
+
+2. **email_unread** - Voir les emails non lus
+   Params:
+   - count: number | null (nombre max à afficher)
+   - filter: string | null (période)
+   Exemples:
+   - "emails non lus" → count: null
+   - "mes 5 non lus" → count: 5
+
+3. **email_classify** - Classer/trier les emails dans des dossiers
+   Params:
+   - count: number | null (nombre d'emails à classer, défaut: 50)
+   Exemples:
+   - "classe mes emails" → count: 50
+   - "trie les 100 derniers mails" → count: 100
+
+4. **email_important** - Voir les emails importants/urgents
+   Params:
+   - count: number | null
+   Exemples:
+   - "emails urgents" → count: null
+   - "emails importants" → count: null
+
+5. **send_email** - Envoyer un email
+   Params:
+   - to: string | null (email ou nom du destinataire)
+   - subject: string | null (sujet de l'email)
+   - body: string | null (contenu de l'email)
+   Exemples:
+   - "envoie un mail à jean@example.com" → to: "jean@example.com"
+   - "écris à Pierre pour lui dire bonjour" → to: "Pierre", body: "bonjour"
+
+6. **email_search** - Rechercher des emails par CONTENU ou SUJET
+   Params:
+   - query: string (mot-clé à chercher dans le contenu/sujet)
+   - from: string | null (filtrer par expéditeur)
+   - filter: string | null (période)
+   Exemples:
+   - "cherche les emails concernant le projet Alpha" → query: "projet Alpha"
+   - "trouve les mails qui parlent de facture" → query: "facture"
+   - "emails contenant devis" → query: "devis"
+
+7. **contact_search** - Chercher l'ADRESSE EMAIL d'un contact/personne
+   Params:
+   - name: string (NOM ou PRÉNOM de la personne à chercher - EXTRAIRE DU MESSAGE)
+   Exemples:
+   - "donne moi le mail de Magali" → name: "Magali"
+   - "quel est l'email de Jean-Pierre" → name: "Jean-Pierre"
+   - "retrouve moi le mail de ISCOD" → name: "ISCOD"
+   - "trouve l'adresse de Amazon" → name: "Amazon"
+   - "comment contacter Dupont" → name: "Dupont"
+   ⚠️ IMPORTANT: Extraire SEULEMENT le nom/prénom, PAS tout le message !
+
+8. **email_reply** - Répondre à un email
+   Params:
+   - to: string | null (destinataire)
+   - emailId: string | null (ID de l'email)
+   - body: string | null (contenu de la réponse)
+   Exemples:
+   - "réponds à Pierre" → to: "Pierre"
+   - "réponds au dernier mail de Jean" → to: "Jean"
+
+9. **create_reminder** - Créer un rappel
+   Params:
+   - message: string (texte du rappel)
+   - delay: string | null ("30min", "1h", "2h", "demain", etc.)
+   - date: string | null (date si spécifiée)
+   Exemples:
+   - "rappelle moi de répondre à Jean dans 2h" → message: "répondre à Jean", delay: "2h"
+   - "n'oublie pas de vérifier les emails demain" → message: "vérifier les emails", delay: "demain"
+
+10. **list_reminders** - Voir mes rappels
+    Params: {}
+
+11. **email_cleanup** - Nettoyer/supprimer des emails
+    Params:
+    - from: string | null (expéditeur à cibler)
+    - filter: string | null ("newsletter", "spam", "old")
+    - count: number | null
+    Exemples:
+    - "supprime les newsletters" → filter: "newsletter"
+    - "nettoie les mails de spam" → filter: "spam"
+
+12. **daily_summary** - Résumé quotidien complet
+    Params: {}
+
+13. **create_folder** - Créer un dossier
+    Params:
+    - name: string (nom du dossier)
+    Exemples:
+    - "crée le dossier Projets" → name: "Projets"
+
+14. **delete_folder** - Supprimer un dossier
+    Params:
+    - name: string (nom du dossier)
+
+15. **list_folders** - Voir mes dossiers
+    Params: {}
+
+16. **config_james** - Configurer une règle de classement
+    Params:
+    - from: string | null (expéditeur)
+    - folder: string | null (dossier cible)
+    - keywords: array | null (mots-clés)
+    Exemples:
+    - "mets les mails de LinkedIn dans Professionnel" → from: "LinkedIn", folder: "Professionnel"
+
+17. **config_list_rules** - Voir les règles de classement
+    Params: {}
+
+18. **delete_rule** - Supprimer une règle
+    Params:
+    - ruleName: string | null
+    - ruleIndex: number | null
+
+19. **describe_james** - Expliquer les capacités de James
+    Params: {}
+
+20. **james_general** - Question générale / conversation
+    Params: { text: string }
+
+📋 RÉPONDS EN JSON STRICT:
 {
   "action": "nom_action",
-  "params": { "text": "message original", ... },
+  "params": {
+    // Inclure TOUS les paramètres pertinents extraits du message
+    // Utiliser null si le paramètre n'est pas mentionné
+  },
   "confidence": 0-100,
-  "reasoning": "explication courte"
-}`;
+  "reasoning": "explication courte de ton analyse"
+}
+
+⚠️ RÈGLES IMPORTANTES:
+1. Pour contact_search: EXTRAIRE uniquement le nom (ex: "mail de Magali" → name: "Magali")
+2. Pour email_summary avec "de X" ou "from X": c'est un filtre par expéditeur → from: "X"
+3. "les mails de Jean" = email_summary avec from: "Jean" (voir les emails DE Jean)
+4. "le mail de Jean" = contact_search avec name: "Jean" (trouver L'ADRESSE de Jean)
+5. Distinguer SINGULIER (l'email, le mail) vs PLURIEL (les emails, mes mails)
+6. Extrais TOUS les chiffres mentionnés (ex: "20 derniers" → count: 20)`;
 
     try {
       const response = await openaiService.chat([
-        { role: 'system', content: 'Tu analyses les intentions pour un assistant email. Réponds uniquement en JSON.' },
+        { role: 'system', content: 'Tu es un expert en analyse d\'intentions pour un assistant email Outlook. Tu extrais TOUS les paramètres pertinents du message. Réponds UNIQUEMENT en JSON valide.' },
         { role: 'user', content: prompt }
-      ], { temperature: 0.1 });
+      ], { temperature: 0.1, max_tokens: 500 });
 
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        console.log(`🤖 IA James: ${parsed.action} (${parsed.confidence}%) - ${parsed.reasoning}`);
+        console.log(`🤖 IA James: ${parsed.action} (${parsed.confidence}%)`);
+        console.log(`   📋 Params extraits:`, JSON.stringify(parsed.params));
+        console.log(`   💭 Reasoning: ${parsed.reasoning}`);
+        
+        // Toujours inclure le texte original
         return {
           action: parsed.action,
-          params: { ...parsed.params, text }
+          params: { ...parsed.params, text },
+          confidence: parsed.confidence
         };
       }
     } catch (error) {
