@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Send, Settings, History, BarChart3, Globe, Mic, Paperclip, RefreshCw, AlertCircle, Zap, TrendingUp, FileText, ThumbsUp, MessageCircle, Share2, Eye, PenTool, Calendar, Search, Image, FileDown } from 'lucide-react'
+import { X, Send, BarChart3, Paperclip, RefreshCw, AlertCircle, Zap, TrendingUp, FileText, ThumbsUp, MessageCircle, Share2, Eye, PenTool, Calendar, Search, Image, FileDown } from 'lucide-react'
 import './KiaraModal.css'
 
 interface Article {
@@ -38,13 +38,11 @@ interface KiaraModalProps {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const SUPABASE_URL = 'https://cagfwdtoebzotbhpkvvr.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhZ2Z3ZHRvZWJ6b3RiaHBrdnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDczMjY3MDYsImV4cCI6MjA2MjkwMjcwNn0.gy6z-x5BVaP1vj8lLlzpHTjOe5pNXC9bNY17Y8Ag_9I'
 
 const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
   const [message, setMessage] = useState('')
-  const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'trending'>('dashboard')
