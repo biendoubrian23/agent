@@ -289,26 +289,120 @@ DISTINCTION TRÈS IMPORTANTE:
     const userContext = this.getUserContext(from);
     const lowerText = text.toLowerCase().trim();
     
-    // PRIORITÉ 0: Vérifier les commandes explicites de changement d'agent
-    if (lowerText === 'james' || lowerText === 'passe à james' || lowerText === 'emails' || lowerText === 'mails') {
-      const response = this.handleSwitchToJames(from);
+    // ============================================================
+    // MODE AGENT STRICT - Gestion des sessions exclusives
+    // ============================================================
+    
+    // Patterns pour terminer une session avec un agent
+    const endKiaraPatterns = [
+      'fini avec kiara', 'fin avec kiara', 'terminer avec kiara', 'quitter kiara',
+      'j\'ai fini avec kiara', 'j\'ai terminé avec kiara', 'au revoir kiara',
+      'merci kiara', 'c\'est bon kiara', 'ok kiara merci', 'bye kiara',
+      'sortir de kiara', 'retour', 'brian', 'revenir'
+    ];
+    
+    const endJamesPatterns = [
+      'fini avec james', 'fin avec james', 'terminer avec james', 'quitter james',
+      'j\'ai fini avec james', 'j\'ai terminé avec james', 'au revoir james',
+      'merci james', 'c\'est bon james', 'ok james merci', 'bye james',
+      'sortir de james', 'retour', 'brian', 'revenir'
+    ];
+    
+    const startKiaraPatterns = [
+      'kiara', 'parler à kiara', 'passe à kiara', 'je veux kiara',
+      'appelle kiara', 'with kiara', 'blog', 'article'
+    ];
+    
+    const startJamesPatterns = [
+      'james', 'parler à james', 'passe à james', 'je veux james',
+      'appelle james', 'with james', 'emails', 'mails', 'mail'
+    ];
+    
+    // SI ON EST EN MODE KIARA
+    if (userContext?.agent === 'kiara') {
+      // Vérifier si l'utilisateur veut quitter Kiara
+      if (endKiaraPatterns.some(p => lowerText.includes(p))) {
+        const response = this.handleEndAgentSession(from);
+        await whatsappService.sendLongMessage(from, response);
+        return response;
+      }
+      
+      // Vérifier si l'utilisateur demande quelque chose lié à James/emails
+      const isJamesRequest = this.isJamesRelatedRequest(lowerText);
+      if (isJamesRequest) {
+        const response = `⚠️ **Tu es actuellement avec Kiara (Blog/SEO)**\n\n` +
+          `Pour gérer tes emails, tu dois d'abord terminer avec Kiara.\n\n` +
+          `💡 Dis **"fini avec Kiara"** ou **"merci Kiara"** pour revenir à Brian, puis tu pourras parler à James.`;
+        await whatsappService.sendLongMessage(from, response);
+        return response;
+      }
+      
+      // Sinon, traiter la demande avec Kiara
+      const response = await this.handleKiaraRequest(from, text, lowerText);
       await whatsappService.sendLongMessage(from, response);
       return response;
     }
     
-    if (lowerText === 'kiara' || lowerText === 'passe à kiara' || lowerText === 'blog' || lowerText === 'article') {
+    // SI ON EST EN MODE JAMES
+    if (userContext?.agent === 'james') {
+      // Vérifier si l'utilisateur veut quitter James
+      if (endJamesPatterns.some(p => lowerText.includes(p))) {
+        const response = this.handleEndAgentSession(from);
+        await whatsappService.sendLongMessage(from, response);
+        return response;
+      }
+      
+      // Vérifier si l'utilisateur demande quelque chose lié à Kiara/blog
+      const isKiaraRequest = this.isKiaraRelatedRequest(lowerText);
+      if (isKiaraRequest) {
+        const response = `⚠️ **Tu es actuellement avec James (Emails)**\n\n` +
+          `Pour gérer ton blog/SEO, tu dois d'abord terminer avec James.\n\n` +
+          `💡 Dis **"fini avec James"** ou **"merci James"** pour revenir à Brian, puis tu pourras parler à Kiara.`;
+        await whatsappService.sendLongMessage(from, response);
+        return response;
+      }
+      
+      // Vérifier si l'utilisateur a un brouillon en attente
+      if (mailAgent.hasPendingDraft(from)) {
+        const draftResponse = await this.handleDraftInteraction(from, text);
+        if (draftResponse) {
+          await whatsappService.sendLongMessage(from, draftResponse);
+          return draftResponse;
+        }
+      }
+      
+      // Vérifier si l'utilisateur a une sélection de destinataire en attente
+      if (mailAgent.hasPendingRecipientSearch(from)) {
+        const selectionResult = await mailAgent.handleRecipientSelection(from, text);
+        await whatsappService.sendLongMessage(from, selectionResult.message);
+        return selectionResult.message;
+      }
+      
+      // Sinon, traiter la demande avec James
+      const response = await this.handleJamesRequest(from, text, lowerText);
+      await whatsappService.sendLongMessage(from, response);
+      return response;
+    }
+    
+    // ============================================================
+    // MODE BRIAN (défaut) - Peut switcher vers Kiara ou James
+    // ============================================================
+    
+    // Vérifier si l'utilisateur veut parler à Kiara
+    if (startKiaraPatterns.some(p => lowerText.includes(p) || lowerText === p)) {
       const response = this.handleSwitchToKiara(from);
       await whatsappService.sendLongMessage(from, response);
       return response;
     }
     
-    if (lowerText === 'quitter' || lowerText === 'fin' || lowerText === 'terminer' || lowerText === 'retour' || lowerText === 'brian') {
-      const response = this.handleEndAgentSession(from);
+    // Vérifier si l'utilisateur veut parler à James
+    if (startJamesPatterns.some(p => lowerText.includes(p) || lowerText === p)) {
+      const response = this.handleSwitchToJames(from);
       await whatsappService.sendLongMessage(from, response);
       return response;
     }
 
-    // PRIORITÉ 1: Vérifier si l'utilisateur a un brouillon en attente
+    // PRIORITÉ: Vérifier si l'utilisateur a un brouillon en attente (même sans agent actif)
     if (mailAgent.hasPendingDraft(from)) {
       const draftResponse = await this.handleDraftInteraction(from, text);
       if (draftResponse) {
@@ -317,26 +411,11 @@ DISTINCTION TRÈS IMPORTANTE:
       }
     }
 
-    // PRIORITÉ 2: Vérifier si l'utilisateur a une sélection de destinataire en attente
-    if (mailAgent.hasPendingRecipientSearch(from)) {
-      const selectionResult = await mailAgent.handleRecipientSelection(from, text);
-      await whatsappService.sendLongMessage(from, selectionResult.message);
-      return selectionResult.message;
-    }
-
-    // PRIORITÉ 3: Si un agent est actif, interpréter dans son contexte
-    const intent = await this.analyzeIntent(text, from, userContext);
+    // Analyser l'intention et répondre (mode Brian général)
+    const intent = await this.analyzeIntent(text, from, null);
     
-    // Logger la requête pour les stats (détermine quel agent est sollicité)
-    if (intent.agent) {
-      statsService.logRequest(intent.agent);
-    } else if (intent.action && intent.action.startsWith('email')) {
-      statsService.logRequest('james');
-    } else if (intent.action && intent.action.startsWith('kiara')) {
-      statsService.logRequest('kiara');
-    } else {
-      statsService.logRequest('brian');
-    }
+    // Logger la requête pour les stats
+    statsService.logRequest('brian');
     
     let response;
 
@@ -344,115 +423,15 @@ DISTINCTION TRÈS IMPORTANTE:
       case 'greeting':
         response = await this.handleGreeting(intent.params);
         break;
-
-      case 'email_summary':
-        response = await this.handleEmailSummary(intent.params);
-        break;
       
-      case 'email_unread':
-        response = await this.handleUnreadEmails(intent.params);
-        break;
-      
-      case 'email_classify':
-        response = await this.handleEmailClassification(intent.params);
-        break;
-
-      case 'email_important':
-        response = await this.handleImportantEmails(intent.params);
-        break;
-
-      case 'email_classify_with_rule':
-        response = await this.handleClassifyWithRule(intent.params);
-        break;
-
-      case 'email_classify_memory':
-        response = await this.handleClassificationMemory();
-        break;
-
-      case 'email_reclassify':
-        response = await this.handleReclassifyEmails(intent.params);
-        break;
-      
-      case 'config_james':
-        response = await this.handleConfigJames(intent.params);
-        break;
-
-      case 'config_list_rules':
-        response = this.handleListRules();
-        break;
-
-      case 'delete_rule':
-        response = await this.handleDeleteRule(intent.params);
-        break;
-
-      case 'config_reset':
-        response = this.handleResetConfig();
-        break;
-      
-      case 'send_email':
-        response = await this.handleSendEmail(from, intent.params);
-        break;
-
-      case 'confirm_send':
-        response = await this.handleConfirmSend(from);
-        break;
-
-      case 'cancel_draft':
-        response = await this.handleCancelDraft(from);
-        break;
-
-      case 'revise_draft':
-        response = await this.handleReviseDraft(from, intent.params);
-        break;
-
-      case 'check_connection':
-        response = await this.checkConnections();
-        break;
-
-      case 'create_folder':
-        response = await this.handleCreateFolder(intent.params);
-        break;
-
-      case 'delete_folder':
-        response = await this.handleDeleteFolder(intent.params);
-        break;
-
-      case 'list_folders':
-        response = await this.handleListFolders();
-        break;
-
-      case 'email_search':
-        response = await this.handleEmailSearch(intent.params);
-        break;
-
-      case 'contact_search':
-        response = await this.handleContactSearch(intent.params);
-        break;
-
-      case 'email_reply':
-        response = await this.handleQuickReply(from, intent.params);
-        break;
-
-      case 'create_reminder':
-        response = await this.handleSetReminder(from, intent.params);
-        break;
-
-      case 'list_reminders':
-        response = await this.handleListReminders(from);
-        break;
-
-      case 'email_cleanup':
-        response = await this.handleCleanEmails(intent.params);
-        break;
-
-      case 'daily_summary':
-        response = await this.handleDailySummary();
-        break;
-
       case 'help':
         response = this.getHelpMessage();
         break;
-
+      
+      case 'check_connection':
+        response = await this.checkConnections();
+        break;
+      
       case 'describe_james':
         response = this.getJamesCapabilities();
         break;
@@ -461,92 +440,15 @@ DISTINCTION TRÈS IMPORTANTE:
         response = this.getKiaraCapabilities();
         break;
 
-      // ========== KIARA ACTIONS ==========
-      case 'kiara_trends':
-        response = await this.handleKiaraTrends(intent.params);
-        break;
-
-      case 'kiara_generate_article':
-        response = await this.handleKiaraGenerateArticle(intent.params);
-        break;
-
-      case 'kiara_publish':
-        response = await this.handleKiaraPublish(from, intent.params);
-        break;
-
-      case 'kiara_schedule':
-        response = await this.handleKiaraSchedule(from, intent.params);
-        break;
-
-      case 'kiara_modify':
-        response = await this.handleKiaraModify(from, intent.params);
-        break;
-
-      case 'kiara_daily_stats':
-        response = await this.handleKiaraDailyStats();
-        break;
-
-      case 'kiara_global_stats':
-        response = await this.handleKiaraGlobalStats();
-        break;
-
-      case 'kiara_article_stats':
-        response = await this.handleKiaraArticleStats(intent.params);
-        break;
-
-      case 'kiara_general':
-        response = await this.handleKiaraGeneral(from, intent.params);
-        break;
-
-      case 'kiara_complete_workflow':
-        response = await this.handleKiaraCompleteWorkflow(from, intent.params);
-        break;
-
-      case 'kiara_pdf':
-        response = await this.handleKiaraPDF(from, intent.params);
-        break;
-
-      case 'kiara_delete_article':
-        response = await this.handleKiaraDeleteArticle(intent.params);
-        break;
-
-      case 'kiara_list_articles':
-        response = await this.handleKiaraListArticles(intent.params);
-        break;
-
-      case 'kiara_list_published':
-        response = await this.handleKiaraListPublished(intent.params);
-        break;
-
-      case 'kiara_list_drafts':
-        response = await this.handleKiaraListDrafts(intent.params);
-        break;
-
-      case 'kiara_count_articles':
-        response = await this.handleKiaraCountArticles(intent.params);
-        break;
-
-      case 'switch_to_james':
-        response = this.handleSwitchToJames(from);
-        break;
-
-      case 'switch_to_kiara':
-        response = this.handleSwitchToKiara(from);
-        break;
-
-      case 'end_agent_session':
-        response = this.handleEndAgentSession(from);
-        break;
-
       default:
-        response = await this.handleGeneralQuestion(text);
-    }
-    
-    // Mettre à jour le contexte agent si une action Kiara/James est exécutée
-    if (intent.action && intent.action.startsWith('kiara')) {
-      this.setUserContext(from, 'kiara');
-    } else if (intent.action && intent.action.startsWith('email')) {
-      this.setUserContext(from, 'james');
+        // Si c'est une demande liée à un agent, suggérer de l'appeler
+        if (this.isJamesRelatedRequest(lowerText)) {
+          response = `📧 Cette demande concerne les emails.\n\n💡 Dis **"James"** ou **"je veux parler à James"** pour accéder à l'assistant email.`;
+        } else if (this.isKiaraRelatedRequest(lowerText)) {
+          response = `✍️ Cette demande concerne le blog/SEO.\n\n💡 Dis **"Kiara"** ou **"je veux parler à Kiara"** pour accéder à l'assistant blog.`;
+        } else {
+          response = await this.handleGeneralQuestion(text);
+        }
     }
 
     // Envoyer la réponse via WhatsApp
@@ -556,33 +458,414 @@ DISTINCTION TRÈS IMPORTANTE:
   }
 
   /**
-   * Analyser l'intention du message avec l'IA
-   * Prend en compte le contexte de l'agent actif
+   * Vérifie si la demande est liée à James (emails)
+   */
+  isJamesRelatedRequest(text) {
+    const jamesKeywords = [
+      'mail', 'email', 'e-mail', 'courrier', 'message', 'inbox', 'boîte',
+      'envoie', 'envoyer', 'résume mes', 'classe mes', 'trie', 'dossier',
+      'non lu', 'outlook', 'règle', 'newsletter', 'urgent', 'professionnel'
+    ];
+    return jamesKeywords.some(k => text.includes(k));
+  }
+
+  /**
+   * Vérifie si la demande est liée à Kiara (blog/SEO)
+   */
+  isKiaraRelatedRequest(text) {
+    const kiaraKeywords = [
+      'article', 'blog', 'seo', 'tendance', 'rédige', 'écris', 'publie',
+      'brouillon', 'stats', 'vues', 'pdf', 'programme', 'gpu', 'ia',
+      'tech', 'génère'
+    ];
+    return kiaraKeywords.some(k => text.includes(k));
+  }
+
+  /**
+   * Traiter une demande en mode Kiara
+   */
+  async handleKiaraRequest(from, text, lowerText) {
+    console.log(`✍️ Mode Kiara - Traitement: ${text}`);
+    statsService.logRequest('kiara');
+    
+    let response;
+    
+    // Analyser l'intention dans le contexte Kiara
+    const intent = this.analyzeKiaraIntent(lowerText, text);
+    
+    switch (intent.action) {
+      case 'kiara_trends':
+        response = await this.handleKiaraTrends(intent.params);
+        break;
+      case 'kiara_generate_article':
+        response = await this.handleKiaraGenerateArticle(intent.params);
+        break;
+      case 'kiara_publish':
+        response = await this.handleKiaraPublish(from, intent.params);
+        break;
+      case 'kiara_schedule':
+        response = await this.handleKiaraSchedule(from, intent.params);
+        break;
+      case 'kiara_modify':
+        response = await this.handleKiaraModify(from, intent.params);
+        break;
+      case 'kiara_global_stats':
+        response = await this.handleKiaraGlobalStats();
+        break;
+      case 'kiara_article_stats':
+        response = await this.handleKiaraArticleStats(intent.params);
+        break;
+      case 'kiara_complete_workflow':
+        response = await this.handleKiaraCompleteWorkflow(from, intent.params);
+        break;
+      case 'kiara_pdf':
+        response = await this.handleKiaraPDF(from, intent.params);
+        break;
+      case 'kiara_delete_article':
+        response = await this.handleKiaraDeleteArticle(intent.params);
+        break;
+      case 'kiara_list_articles':
+        response = await this.handleKiaraListArticles(intent.params);
+        break;
+      case 'kiara_list_published':
+        response = await this.handleKiaraListPublished(intent.params);
+        break;
+      case 'kiara_list_drafts':
+        response = await this.handleKiaraListDrafts(intent.params);
+        break;
+      case 'kiara_count_articles':
+        response = await this.handleKiaraCountArticles(intent.params);
+        break;
+      case 'describe_kiara':
+        response = this.getKiaraCapabilities();
+        break;
+      default:
+        // Demande générale à Kiara
+        response = await this.handleKiaraGeneral(from, { text });
+    }
+    
+    // Ajouter le rappel pour quitter
+    response += `\n\n━━━━━━━━━━━━━━━━━━\n💡 *Dis "fini avec Kiara" pour revenir à Brian*`;
+    
+    return response;
+  }
+
+  /**
+   * Traiter une demande en mode James
+   */
+  async handleJamesRequest(from, text, lowerText) {
+    console.log(`📧 Mode James - Traitement: ${text}`);
+    statsService.logRequest('james');
+    
+    let response;
+    
+    // Analyser l'intention dans le contexte James
+    const intent = await this.analyzeJamesIntent(lowerText, text);
+    
+    switch (intent.action) {
+      case 'email_summary':
+        response = await this.handleEmailSummary(intent.params);
+        break;
+      case 'email_unread':
+        response = await this.handleUnreadEmails(intent.params);
+        break;
+      case 'email_classify':
+        response = await this.handleEmailClassification(intent.params);
+        break;
+      case 'email_reclassify':
+        response = await this.handleReclassifyEmails(intent.params);
+        break;
+      case 'email_important':
+        response = await this.handleImportantEmails(intent.params);
+        break;
+      case 'email_classify_with_rule':
+        response = await this.handleClassifyWithRule(intent.params);
+        break;
+      case 'send_email':
+        response = await this.handleSendEmail(from, intent.params);
+        break;
+      case 'email_search':
+        response = await this.handleEmailSearch(intent.params);
+        break;
+      case 'contact_search':
+        response = await this.handleContactSearch(intent.params);
+        break;
+      case 'email_reply':
+        response = await this.handleQuickReply(from, intent.params);
+        break;
+      case 'create_reminder':
+        response = await this.handleSetReminder(from, intent.params);
+        break;
+      case 'list_reminders':
+        response = await this.handleListReminders(from);
+        break;
+      case 'email_cleanup':
+        response = await this.handleCleanEmails(intent.params);
+        break;
+      case 'daily_summary':
+        response = await this.handleDailySummary();
+        break;
+      case 'create_folder':
+        response = await this.handleCreateFolder(intent.params);
+        break;
+      case 'delete_folder':
+        response = await this.handleDeleteFolder(intent.params);
+        break;
+      case 'list_folders':
+        response = await this.handleListFolders();
+        break;
+      case 'config_james':
+        response = await this.handleConfigJames(intent.params);
+        break;
+      case 'config_list_rules':
+        response = this.handleListRules();
+        break;
+      case 'delete_rule':
+        response = await this.handleDeleteRule(intent.params);
+        break;
+      case 'config_reset':
+        response = this.handleResetConfig();
+        break;
+      case 'describe_james':
+        response = this.getJamesCapabilities();
+        break;
+      default:
+        // Demande générale à James
+        response = await this.handleGeneralQuestion(text);
+    }
+    
+    // Ajouter le rappel pour quitter
+    response += `\n\n━━━━━━━━━━━━━━━━━━\n💡 *Dis "fini avec James" pour revenir à Brian*`;
+    
+    return response;
+  }
+
+  /**
+   * Analyser l'intention spécifique à Kiara (sans appeler OpenAI)
+   */
+  analyzeKiaraIntent(lowerText, originalText) {
+    // Suppression d'articles
+    if (lowerText.includes('supprime') || lowerText.includes('efface') || lowerText.includes('delete')) {
+      let status = null;
+      let title = null;
+      
+      if (lowerText.includes('brouillon') || lowerText.includes('draft')) {
+        status = 'draft';
+      } else if (lowerText.includes('publié') || lowerText.includes('publish')) {
+        status = 'published';
+      }
+      
+      const numMatch = originalText.match(/(\d+)/);
+      if (numMatch) {
+        title = numMatch[1];
+      }
+      
+      return { action: 'kiara_delete_article', params: { title, status } };
+    }
+    
+    // Liste d'articles
+    if (lowerText.includes('liste') || lowerText.includes('affiche') || lowerText.includes('montre') || lowerText.includes('mes articles')) {
+      if (lowerText.includes('publié') || lowerText.includes('publish')) {
+        const period = lowerText.includes('semaine') ? 'week' : lowerText.includes('mois') ? 'month' : null;
+        return { action: 'kiara_list_published', params: { period } };
+      }
+      if (lowerText.includes('brouillon') || lowerText.includes('draft')) {
+        return { action: 'kiara_list_drafts', params: {} };
+      }
+      return { action: 'kiara_list_articles', params: {} };
+    }
+    
+    // Comptage
+    if (lowerText.includes('combien')) {
+      const status = lowerText.includes('publié') ? 'published' : lowerText.includes('brouillon') ? 'draft' : null;
+      const period = lowerText.includes('semaine') ? 'week' : lowerText.includes('mois') ? 'month' : null;
+      return { action: 'kiara_count_articles', params: { status, period } };
+    }
+    
+    // PDF
+    if (lowerText.includes('pdf')) {
+      return { action: 'kiara_pdf', params: { text: originalText } };
+    }
+    
+    // Publication
+    if (lowerText.includes('publie') || lowerText.includes('publier')) {
+      return { action: 'kiara_publish', params: { text: originalText } };
+    }
+    
+    // Programmation
+    if (lowerText.includes('programme') || lowerText.includes('planifie')) {
+      return { action: 'kiara_schedule', params: { text: originalText } };
+    }
+    
+    // Modification
+    if (lowerText.includes('modifi') || lowerText.includes('change') || lowerText.includes('corrige')) {
+      return { action: 'kiara_modify', params: { text: originalText } };
+    }
+    
+    // Stats
+    if (lowerText.includes('stats') || lowerText.includes('statistiques') || lowerText.includes('vues')) {
+      return { action: 'kiara_global_stats', params: {} };
+    }
+    
+    // Tendances
+    if (lowerText.includes('tendance') || lowerText.includes('trend') || lowerText.includes('actualité')) {
+      return { action: 'kiara_trends', params: { topic: originalText } };
+    }
+    
+    // Génération d'article
+    if (lowerText.includes('rédige') || lowerText.includes('écris') || lowerText.includes('génère') || lowerText.includes('article sur')) {
+      return { action: 'kiara_generate_article', params: { topic: originalText, text: originalText } };
+    }
+    
+    // Workflow complet
+    if (lowerText.includes('recherche') && lowerText.includes('article')) {
+      const countMatch = originalText.match(/(\d+)\s*article/i);
+      return { 
+        action: 'kiara_complete_workflow', 
+        params: { 
+          topic: originalText, 
+          articleCount: countMatch ? parseInt(countMatch[1]) : 2 
+        } 
+      };
+    }
+    
+    // Capacités
+    if (lowerText.includes('que peut') || lowerText.includes('capacité') || lowerText.includes('fonctionnalité')) {
+      return { action: 'describe_kiara', params: {} };
+    }
+    
+    // Par défaut, discussion générale
+    return { action: 'kiara_general', params: { text: originalText } };
+  }
+
+  /**
+   * Analyser l'intention spécifique à James (sans appeler OpenAI pour les cas simples)
+   */
+  async analyzeJamesIntent(lowerText, originalText) {
+    // Résumé de mails
+    if (lowerText.includes('résume') || lowerText.includes('résumé') || lowerText.includes('summary')) {
+      const countMatch = originalText.match(/(\d+)/);
+      const count = countMatch ? parseInt(countMatch[1]) : 10;
+      
+      // Filtre temporel
+      let filter = null;
+      if (lowerText.includes("aujourd'hui") || lowerText.includes('today')) filter = 'today';
+      else if (lowerText.includes('hier')) filter = 'yesterday';
+      else if (lowerText.includes('semaine')) filter = 'week';
+      else if (lowerText.includes('mois')) filter = 'month';
+      
+      // Expéditeur
+      let from = null;
+      const fromMatch = originalText.match(/(?:de|from|d')\s+(\w+)/i);
+      if (fromMatch) from = fromMatch[1];
+      
+      return { action: 'email_summary', params: { count, filter, from } };
+    }
+    
+    // Mails non lus
+    if (lowerText.includes('non lu') || lowerText.includes('unread')) {
+      return { action: 'email_unread', params: { count: 20 } };
+    }
+    
+    // Classification
+    if ((lowerText.includes('class') || lowerText.includes('trie')) && !lowerText.includes('reclass')) {
+      const countMatch = originalText.match(/(\d+)/);
+      return { action: 'email_classify', params: { count: countMatch ? parseInt(countMatch[1]) : 50 } };
+    }
+    
+    // Reclassification
+    if (lowerText.includes('reclass') || lowerText.includes('re-class')) {
+      const countMatch = originalText.match(/(\d+)/);
+      return { action: 'email_reclassify', params: { count: countMatch ? parseInt(countMatch[1]) : 30 } };
+    }
+    
+    // Envoi d'email
+    if (lowerText.includes('envoie') || lowerText.includes('écris un mail') || lowerText.includes('mail à')) {
+      return { action: 'send_email', params: { text: originalText } };
+    }
+    
+    // Recherche d'emails
+    if ((lowerText.includes('cherche') || lowerText.includes('trouve') || lowerText.includes('recherche')) && 
+        (lowerText.includes('mail') || lowerText.includes('email'))) {
+      return { action: 'email_search', params: { query: originalText } };
+    }
+    
+    // Recherche de contact
+    if (lowerText.includes('contact') || (lowerText.includes('adresse') && lowerText.includes('mail'))) {
+      const nameMatch = originalText.match(/(?:de|d')\s+(\w+)/i);
+      return { action: 'contact_search', params: { name: nameMatch ? nameMatch[1] : originalText } };
+    }
+    
+    // Nettoyage
+    if (lowerText.includes('supprime') || lowerText.includes('nettoie') || lowerText.includes('vide')) {
+      return { action: 'email_cleanup', params: { text: originalText } };
+    }
+    
+    // Dossiers
+    if (lowerText.includes('dossier') || lowerText.includes('folder')) {
+      if (lowerText.includes('crée') || lowerText.includes('créer')) {
+        return { action: 'create_folder', params: { folder: this.extractFolderName(originalText) } };
+      }
+      if (lowerText.includes('supprime') || lowerText.includes('delete')) {
+        return { action: 'delete_folder', params: { folder: this.extractFolderName(originalText) } };
+      }
+      if (lowerText.includes('liste') || lowerText.includes('affiche')) {
+        return { action: 'list_folders', params: {} };
+      }
+    }
+    
+    // Rappels
+    if (lowerText.includes('rappel') || lowerText.includes('remind')) {
+      if (lowerText.includes('liste') || lowerText.includes('mes rappels')) {
+        return { action: 'list_reminders', params: {} };
+      }
+      return { action: 'create_reminder', params: { message: originalText } };
+    }
+    
+    // Règles
+    if (lowerText.includes('règle') || lowerText.includes('regle')) {
+      if (lowerText.includes('liste') || lowerText.includes('affiche')) {
+        return { action: 'config_list_rules', params: {} };
+      }
+      if (lowerText.includes('supprime')) {
+        const numMatch = originalText.match(/(\d+)/);
+        return { action: 'delete_rule', params: { ruleNumber: numMatch ? parseInt(numMatch[1]) : null } };
+      }
+      return { action: 'config_james', params: { text: originalText } };
+    }
+    
+    // Mails importants
+    if (lowerText.includes('important') || lowerText.includes('urgent')) {
+      return { action: 'email_important', params: { filter: 'important' } };
+    }
+    
+    // Résumé quotidien
+    if (lowerText.includes('résumé quotidien') || lowerText.includes('journée mail')) {
+      return { action: 'daily_summary', params: {} };
+    }
+    
+    // Capacités
+    if (lowerText.includes('que peut') || lowerText.includes('capacité') || lowerText.includes('fonctionnalité')) {
+      return { action: 'describe_james', params: {} };
+    }
+    
+    // Par défaut, résumé des emails récents
+    return { action: 'email_summary', params: { count: 10 } };
+  }
+
+  /**
+   * Analyser l'intention du message avec l'IA (mode Brian uniquement)
+   * Cette méthode n'est appelée que quand aucun agent n'est actif
    */
   async analyzeIntent(text, from = null, userContext = null) {
     console.log('🧠 Brian analyse le message:', text);
     
-    // Si un agent est actif, d'abord essayer d'interpréter dans ce contexte
-    if (userContext?.agent) {
-      console.log(`📍 Contexte actif: ${userContext.agent}`);
-      
-      const contextualIntent = this.analyzeWithContext(text, userContext.agent);
-      if (contextualIntent) {
-        console.log(`🎯 Intention contextuelle: ${contextualIntent.action}`);
-        return contextualIntent;
-      }
-    }
-    
     try {
-      // Utiliser GPT pour analyser l'intention
-      const contextInfo = userContext?.agent 
-        ? `\n\nNOTE: L'utilisateur est actuellement en conversation avec ${userContext.agent === 'kiara' ? 'Kiara (blog/SEO)' : 'James (emails)'}. Privilégie les actions de cet agent sauf si le message mentionne clairement un autre domaine.`
-        : '';
-        
+      // Utiliser GPT pour analyser l'intention (mode Brian général)
       const response = await openaiService.chat([
-        { role: 'system', content: this.systemPrompt + contextInfo },
+        { role: 'system', content: this.systemPrompt },
         { role: 'user', content: `Analyse ce message et détermine l'intention:\n\n"${text}"` }
-      ], { temperature: 0.1 }); // Basse température pour plus de consistance
+      ], { temperature: 0.1 });
 
       // Parser la réponse JSON
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -601,68 +884,6 @@ DISTINCTION TRÈS IMPORTANTE:
     // Fallback: analyse simple si l'IA échoue
     console.log('⚠️ Fallback vers analyse simple');
     return this.analyzeIntentSimple(text);
-  }
-
-  /**
-   * Analyse contextuelle basée sur l'agent actif
-   */
-  analyzeWithContext(text, activeAgent) {
-    const lowerText = text.toLowerCase().trim();
-    
-    if (activeAgent === 'kiara') {
-      // Commandes spécifiques à Kiara
-      if (lowerText.includes('pdf') || lowerText.includes('recevoir le pdf') || lowerText.includes('envoie le pdf')) {
-        return { action: 'kiara_pdf', params: { text } };
-      }
-      if (lowerText.includes('publie') || lowerText.includes('publier') || lowerText.includes('publication')) {
-        return { action: 'kiara_publish', params: { text } };
-      }
-      if (lowerText.includes('modifi') || lowerText.includes('change le titre') || lowerText.includes('corrige')) {
-        return { action: 'kiara_modify', params: { text } };
-      }
-      // Articles publiés uniquement
-      if ((lowerText.includes('publié') || lowerText.includes('publier') || lowerText.includes('publish')) && 
-          (lowerText.includes('article') || lowerText.includes('liste') || lowerText.includes('affiche') || lowerText.includes('montre'))) {
-        return { action: 'kiara_list_published', params: { text } };
-      }
-      // Brouillons uniquement
-      if (lowerText.includes('brouillon') || lowerText.includes('drafts') || lowerText.includes('draft')) {
-        return { action: 'kiara_list_drafts', params: { text } };
-      }
-      // Liste complète (tous les articles)
-      if (lowerText.includes('mes articles') || lowerText.includes('liste') && lowerText.includes('article') || 
-          lowerText.includes('tous les articles') || lowerText.includes('complète') || lowerText.includes('complete')) {
-        return { action: 'kiara_list_articles', params: { text } };
-      }
-      if (lowerText.includes('stats') || lowerText.includes('statistiques') || lowerText.includes('vues')) {
-        return { action: 'kiara_global_stats', params: { text } };
-      }
-      if (lowerText.includes('tendance') || lowerText.includes('trends') || lowerText.includes('actualité')) {
-        return { action: 'kiara_trends', params: { text } };
-      }
-      // Si c'est une demande de génération d'article
-      if (lowerText.includes('rédige') || lowerText.includes('écris') || lowerText.includes('génère') || lowerText.includes('article sur')) {
-        return { action: 'kiara_generate_article', params: { query: text, topic: text } };
-      }
-    }
-    
-    if (activeAgent === 'james') {
-      // Commandes spécifiques à James
-      if (lowerText.includes('résume') || lowerText.includes('résumé') || lowerText.includes('summary')) {
-        return { action: 'email_summary', params: { count: 10 } };
-      }
-      if (lowerText.includes('non lu') || lowerText.includes('unread')) {
-        return { action: 'email_unread', params: { count: 20 } };
-      }
-      if (lowerText.includes('classe') || lowerText.includes('classifie') || lowerText.includes('trie')) {
-        return { action: 'email_classify', params: { count: 50 } };
-      }
-      if (lowerText.includes('envoie') || lowerText.includes('écris un mail') || lowerText.includes('mail à')) {
-        return { action: 'send_email', params: { text } };
-      }
-    }
-    
-    return null; // Pas d'intention contextuelle trouvée
   }
 
   /**
@@ -2589,33 +2810,42 @@ Agents disponibles:
   }
 
   /**
-   * Passer à James (emails)
+   * Passer à James (emails) - MODE EXCLUSIF
    */
   handleSwitchToJames(from) {
     this.setUserContext(from, 'james');
-    return `✅ **Changement d'agent**\n\n` +
-           `Tu es maintenant avec **James** (Mail Assistant) 📧\n\n` +
-           `Tu peux me demander:\n` +
-           `• "Résume mes mails"\n` +
-           `• "Mails non lus"\n` +
-           `• "Classe mes emails"\n` +
-           `• "Envoie un mail à..."\n\n` +
-           `💡 *Dis "Kiara" pour revenir au blog*`;
+    return `📧 **Mode James activé**\n\n` +
+           `Tu es maintenant avec **James** (Mail Assistant)\n` +
+           `━━━━━━━━━━━━━━━━━━\n\n` +
+           `📌 **Ce que je peux faire:**\n` +
+           `• "Résume mes mails" - Résumé de tes emails récents\n` +
+           `• "Mails non lus" - Liste des emails non lus\n` +
+           `• "Classe mes emails" - Trier dans les dossiers\n` +
+           `• "Envoie un mail à..." - Rédiger et envoyer\n` +
+           `• "Mes dossiers" - Gérer tes dossiers Outlook\n` +
+           `• "Mes rappels" - Voir tes rappels\n\n` +
+           `⚠️ *Les demandes blog/SEO seront bloquées tant que tu es avec James.*\n\n` +
+           `💡 **Pour quitter James:** dis "fini avec James" ou "merci James"`;
   }
 
   /**
-   * Passer à Kiara (blog)
+   * Passer à Kiara (blog) - MODE EXCLUSIF
    */
   handleSwitchToKiara(from) {
     this.setUserContext(from, 'kiara');
-    return `✅ **Changement d'agent**\n\n` +
-           `Tu es maintenant avec **Kiara** (SEO & Blog Manager) 📝\n\n` +
-           `Tu peux me demander:\n` +
-           `• "Rédige un article sur..."\n` +
-           `• "Tendances du moment"\n` +
-           `• "PDF de l'article"\n` +
-           `• "Publie l'article"\n\n` +
-           `💡 *Dis "James" pour passer aux emails*`;
+    return `✍️ **Mode Kiara activé**\n\n` +
+           `Tu es maintenant avec **Kiara** (SEO & Blog Manager)\n` +
+           `━━━━━━━━━━━━━━━━━━\n\n` +
+           `📌 **Ce que je peux faire:**\n` +
+           `• "Rédige un article sur..." - Créer du contenu SEO\n` +
+           `• "Tendances du moment" - Sujets populaires\n` +
+           `• "Mes articles" - Liste complète\n` +
+           `• "Mes brouillons" / "Mes publiés" - Filtrer\n` +
+           `• "PDF de l'article" - Exporter en PDF\n` +
+           `• "Publie l'article" - Mettre en ligne\n` +
+           `• "Supprime le brouillon X" - Supprimer\n\n` +
+           `⚠️ *Les demandes email seront bloquées tant que tu es avec Kiara.*\n\n` +
+           `💡 **Pour quitter Kiara:** dis "fini avec Kiara" ou "merci Kiara"`;
   }
 
   /**
@@ -2625,13 +2855,16 @@ Agents disponibles:
     const context = this.getUserContext(from);
     this.clearUserContext(from);
     
-    const previousAgent = context?.agent || 'aucun';
-    return `✅ **Session terminée**\n\n` +
-           `Tu as quitté la session avec ${previousAgent === 'kiara' ? 'Kiara' : previousAgent === 'james' ? 'James' : 'l\'agent actif'}.\n\n` +
-           `Je suis Brian, ton assistant principal. Comment puis-je t'aider?\n\n` +
+    const previousAgent = context?.agent;
+    const agentName = previousAgent === 'kiara' ? 'Kiara' : previousAgent === 'james' ? 'James' : null;
+    
+    return `✅ **Session ${agentName ? `avec ${agentName}` : ''} terminée**\n\n` +
+           `Je suis **Brian**, ton assistant principal.\n` +
+           `━━━━━━━━━━━━━━━━━━\n\n` +
            `👥 **Mon équipe:**\n` +
-           `• **Kiara** - Blog & SEO\n` +
-           `• **James** - Emails & Outlook`;
+           `• **"Kiara"** → Blog & SEO\n` +
+           `• **"James"** → Emails & Outlook\n\n` +
+           `💡 Dis simplement le nom de l'agent pour commencer une session.`;
   }
 }
 
