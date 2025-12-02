@@ -421,85 +421,89 @@ Réponds toujours de manière professionnelle et utile.`;
 
     const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
 
-    const articlePrompt = `Tu es un EXCELLENT rédacteur web français, expert en articles professionnels bien structurés.
-Rédige un article captivant EN FRANÇAIS sur ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
+    const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent, expert en articles captivants et bien présentés.
+Rédige un article professionnel EN FRANÇAIS sur ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
 
 🔍 SOURCES (traduis les titres anglais en français):
 ${sourcesForPrompt}
 
-1. 
-📝 TON STYLE:
-- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots
-- **ACCROCHEUR**: Titre percutant qui donne envie de lire
+═══════════════════════════════════════════════════════════════
+🎨 TON STYLE D'ÉCRITURE
+═══════════════════════════════════════════════════════════════
+- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots, des références fun
+- **ACCROCHEUR**: Titre percutant qui donne envie de lire immédiatement
 - **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
-- **ACCESSIBLE**: Explique les concepts complexes simplement
-**PARAGRAPHES COURTS ET AÉRÉS**
-   - Maximum 3-4 phrases par paragraphe
-   - Une ligne vide entre chaque paragraphe
+- **ACCESSIBLE**: Explique les concepts complexes simplement, avec des analogies
+
+═══════════════════════════════════════════════════════════════
+⚠️ RÈGLES STRICTES (OBLIGATOIRES)
+═══════════════════════════════════════════════════════════════
+1. **100% FRANÇAIS** - Tout l'article en français (sauf termes tech en *italique*)
+2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun/percutante
+3. **MARKDOWN BIEN FORMATÉ** - Le contenu DOIT être en Markdown pur (pas de HTML)
+4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées dans le champ sources
+
+═══════════════════════════════════════════════════════════════
+📝 FORMATAGE MARKDOWN (TRÈS IMPORTANT !)
+═══════════════════════════════════════════════════════════════
+
+1. **PARAGRAPHES TRÈS COURTS ET AÉRÉS**:
+   - Maximum 2-3 phrases par paragraphe
+   - UNE LIGNE VIDE entre CHAQUE paragraphe (\\n\\n obligatoire !)
    - JAMAIS de gros blocs de texte compacts
+   - Chaque paragraphe = une idée
 
+2. **CITATIONS avec guillemets français « »**:
+   - *« Citation exacte ici »*, a-t-il déclaré.
+   - Les citations TOUJOURS en ITALIQUE + guillemets français
 
-   ⚠️ RÈGLES STRICTES:
-1. **100% FRANÇAIS** - Tout l'article en français
-2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun
-3. **MARKDOWN BIEN FORMATÉ** - Utilise ## pour les titres, **gras** pour les mots clés, listes à puces
-4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées
-
-
-2. **GRAS STRATÉGIQUE** avec **double astérisque**:
-   - Noms propres: **Google**, **OpenAI**, **Nvidia**, **Apple**
-   - Chiffres importants: **15 millions d'euros**, **depuis 2013**
-   - Concepts clés: **intelligence artificielle**, **Formule 1**
-   - Actions: **a déclaré**, **vient d'annoncer**, **a révélé**
-
-3. **ITALIQUE** avec *simple astérisque*:
-   - Citations directes: *« Je ne pense pas que nous le reverrons »*
-   - Mots étrangers: *deep learning*, *machine learning*
-   - Emphase émotionnelle: C'est *exactement* ce qui s'est passé
+3. **GRAS STRATÉGIQUE** avec **double astérisque**:
+   - Noms propres: **Google**, **OpenAI**, **Nvidia**
+   - Chiffres: **15 millions d'euros**, **depuis 2013**
+   - Concepts: **intelligence artificielle**, **machine learning**
 
 4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
    - Courts et accrocheurs
    - Jamais "Introduction" ni "Conclusion"
 
 5. **LISTES À PUCES** si approprié:
-   - Pour les énumérations claires
+   - Pour énumérer clairement
    - Maximum 4-5 points
 
-📏 LONGUEUR: 800-1200 mots bien espacés
+═══════════════════════════════════════════════════════════════
+📋 EXEMPLE DE CONTENU MARKDOWN PARFAIT
+═══════════════════════════════════════════════════════════════
 
-📋 EXEMPLE DE STRUCTURE:
+La nouvelle a sidéré les fans du monde entier. Plus de onze ans après l'accident, **Michael Schumacher** semble désormais hors d'atteinte.
 
-La nouvelle a sidéré les fans du monde entier. Plus de onze ans après l'accident, **Michael Schumacher** semble désormais hors d'atteinte du monde public.
+Un ancien proche du paddock, **Richard Hopkins**, a lâché une bombe cette semaine. Une phrase qui résonne comme un verdict définitif.
 
-Un ancien proche du paddock, **Richard Hopkins**, a déclaré : *« Je ne pense pas que nous reverrons Michael. »* Une phrase simple, mais qui sonne comme un point final.
+*« Je ne pense pas que nous reverrons Michael »*, a-t-il confié au micro de **RMC**. Des mots durs, mais qui éclairent onze années de mystère.
 
 ## Le silence de la famille
 
-Depuis **2013**, la famille de la légende de la **Formule 1** a choisi le silence total. **Corinna Schumacher** protège son mari avec une détermination inflexible, empêchant toute fuite sur son état.
+Depuis **2013**, la famille protège le champion avec une détermination sans faille. **Corinna Schumacher** a érigé un mur autour de son mari.
 
-Même des figures emblématiques comme **Jean Todt** ou **Ross Brawn** ne livrent aucune précision.
+Aucune photo. Aucune vidéo. Aucune déclaration. Le secret le mieux gardé du sport mondial !
 
-## Un mystère unique dans l'histoire du sport
+## Un mystère qui s'assombrit
 
-Cette discrétion absolue alimente un mystère unique. Et aujourd'hui, ce mystère s'assombrit.
+Selon Hopkins, le septuple champion du monde ne pourrait plus communiquer normalement. Une révélation qui fait froid dans le dos.
 
-Selon Hopkins, le champion ne pourrait plus parler ni communiquer normalement. Des propos durs à entendre, mais qui éclairent d'un jour nouveau les onze années de silence.
+Les fans espéraient un retour miraculeux. Cette phrase vient peut-être d'éteindre définitivement la flamme de l'espoir. Et c'est tout un monde qui retient son souffle.
 
-## Les conséquences pour les fans
+═══════════════════════════════════════════════════════════════
 
-À ce drame personnel s'ajoute une affaire de **chantage** sordide : un ancien employé a volé près de **900 photos** et des dossiers médicaux, exigeant **15 millions d'euros**.
+📏 LONGUEUR: 800-1200 mots bien espacés
 
-Cette phrase prononcée cette semaine agit comme une déchirure pour tous ceux qui espéraient revoir la légende.
-
-Un choc pour le monde du sport. Un moment charnière. Et une vérité difficile à accepter : le champion que l'on connaissait ne reviendra probablement jamais.
-
-📄 FORMAT JSON:
+📄 FORMAT DE RÉPONSE - JSON avec contenu MARKDOWN:
+Le champ "content" doit contenir du MARKDOWN pur avec des \\n\\n entre les paragraphes.
 {
-  "title": "Titre accrocheur (50-60 car, mot-clé au début)",
+  "title": "Titre accrocheur avec jeu de mots (50-60 car)",
   "meta_description": "Description engageante (150-160 car)",
   "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
-  "excerpt": "2-3 phrases d'accroche",
-  "content": "Contenu avec paragraphes courts, **gras**, *italique*, ## sous-titres, lignes vides",
+  "excerpt": "2-3 phrases d'accroche percutantes",
+  "content": "Paragraphe 1...\\n\\nParagraphe 2...\\n\\n## Sous-titre\\n\\nParagraphe 3 avec **gras** et *« citation »*...\\n\\nParagraphe 4...",
   "category": "${category}",
   "reading_time_minutes": 5,
   "tags": ["tag1", "tag2", "tag3"],
@@ -1388,69 +1392,89 @@ Réponds en JSON avec ce format:
       ? relatedTrends.map(t => `- "${t.title}" - ${t.link}`).join('\n')
       : 'Aucune source externe trouvée.';
 
-    const articlePrompt = `Tu es un EXCELLENT rédacteur web français, expert en articles bien structurés et agréables à lire.
+    const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent, expert en articles captivants et bien présentés.
 Rédige un article de blog professionnel EN FRANÇAIS sur: "${subject}"
 
 🔍 SOURCES À ANALYSER (utilise si pertinentes):
 ${sourcesForPrompt}
 
-📝 STYLE D'ÉCRITURE PROFESSIONNEL:
+═══════════════════════════════════════════════════════════════
+🎨 TON STYLE D'ÉCRITURE
+═══════════════════════════════════════════════════════════════
+- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots, des références fun
+- **ACCROCHEUR**: Titre percutant qui donne envie de lire immédiatement
+- **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
+- **ACCESSIBLE**: Explique les concepts complexes simplement, avec des analogies
 
-1. **PARAGRAPHES COURTS ET AÉRÉS**
-   - Maximum 3-4 phrases par paragraphe
-   - Une ligne vide entre chaque paragraphe
+═══════════════════════════════════════════════════════════════
+⚠️ RÈGLES STRICTES (OBLIGATOIRES)
+═══════════════════════════════════════════════════════════════
+1. **100% FRANÇAIS** - Tout l'article en français (sauf termes tech en *italique*)
+2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun/percutante
+3. **MARKDOWN BIEN FORMATÉ** - Le contenu DOIT être en Markdown pur (pas de HTML)
+4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées dans le champ sources
+
+═══════════════════════════════════════════════════════════════
+📝 FORMATAGE MARKDOWN (TRÈS IMPORTANT !)
+═══════════════════════════════════════════════════════════════
+
+1. **PARAGRAPHES TRÈS COURTS ET AÉRÉS**:
+   - Maximum 2-3 phrases par paragraphe
+   - UNE LIGNE VIDE entre CHAQUE paragraphe (\\n\\n obligatoire !)
    - JAMAIS de gros blocs de texte compacts
+   - Chaque paragraphe = une idée
 
-2. **GRAS STRATÉGIQUE** avec **double astérisque**:
-   - Noms propres: **Google**, **OpenAI**, **Tesla**
-   - Chiffres clés: **15 millions**, **90%**, **depuis 2013**
-   - Concepts importants: **intelligence artificielle**
-   - Verbes d'action: **a déclaré**, **vient d'annoncer**
+2. **CITATIONS avec guillemets français « »**:
+   - *« Citation exacte ici »*, a-t-il déclaré.
+   - Les citations TOUJOURS en ITALIQUE + guillemets français
 
-3. **ITALIQUE** avec *simple astérisque*:
-   - Citations: *« Je ne pense pas que nous le reverrons »*
-   - Mots étrangers ou techniques
-   - Emphase émotionnelle
+3. **GRAS STRATÉGIQUE** avec **double astérisque**:
+   - Noms propres: **Google**, **OpenAI**, **Nvidia**
+   - Chiffres: **15 millions d'euros**, **depuis 2013**
+   - Concepts: **intelligence artificielle**, **machine learning**
 
 4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
    - Courts et accrocheurs
-   - Pas de "Introduction" ni "Conclusion"
+   - Jamais "Introduction" ni "Conclusion"
 
-5. **LISTES À PUCES** si pertinent:
+5. **LISTES À PUCES** si approprié:
    - Pour énumérer clairement
    - Maximum 4-5 points
 
+═══════════════════════════════════════════════════════════════
+📋 EXEMPLE DE CONTENU MARKDOWN PARFAIT
+═══════════════════════════════════════════════════════════════
+
+La nouvelle a sidéré les fans du monde entier. Plus de onze ans après l'accident, **Michael Schumacher** semble désormais hors d'atteinte.
+
+Un ancien proche du paddock, **Richard Hopkins**, a lâché une bombe cette semaine. Une phrase qui résonne comme un verdict définitif.
+
+*« Je ne pense pas que nous reverrons Michael »*, a-t-il confié au micro de **RMC**. Des mots durs, mais qui éclairent onze années de mystère.
+
+## Le silence de la famille
+
+Depuis **2013**, la famille protège le champion avec une détermination sans faille. **Corinna Schumacher** a érigé un mur autour de son mari.
+
+Aucune photo. Aucune vidéo. Aucune déclaration. Le secret le mieux gardé du sport mondial !
+
+## Un mystère qui s'assombrit
+
+Selon Hopkins, le septuple champion du monde ne pourrait plus communiquer normalement. Une révélation qui fait froid dans le dos.
+
+Les fans espéraient un retour miraculeux. Cette phrase vient peut-être d'éteindre définitivement la flamme de l'espoir !
+
+═══════════════════════════════════════════════════════════════
+
 📏 LONGUEUR: 700-1000 mots bien espacés
 
-📋 STRUCTURE EXEMPLE:
-
-[Accroche - 1-2 paragraphes percutants sans titre]
-La nouvelle a sidéré les fans du monde entier. Après des années de silence, **Michael Schumacher** semble désormais hors d'atteinte.
-
-Un ancien proche du paddock a déclaré : *« Je ne pense pas que nous reverrons Michael. »* Une phrase simple, mais qui sonne comme un point final.
-
-## Le mystère s'épaissit
-
-Depuis **2013**, la famille de la légende de la **Formule 1** a choisi le silence total. **Corinna Schumacher** protège son mari avec une détermination inflexible.
-
-Même des figures emblématiques comme **Jean Todt** ne livrent aucune précision.
-
-## Un choc pour le monde du sport
-
-Cette discrétion absolue alimente un mystère unique dans l'histoire du sport. Et aujourd'hui, ce mystère s'assombrit.
-
-Selon les sources, le champion ne pourrait plus parler ni communiquer normalement. Des propos durs à entendre.
-
-[Fin sans titre "Conclusion"]
-Un moment charnière. Et une vérité difficile à accepter : le champion que l'on connaissait ne reviendra probablement jamais.
-
-📄 FORMAT JSON REQUIS:
+📄 FORMAT DE RÉPONSE - JSON avec contenu MARKDOWN:
+Le champ "content" doit contenir du MARKDOWN pur avec des \\n\\n entre les paragraphes.
 {
-  "title": "Titre accrocheur (max 60 car)",
+  "title": "Titre accrocheur avec jeu de mots (max 60 car)",
   "meta_description": "Description engageante (150 car)",
   "keywords": ["mot1", "mot2", "mot3"],
-  "excerpt": "2-3 phrases d'accroche pour les réseaux",
-  "content": "Contenu avec paragraphes courts, **gras**, *italique*, ## sous-titres, lignes vides entre paragraphes",
+  "excerpt": "2-3 phrases d'accroche percutantes",
+  "content": "Paragraphe 1...\\n\\nParagraphe 2...\\n\\n## Sous-titre\\n\\nParagraphe 3 avec **gras** et *« citation »*...\\n\\nParagraphe 4...",
   "category": "${category}",
   "reading_time_minutes": 5,
   "tags": ["tag1", "tag2"],
