@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Send, BarChart3, Paperclip, RefreshCw, AlertCircle, Zap, TrendingUp, FileText, ThumbsUp, MessageCircle, Share2, Eye, PenTool, Calendar, Search, Image, FileDown, Globe, Mic, CheckCircle, Settings, History } from 'lucide-react'
+import { X, Send, BarChart3, Paperclip, RefreshCw, AlertCircle, Zap, TrendingUp, Eye, PenTool, Globe, Mic, CheckCircle, Settings } from 'lucide-react'
 import './AgentModal.css'
 
 interface Article {
