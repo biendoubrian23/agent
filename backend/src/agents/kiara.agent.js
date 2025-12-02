@@ -414,8 +414,10 @@ Réponds toujours de manière professionnelle et utile.`;
     console.log(`✍️ Kiara génère un article sur: ${subject}`);
 
     const category = await this.detectCategory(subject);
-    const images = await this.searchFreeImages(subject, 1);
+    // Chercher 2 images: 1 pour la couverture, 1 pour le milieu de l'article
+    const images = await this.searchFreeImages(subject, 2);
     const coverImage = images.length > 0 ? images[0] : null;
+    const contentImage = images.length > 1 ? images[1] : null;
 
     const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
 
@@ -547,6 +549,16 @@ Un choc pour le monde du sport. Un moment charnière. Et une vérité difficile 
         article.cover_image = coverImage.url;
         article.cover_image_author = coverImage.author;
         article.cover_image_source = coverImage.source;
+      }
+      
+      // Ajouter l'image du milieu dans le contenu
+      if (contentImage) {
+        article.content_image = contentImage.url;
+        article.content_image_author = contentImage.author;
+        article.content_image_source = contentImage.source;
+        
+        // Insérer l'image au milieu du contenu (après le 2ème sous-titre ##)
+        article.content = this.insertContentImage(article.content, contentImage);
       }
 
       const savedArticle = await this.saveArticleDraft(article);
@@ -1361,10 +1373,11 @@ Réponds en JSON avec ce format:
     // Déterminer la catégorie
     const category = await this.detectCategory(subject);
 
-    // Chercher une image pertinente
-    console.log('🖼️ Recherche d\'une image pour l\'article...');
-    const images = await this.searchFreeImages(subject, 1);
+    // Chercher 2 images: 1 pour la couverture, 1 pour le milieu de l'article
+    console.log('🖼️ Recherche de 2 images pour l\'article...');
+    const images = await this.searchFreeImages(subject, 2);
     const coverImage = images.length > 0 ? images[0] : null;
+    const contentImage = images.length > 1 ? images[1] : null;
 
     // Chercher les tendances liées au sujet pour enrichir l'article
     console.log('🔍 Recherche de sources pour enrichir l\'article...');
@@ -1497,6 +1510,16 @@ Un moment charnière. Et une vérité difficile à accepter : le champion que l'
         article.cover_image_author = coverImage.author;
         article.cover_image_source = coverImage.source;
       }
+      
+      // Ajouter l'image du milieu dans le contenu
+      if (contentImage) {
+        article.content_image = contentImage.url;
+        article.content_image_author = contentImage.author;
+        article.content_image_source = contentImage.source;
+        
+        // Insérer l'image au milieu du contenu
+        article.content = this.insertContentImage(article.content, contentImage);
+      }
 
       // Sauvegarder en brouillon
       const savedArticle = await this.saveArticleDraft(article);
@@ -1515,7 +1538,10 @@ Un moment charnière. Et une vérité difficile à accepter : le champion que l'
       result += `⏱️ **Temps de lecture:** ${article.reading_time_minutes} min\n`;
       result += `🏷️ **Tags:** ${article.tags?.join(', ') || 'Aucun'}\n`;
       if (coverImage) {
-        result += `🖼️ **Image:** ${coverImage.source} (${coverImage.author})\n`;
+        result += `🖼️ **Image couverture:** ${coverImage.source} (${coverImage.author})\n`;
+      }
+      if (contentImage) {
+        result += `🖼️ **Image contenu:** ${contentImage.source} (${contentImage.author})\n`;
       }
       result += `\n📄 **Extrait:**\n${article.excerpt}\n\n`;
       result += `💾 Article sauvegardé en brouillon\n\n`;
@@ -1707,7 +1733,9 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       scheduled_for: null,
       reading_time_minutes: article.reading_time_minutes || 5,
       views_count: 0,
-      cover_image_url: article.cover_image || article.cover_image_url || null
+      cover_image_url: article.cover_image || article.cover_image_url || null,
+      // Image du milieu de l'article
+      content_image_url: article.content_image || article.content_image_url || null
     };
 
     // Ajouter user_id seulement si c'est un UUID valide (pas le fictif)
@@ -1756,6 +1784,48 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       .replace(/[^a-z0-9]+/g, '-')     // Remplacer caractères spéciaux
       .replace(/^-+|-+$/g, '')          // Supprimer tirets début/fin
       .substring(0, 80);                // Limiter longueur
+  }
+
+  /**
+   * Insérer une image au milieu du contenu (après le 2ème sous-titre ##)
+   */
+  insertContentImage(content, image) {
+    if (!content || !image) return content;
+    
+    // Trouver tous les sous-titres ##
+    const lines = content.split('\n');
+    let h2Count = 0;
+    let insertIndex = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('## ')) {
+        h2Count++;
+        if (h2Count === 2) {
+          // Trouver la fin de la section (prochain ## ou fin de fichier)
+          for (let j = i + 1; j < lines.length; j++) {
+            if (lines[j].trim().startsWith('## ') || j === lines.length - 1) {
+              // Insérer l'image avant le prochain titre ou à la fin
+              insertIndex = j === lines.length - 1 ? j : j;
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+    
+    // Si on n'a pas trouvé de bon endroit, insérer au milieu
+    if (insertIndex === -1) {
+      insertIndex = Math.floor(lines.length / 2);
+    }
+    
+    // Créer le bloc image avec crédits
+    const imageBlock = `\n![${image.author || 'Image illustrative'}](${image.url})\n*Crédit photo : ${image.author || 'Unsplash'} via ${image.source || 'Unsplash'}*\n`;
+    
+    // Insérer l'image
+    lines.splice(insertIndex, 0, imageBlock);
+    
+    return lines.join('\n');
   }
 
   // ============================================
