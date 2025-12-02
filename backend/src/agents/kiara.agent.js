@@ -700,12 +700,20 @@ ${sourcesForPrompt}
       return pubDate.getTime() === today.getTime();
     });
 
-    // Total des vues
+    // Total des stats
     const totalViews = posts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+    const totalLikes = posts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+    const totalDislikes = posts.reduce((sum, p) => sum + (p.dislikes_count || 0), 0);
+    const totalComments = posts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+    const totalShares = posts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
 
-    // Top 5 articles par vues
+    // Top 5 articles par engagement (likes + comments + shares)
     const topPosts = [...posts]
-      .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+      .map(p => ({
+        ...p,
+        engagement: (p.likes_count || 0) + (p.comments_count || 0) * 2 + (p.shares_count || 0) * 3
+      }))
+      .sort((a, b) => b.engagement - a.engagement)
       .slice(0, 5);
 
     // Stats par catégorie
@@ -713,28 +721,37 @@ ${sourcesForPrompt}
     posts.forEach(p => {
       if (p.category) {
         if (!categoryStats[p.category]) {
-          categoryStats[p.category] = { count: 0, views: 0 };
+          categoryStats[p.category] = { count: 0, views: 0, likes: 0, comments: 0 };
         }
         categoryStats[p.category].count++;
         categoryStats[p.category].views += p.views_count || 0;
+        categoryStats[p.category].likes += p.likes_count || 0;
+        categoryStats[p.category].comments += p.comments_count || 0;
       }
     });
 
     let response = `📊 **Stats du Blog - ${today.toLocaleDateString('fr-FR')}**\n\n`;
     response += `📝 **Total articles publiés:** ${posts.length}\n`;
-    response += `📅 **Publiés aujourd'hui:** ${todayPosts.length}\n`;
-    response += `👁️ **Total des vues:** ${totalViews.toLocaleString()}\n\n`;
+    response += `📅 **Publiés aujourd'hui:** ${todayPosts.length}\n\n`;
+    
+    response += `━━━━ 📈 **Métriques Globales** ━━━━\n`;
+    response += `👁️ **Vues:** ${totalViews.toLocaleString()}\n`;
+    response += `👍 **Likes:** ${totalLikes.toLocaleString()}\n`;
+    response += `👎 **Dislikes:** ${totalDislikes.toLocaleString()}\n`;
+    response += `💬 **Commentaires:** ${totalComments.toLocaleString()}\n`;
+    response += `🔗 **Partages:** ${totalShares.toLocaleString()}\n\n`;
 
-    response += `🏆 **Top 5 Articles:**\n`;
+    response += `🏆 **Top 5 Articles (engagement):**\n`;
     topPosts.forEach((p, i) => {
-      response += `${i + 1}. "${p.title}" - ${p.views_count || 0} vues\n`;
+      const stats = `👁️${p.views_count || 0} 👍${p.likes_count || 0} 💬${p.comments_count || 0}`;
+      response += `${i + 1}. "${p.title}"\n   ${stats}\n`;
     });
 
     response += `\n📂 **Par catégorie:**\n`;
     Object.entries(categoryStats)
       .sort((a, b) => b[1].views - a[1].views)
       .forEach(([cat, stats]) => {
-        response += `• ${cat}: ${stats.count} articles, ${stats.views} vues\n`;
+        response += `• ${cat}: ${stats.count} articles, ${stats.views} vues, ${stats.likes} likes\n`;
       });
 
     return response;
@@ -768,21 +785,45 @@ ${sourcesForPrompt}
         })
       : 'Non publié';
 
+    // Calculer le taux d'engagement
+    const views = article.views_count || 0;
+    const likes = article.likes_count || 0;
+    const dislikes = article.dislikes_count || 0;
+    const comments = article.comments_count || 0;
+    const shares = article.shares_count || 0;
+    const totalInteractions = likes + dislikes + comments + shares;
+    const engagementRate = views > 0 ? ((totalInteractions / views) * 100).toFixed(1) : 0;
+    const likeRatio = (likes + dislikes) > 0 ? Math.round((likes / (likes + dislikes)) * 100) : 100;
+
     let response = `📊 **Stats de l'article**\n\n`;
     response += `📝 **Titre:** ${article.title}\n`;
     response += `🔗 **Slug:** ${article.slug}\n`;
     response += `📂 **Catégorie:** ${article.category || 'Non catégorisé'}\n`;
     response += `📅 **Publié le:** ${pubDate}\n`;
-    response += `👁️ **Vues:** ${article.views_count || 0}\n`;
-    response += `⏱️ **Temps de lecture:** ${article.reading_time_minutes || '?'} min\n`;
+    response += `⏱️ **Temps de lecture:** ${article.reading_time_minutes || '?'} min\n\n`;
+    
+    response += `━━━━ 📈 **Métriques** ━━━━\n`;
+    response += `👁️ **Vues:** ${views.toLocaleString()}\n`;
+    response += `👍 **Likes:** ${likes} | 👎 **Dislikes:** ${dislikes}\n`;
+    response += `💬 **Commentaires:** ${comments}\n`;
+    response += `🔗 **Partages:** ${shares}\n\n`;
+    
+    response += `📊 **Analyse:**\n`;
+    response += `• Taux d'engagement: ${engagementRate}%\n`;
+    response += `• Ratio likes: ${likeRatio}% 👍\n`;
     
     if (article.tags && article.tags.length > 0) {
-      response += `🏷️ **Tags:** ${article.tags.join(', ')}\n`;
+      response += `\n🏷️ **Tags:** ${article.tags.join(', ')}\n`;
     }
 
-    // Position dans le classement
-    const sortedPosts = [...posts].sort((a, b) => (b.views_count || 0) - (a.views_count || 0));
-    const rank = sortedPosts.findIndex(p => p.id === article.id) + 1;
+    // Position dans le classement par engagement
+    const sortedByEngagement = [...posts]
+      .map(p => ({
+        ...p,
+        score: (p.likes_count || 0) * 3 + (p.comments_count || 0) * 5 + (p.shares_count || 0) * 10 + (p.views_count || 0) * 0.1
+      }))
+      .sort((a, b) => b.score - a.score);
+    const rank = sortedByEngagement.findIndex(p => p.id === article.id) + 1;
     response += `\n🏆 **Classement:** #${rank} sur ${posts.length} articles`;
 
     return response;
@@ -798,24 +839,64 @@ ${sourcesForPrompt}
       return `❌ Erreur: ${error.message}`;
     }
 
+    // Calcul des totaux
     const totalViews = posts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+    const totalLikes = posts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+    const totalDislikes = posts.reduce((sum, p) => sum + (p.dislikes_count || 0), 0);
+    const totalComments = posts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+    const totalShares = posts.reduce((sum, p) => sum + (p.shares_count || 0), 0);
+    
     const avgViews = posts.length > 0 ? Math.round(totalViews / posts.length) : 0;
+    const avgLikes = posts.length > 0 ? (totalLikes / posts.length).toFixed(1) : 0;
+    
+    // Taux d'engagement global
+    const totalInteractions = totalLikes + totalDislikes + totalComments + totalShares;
+    const globalEngagementRate = totalViews > 0 ? ((totalInteractions / totalViews) * 100).toFixed(2) : 0;
 
-    // Top article
-    const topPost = [...posts].sort((a, b) => (b.views_count || 0) - (a.views_count || 0))[0];
+    // Top article par engagement
+    const topByEngagement = [...posts]
+      .map(p => ({
+        ...p,
+        score: (p.likes_count || 0) * 3 + (p.comments_count || 0) * 5 + (p.shares_count || 0) * 10 + (p.views_count || 0) * 0.1
+      }))
+      .sort((a, b) => b.score - a.score)[0];
+
+    // Top article par vues
+    const topByViews = [...posts].sort((a, b) => (b.views_count || 0) - (a.views_count || 0))[0];
+    
+    // Article le plus liké
+    const topByLikes = [...posts].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0))[0];
+    
+    // Article le plus commenté
+    const topByComments = [...posts].sort((a, b) => (b.comments_count || 0) - (a.comments_count || 0))[0];
 
     // Catégories uniques
     const categories = [...new Set(posts.map(p => p.category).filter(Boolean))];
 
     let response = `📊 **Statistiques Globales du Blog**\n\n`;
     response += `📝 **Articles publiés:** ${posts.length}\n`;
-    response += `👁️ **Total des vues:** ${totalViews.toLocaleString()}\n`;
-    response += `📈 **Moyenne par article:** ${avgViews} vues\n`;
     response += `📂 **Catégories:** ${categories.length}\n\n`;
+    
+    response += `━━━━ 📈 **Métriques Totales** ━━━━\n`;
+    response += `👁️ **Vues:** ${totalViews.toLocaleString()} (moy: ${avgViews}/article)\n`;
+    response += `👍 **Likes:** ${totalLikes.toLocaleString()} (moy: ${avgLikes}/article)\n`;
+    response += `👎 **Dislikes:** ${totalDislikes.toLocaleString()}\n`;
+    response += `💬 **Commentaires:** ${totalComments.toLocaleString()}\n`;
+    response += `🔗 **Partages:** ${totalShares.toLocaleString()}\n`;
+    response += `📊 **Taux d'engagement:** ${globalEngagementRate}%\n\n`;
 
-    if (topPost) {
-      response += `🏆 **Article le plus populaire:**\n`;
-      response += `"${topPost.title}" avec ${topPost.views_count || 0} vues`;
+    response += `🏆 **Champions du Blog:**\n`;
+    if (topByViews) {
+      response += `• 👁️ Plus vu: "${topByViews.title}" (${topByViews.views_count || 0} vues)\n`;
+    }
+    if (topByLikes && topByLikes.likes_count > 0) {
+      response += `• 👍 Plus liké: "${topByLikes.title}" (${topByLikes.likes_count} likes)\n`;
+    }
+    if (topByComments && topByComments.comments_count > 0) {
+      response += `• 💬 Plus commenté: "${topByComments.title}" (${topByComments.comments_count} commentaires)\n`;
+    }
+    if (topByEngagement) {
+      response += `• 🏅 Meilleur engagement: "${topByEngagement.title}"\n`;
     }
 
     return response;
