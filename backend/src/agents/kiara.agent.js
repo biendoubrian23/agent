@@ -60,22 +60,129 @@ class KiaraAgent {
       'Actualités Tech'
     ];
 
-    // Sources RSS pour les tendances tech (variées: tech, finance, hardware)
-    this.trendSources = [
-      { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', lang: 'en' },
-      { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', lang: 'en' },
-      { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', lang: 'en' },
-      { name: 'Hacker News', url: 'https://hnrss.org/frontpage', lang: 'en' },
-      { name: 'Dev.to', url: 'https://dev.to/feed', lang: 'en' },
-      { name: 'Wired', url: 'https://www.wired.com/feed/rss', lang: 'en' },
-      { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/', lang: 'en' },
-      { name: 'VentureBeat', url: 'https://venturebeat.com/feed/', lang: 'en' },
-      { name: 'ZDNet', url: 'https://www.zdnet.com/news/rss.xml', lang: 'en' },
-      { name: 'Tom\'s Hardware', url: 'https://www.tomshardware.com/feeds/all', lang: 'en' },
-      { name: 'AnandTech', url: 'https://www.anandtech.com/rss/', lang: 'en' },
-      { name: 'Google News Tech', url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtWnlHZ0pHVWlnQVAB', lang: 'fr' },
-      { name: 'Google News Business', url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGxqTjNjU0FtWnlHZ0pHVWlnQVAB', lang: 'fr' }
-    ];
+    // Sources RSS par domaine
+    this.trendSourcesByDomain = {
+      // TECH & INFORMATIQUE
+      tech: [
+        { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', lang: 'en' },
+        { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', lang: 'en' },
+        { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', lang: 'en' },
+        { name: 'Hacker News', url: 'https://hnrss.org/frontpage', lang: 'en' },
+        { name: 'Dev.to', url: 'https://dev.to/feed', lang: 'en' },
+        { name: 'Wired', url: 'https://www.wired.com/feed/rss', lang: 'en' },
+        { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/', lang: 'en' },
+        { name: 'VentureBeat', url: 'https://venturebeat.com/feed/', lang: 'en' },
+        { name: 'ZDNet', url: 'https://www.zdnet.com/news/rss.xml', lang: 'en' },
+        { name: 'Google News Tech', url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtWnlHZ0pHVWlnQVAB', lang: 'fr' }
+      ],
+      
+      // HARDWARE & GPU
+      hardware: [
+        { name: 'Tom\'s Hardware', url: 'https://www.tomshardware.com/feeds/all', lang: 'en' },
+        { name: 'AnandTech', url: 'https://www.anandtech.com/rss/', lang: 'en' },
+        { name: 'VideoCardz', url: 'https://videocardz.com/feed', lang: 'en' },
+        { name: 'PC Gamer Hardware', url: 'https://www.pcgamer.com/hardware/rss/', lang: 'en' }
+      ],
+      
+      // INTELLIGENCE ARTIFICIELLE
+      ia: [
+        { name: 'AI News', url: 'https://www.artificialintelligence-news.com/feed/', lang: 'en' },
+        { name: 'MIT AI', url: 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml', lang: 'en' },
+        { name: 'Google AI Blog', url: 'https://blog.google/technology/ai/rss/', lang: 'en' },
+        { name: 'OpenAI Blog', url: 'https://openai.com/blog/rss/', lang: 'en' },
+        { name: 'Towards AI', url: 'https://towardsai.net/feed', lang: 'en' }
+      ],
+      
+      // SPATIAL & ASTRONOMIE
+      spatial: [
+        { name: 'NASA', url: 'https://www.nasa.gov/rss/dyn/breaking_news.rss', lang: 'en' },
+        { name: 'SpaceX', url: 'https://www.spacex.com/news.xml', lang: 'en' },
+        { name: 'Space.com', url: 'https://www.space.com/feeds/all', lang: 'en' },
+        { name: 'ESA', url: 'https://www.esa.int/rssfeed/Our_Activities/Space_News', lang: 'en' },
+        { name: 'Futura Sciences Espace', url: 'https://www.futura-sciences.com/rss/espace/actu.xml', lang: 'fr' }
+      ],
+      
+      // POLITIQUE
+      politique: [
+        { name: 'Le Monde Politique', url: 'https://www.lemonde.fr/politique/rss_full.xml', lang: 'fr' },
+        { name: 'France Info Politique', url: 'https://www.francetvinfo.fr/politique.rss', lang: 'fr' },
+        { name: 'Politico', url: 'https://www.politico.eu/feed/', lang: 'en' },
+        { name: 'BBC Politics', url: 'https://feeds.bbci.co.uk/news/politics/rss.xml', lang: 'en' },
+        { name: 'Google News Politique FR', url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZ4ZERBU0FtWnlHZ0pHVWlnQVAB', lang: 'fr' }
+      ],
+      
+      // ECONOMIE & BUSINESS
+      economie: [
+        { name: 'Les Echos', url: 'https://www.lesechos.fr/rss/rss_une.xml', lang: 'fr' },
+        { name: 'Reuters Business', url: 'https://www.reutersagency.com/feed/?best-topics=business-finance', lang: 'en' },
+        { name: 'Bloomberg', url: 'https://feeds.bloomberg.com/markets/news.rss', lang: 'en' },
+        { name: 'Google News Business FR', url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGxqTjNjU0FtWnlHZ0pHVWlnQVAB', lang: 'fr' }
+      ],
+      
+      // SCIENCE GENERALE
+      science: [
+        { name: 'Nature', url: 'https://www.nature.com/nature.rss', lang: 'en' },
+        { name: 'Science Daily', url: 'https://www.sciencedaily.com/rss/all.xml', lang: 'en' },
+        { name: 'Futura Sciences', url: 'https://www.futura-sciences.com/rss/actualites.xml', lang: 'fr' },
+        { name: 'New Scientist', url: 'https://www.newscientist.com/feed/home/', lang: 'en' }
+      ],
+      
+      // AUTOMOBILE & MECANIQUE
+      auto: [
+        { name: 'Motor Trend', url: 'https://www.motortrend.com/feed/', lang: 'en' },
+        { name: 'Auto Plus', url: 'https://www.autoplus.fr/rss.xml', lang: 'fr' },
+        { name: 'Caradisiac', url: 'https://www.caradisiac.com/rss/', lang: 'fr' },
+        { name: 'Electrek (EV)', url: 'https://electrek.co/feed/', lang: 'en' }
+      ],
+      
+      // GAMING & JEUX VIDEO
+      gaming: [
+        { name: 'IGN', url: 'https://feeds.feedburner.com/ign/all', lang: 'en' },
+        { name: 'Kotaku', url: 'https://kotaku.com/rss', lang: 'en' },
+        { name: 'PC Gamer', url: 'https://www.pcgamer.com/rss/', lang: 'en' },
+        { name: 'Gamekult', url: 'https://www.gamekult.com/feed.xml', lang: 'fr' }
+      ],
+      
+      // CRYPTO & BLOCKCHAIN
+      crypto: [
+        { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', lang: 'en' },
+        { name: 'Cointelegraph', url: 'https://cointelegraph.com/rss', lang: 'en' },
+        { name: 'Decrypt', url: 'https://decrypt.co/feed', lang: 'en' }
+      ],
+      
+      // SANTE & MEDICAL
+      sante: [
+        { name: 'Medical News Today', url: 'https://www.medicalnewstoday.com/newsfeeds/rss/healthcare.xml', lang: 'en' },
+        { name: 'Futura Santé', url: 'https://www.futura-sciences.com/rss/sante/actu.xml', lang: 'fr' },
+        { name: 'Health News', url: 'https://www.news-medical.net/medical/news.rss', lang: 'en' }
+      ],
+      
+      // ENVIRONNEMENT & ECOLOGIE
+      environnement: [
+        { name: 'The Guardian Environment', url: 'https://www.theguardian.com/environment/rss', lang: 'en' },
+        { name: 'Reporterre', url: 'https://reporterre.net/spip.php?page=backend', lang: 'fr' },
+        { name: 'Futura Planète', url: 'https://www.futura-sciences.com/rss/planete/actu.xml', lang: 'fr' }
+      ]
+    };
+    
+    // Alias pour les domaines (synonymes)
+    this.domainAliases = {
+      'technologie': 'tech', 'informatique': 'tech', 'développement': 'tech', 'dev': 'tech', 'web': 'tech',
+      'gpu': 'hardware', 'nvidia': 'hardware', 'amd': 'hardware', 'intel': 'hardware', 'processeur': 'hardware', 'pc': 'hardware',
+      'intelligence artificielle': 'ia', 'ai': 'ia', 'machine learning': 'ia', 'ml': 'ia', 'chatgpt': 'ia', 'openai': 'ia',
+      'espace': 'spatial', 'nasa': 'spatial', 'spacex': 'spatial', 'astronomie': 'spatial', 'fusée': 'spatial', 'mars': 'spatial',
+      'politique': 'politique', 'gouvernement': 'politique', 'élection': 'politique', 'macron': 'politique',
+      'économie': 'economie', 'finance': 'economie', 'business': 'economie', 'bourse': 'economie', 'argent': 'economie',
+      'science': 'science', 'recherche': 'science', 'scientifique': 'science', 'découverte': 'science',
+      'voiture': 'auto', 'automobile': 'auto', 'mécanique': 'auto', 'tesla': 'auto', 'électrique': 'auto', 'ev': 'auto',
+      'jeux': 'gaming', 'jeu vidéo': 'gaming', 'gaming': 'gaming', 'playstation': 'gaming', 'xbox': 'gaming', 'nintendo': 'gaming',
+      'bitcoin': 'crypto', 'ethereum': 'crypto', 'blockchain': 'crypto', 'nft': 'crypto', 'web3': 'crypto',
+      'santé': 'sante', 'médecine': 'sante', 'médical': 'sante', 'covid': 'sante', 'vaccin': 'sante',
+      'écologie': 'environnement', 'climat': 'environnement', 'réchauffement': 'environnement', 'vert': 'environnement'
+    };
+
+    // Sources par défaut (tech) pour compatibilité
+    this.trendSources = this.trendSourcesByDomain.tech;
 
     this.systemPrompt = `Tu es Kiara, une experte SEO et Content Manager chez BiendouCorp.
 
@@ -963,25 +1070,82 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
     return { startDate, endDate, label };
   }
 
-  async handleTrendRequest(message, period = null) {
+  /**
+   * Résoudre le domaine à partir du texte (avec alias)
+   */
+  resolveDomain(text) {
+    const lowerText = text.toLowerCase();
+    
+    // Vérifier les alias en premier
+    for (const [alias, domain] of Object.entries(this.domainAliases)) {
+      if (lowerText.includes(alias)) {
+        return domain;
+      }
+    }
+    
+    // Vérifier les noms de domaines directs
+    for (const domain of Object.keys(this.trendSourcesByDomain)) {
+      if (lowerText.includes(domain)) {
+        return domain;
+      }
+    }
+    
+    // Par défaut: tech
+    return 'tech';
+  }
+
+  /**
+   * Obtenir le label lisible d'un domaine
+   */
+  getDomainLabel(domain) {
+    const labels = {
+      'tech': '💻 Tech & Informatique',
+      'hardware': '🖥️ Hardware & GPU',
+      'ia': '🤖 Intelligence Artificielle',
+      'spatial': '🚀 Spatial & Astronomie',
+      'politique': '🏛️ Politique',
+      'economie': '💰 Économie & Business',
+      'science': '🔬 Science',
+      'auto': '🚗 Automobile & Mécanique',
+      'gaming': '🎮 Gaming & Jeux Vidéo',
+      'crypto': '₿ Crypto & Blockchain',
+      'sante': '🏥 Santé & Médecine',
+      'environnement': '🌍 Environnement & Climat'
+    };
+    return labels[domain] || domain;
+  }
+
+  async handleTrendRequest(message, period = null, domain = null) {
     const { startDate, endDate, label } = this.getPeriodDates(period);
     
-    console.log(`🔍 Kiara recherche les tendances (${label})...`);
+    // Résoudre le domaine depuis le message si non spécifié
+    const resolvedDomain = domain || this.resolveDomain(message);
+    const domainLabel = this.getDomainLabel(resolvedDomain);
     
-    const trends = await this.fetchTrendsFromInternet(startDate, endDate);
+    console.log(`🔍 Kiara recherche les tendances ${resolvedDomain} (${label})...`);
+    
+    // Récupérer les sources pour ce domaine
+    const sources = this.trendSourcesByDomain[resolvedDomain] || this.trendSourcesByDomain.tech;
+    
+    const trends = await this.fetchTrendsFromInternet(startDate, endDate, sources);
     
     // Stocker les tendances pour référence ultérieure
     this.lastDisplayedTrends = trends;
     
-    let response = `🔥 **Tendances Tech** - ${label.charAt(0).toUpperCase() + label.slice(1)}\n`;
-    response += `📅 ${startDate.toLocaleDateString('fr-FR')}${period && period !== 'today' && !period.includes('day') ? ' - ' + endDate.toLocaleDateString('fr-FR') : ''}\n\n`;
+    let response = `🔥 **Tendances** - ${domainLabel}\n`;
+    response += `📅 ${label.charAt(0).toUpperCase() + label.slice(1)}`;
+    if (period && period !== 'today' && !period.includes('day')) {
+      response += ` (${startDate.toLocaleDateString('fr-FR')} - ${endDate.toLocaleDateString('fr-FR')})`;
+    }
+    response += `\n\n`;
     
     if (trends.length === 0) {
-      response += `📭 Aucune tendance trouvée pour cette période.\n\n`;
+      response += `📭 Aucune tendance ${resolvedDomain} trouvée pour cette période.\n\n`;
       response += `💡 **Suggestions:**\n`;
-      response += `• "Tendances d'aujourd'hui"\n`;
-      response += `• "Tendances de la semaine"\n`;
-      response += `• "Actualités tech d'hier"`;
+      response += `• "Tendances ${resolvedDomain} de la semaine"\n`;
+      response += `• "Tendances ${resolvedDomain} du mois"\n\n`;
+      response += `📌 **Autres domaines disponibles:**\n`;
+      response += `Tech, IA, Spatial, Politique, Économie, Auto, Gaming, Crypto, Santé, Environnement`;
       return response;
     }
     
@@ -1007,8 +1171,8 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
     response += `━━━━━━━━━━━━━━━━━━\n`;
     response += `💡 **Actions:**\n`;
     response += `• "Rédige un article sur le 1" - Créer un article\n`;
-    response += `• "Tendances d'hier" - Voir les tendances passées\n`;
-    response += `• "Tendances de la semaine dernière"`;
+    response += `• "Tendances politique" - Changer de domaine\n`;
+    response += `• "Tendances IA d'hier" - Combiner domaine et période`;
     
     return response;
   }
@@ -1016,12 +1180,15 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
   /**
    * Récupère les vraies tendances depuis plusieurs sources RSS
    */
-  async fetchTrendsFromInternet(startDate = null, endDate = null) {
+  async fetchTrendsFromInternet(startDate = null, endDate = null, sources = null) {
     const allTrends = [];
     
-    console.log('📡 Fetching trends from RSS feeds...');
+    // Utiliser les sources passées en paramètre ou les sources par défaut
+    const sourcesToUse = sources || this.trendSources;
     
-    for (const source of this.trendSources) {
+    console.log(`📡 Fetching trends from ${sourcesToUse.length} RSS feeds...`);
+    
+    for (const source of sourcesToUse) {
       try {
         const feed = await this.rssParser.parseURL(source.url);
         

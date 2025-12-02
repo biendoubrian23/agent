@@ -2605,17 +2605,17 @@ Agents disponibles:
   // ========================================
 
   /**
-   * Recherche de tendances avec période temporelle
+   * Recherche de tendances avec période temporelle et domaine
    */
   async handleKiaraTrends(params) {
-    const topic = params.topic || 'tech';
+    const text = params.text || params.topic || 'tech';
     const period = params.period || null;
     
-    console.log(`🔍 Kiara recherche les tendances: ${topic}, période: ${period || 'aujourd\'hui'}...`);
+    console.log(`🔍 Kiara recherche les tendances, période: ${period || 'aujourd\'hui'}...`);
     
     try {
-      // Appeler la méthode handleTrendRequest de Kiara avec la période
-      const result = await kiaraAgent.handleTrendRequest(topic, period);
+      // Appeler la méthode handleTrendRequest de Kiara avec le texte complet (pour résoudre le domaine)
+      const result = await kiaraAgent.handleTrendRequest(text, period);
       return result;
     } catch (error) {
       console.error('Erreur Kiara trends:', error);
