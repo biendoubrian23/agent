@@ -40,12 +40,28 @@ class MailAgent {
     
     // Filtrer par expéditeur si spécifié
     if (fromFilter) {
-      const fromLower = fromFilter.toLowerCase();
+      const fromLower = fromFilter.toLowerCase().trim();
       filteredEmails = filteredEmails.filter(e => {
-        const emailFrom = (e.from || e.fromName || '').toLowerCase();
-        const emailAddr = (e.fromAddress || e.from || '').toLowerCase();
-        return emailFrom.includes(fromLower) || emailAddr.includes(fromLower);
+        // Vérifier tous les champs possibles de l'expéditeur
+        const emailFrom = (e.from || '').toLowerCase();
+        const emailFromName = (e.fromName || '').toLowerCase();
+        const emailFromAddress = (e.fromAddress || '').toLowerCase();
+        const emailSubject = (e.subject || '').toLowerCase();
+        
+        // Chercher le pattern dans n'importe quel champ
+        // Supporte les noms composés comme "Adrian | JS Mastery"
+        const allFields = `${emailFrom} ${emailFromName} ${emailFromAddress}`;
+        
+        // Match si le pattern est trouvé dans l'expéditeur (from/fromName/fromAddress)
+        const matchesFrom = allFields.includes(fromLower);
+        
+        // OU si c'est mentionné dans le sujet (pour les newsletters nommées)
+        const matchesSubject = emailSubject.includes(fromLower);
+        
+        return matchesFrom || matchesSubject;
       });
+      
+      console.log(`📧 Filtre expéditeur "${fromFilter}": ${filteredEmails.length}/${emails.length} emails matchés`);
     }
 
     if (!filter) return filteredEmails;
