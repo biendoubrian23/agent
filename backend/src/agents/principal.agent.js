@@ -246,10 +246,14 @@ EXEMPLES IMPORTANTS:
 - "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
 - "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
 - "publie l'article" → action: "kiara_publish", target_agent: "kiara"
+- "supprime l'article 1" → action: "kiara_delete_article", title: "1" (numéro)
+- "supprime l'article 2" → action: "kiara_delete_article", title: "2" (numéro)
+- "supprime le 3" → action: "kiara_delete_article", title: "3" (numéro)
 - "supprime l'article sur les GPU" → action: "kiara_delete_article", title: "GPU"
 - "supprime le brouillon" → action: "kiara_delete_article"
-- "liste mes articles" → action: "kiara_list_articles"
-- "mes articles" → action: "kiara_list_articles"
+- "liste mes articles" → action: "kiara_list_articles" (TOUS les articles)
+- "mes articles" → action: "kiara_list_articles" (TOUS les articles)
+- "liste complète" → action: "kiara_list_articles" (TOUS les articles)
 - "stats du blog" → action: "kiara_global_stats"
 - "fonctionnalités de Kiara" → action: "describe_kiara"
 - "que peut faire Kiara" → action: "describe_kiara"
@@ -838,10 +842,25 @@ DISTINCTION TRÈS IMPORTANTE:
         return { action: 'kiara_list_drafts', params: {} };
       
       case 'kiara_delete_article':
+        // Extraire le numéro ou titre de l'article à supprimer
+        let deleteTarget = params.title || params.query;
+        if (!deleteTarget && originalText) {
+          // Extraire numéro: "supprime l'article 2", "supprime le 3", "supprime article 1"
+          const numMatch = originalText.match(/(?:supprime|delete|efface)\s+(?:l'?article|le|brouillon)?\s*(\d+)/i);
+          if (numMatch) {
+            deleteTarget = numMatch[1]; // Juste le numéro
+          } else {
+            // Extraire titre: "supprime l'article Google" -> "Google"
+            const titleMatch = originalText.match(/(?:supprime|delete|efface)\s+(?:l'?article)?\s+(?:sur\s+)?["']?(.+?)["']?$/i);
+            if (titleMatch) {
+              deleteTarget = titleMatch[1].trim();
+            }
+          }
+        }
         return { 
           action: 'kiara_delete_article', 
           params: { 
-            title: params.title || params.query,
+            title: deleteTarget,
             text: originalText 
           } 
         };

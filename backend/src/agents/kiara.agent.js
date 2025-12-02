@@ -668,8 +668,7 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
       const { data: allPosts, error } = await supabaseService.client
         .from('blog_posts')
         .select('id, title, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error || !allPosts?.length) {
         return `📭 Aucun article trouvé.`;
@@ -680,7 +679,7 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
         const status = p.status === 'published' ? '📢' : '📝';
         response += `${i + 1}. ${status} "${p.title}"\n`;
       });
-      response += `\n💡 Dis "supprime l'article [titre]" ou "supprime le numéro X"`;
+      response += `\n💡 Dis "supprime l'article 1" ou "supprime l'article 2" (par numéro)`;
       return response;
     }
 
@@ -747,32 +746,20 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
       return `📭 Aucun article trouvé.`;
     }
 
-    const drafts = posts.filter(p => p.status === 'draft');
-    const published = posts.filter(p => p.status === 'published');
-
+    // Numérotation GLOBALE pour la suppression par numéro
     let response = `📚 **Mes Articles** (${posts.length} total)\n\n`;
-
-    if (published.length > 0) {
-      response += `📢 **Publiés** (${published.length}):\n`;
-      published.slice(0, 5).forEach((p, i) => {
-        response += `${i + 1}. "${p.title}" - 👁️ ${p.views_count || 0} vues\n`;
-      });
-      if (published.length > 5) response += `   ... et ${published.length - 5} autres\n`;
-      response += `\n`;
-    }
-
-    if (drafts.length > 0) {
-      response += `📝 **Brouillons** (${drafts.length}):\n`;
-      drafts.slice(0, 5).forEach((p, i) => {
-        const date = new Date(p.created_at).toLocaleDateString('fr-FR');
-        response += `${i + 1}. "${p.title}" - ${date}\n`;
-      });
-      if (drafts.length > 5) response += `   ... et ${drafts.length - 5} autres\n`;
-    }
+    
+    posts.forEach((p, i) => {
+      const num = i + 1;
+      const status = p.status === 'published' ? '📢' : '📝';
+      const views = p.status === 'published' ? ` - 👁️ ${p.views_count || 0} vues` : '';
+      const date = new Date(p.created_at).toLocaleDateString('fr-FR');
+      response += `${num}. ${status} "${p.title}"${views} (${date})\n`;
+    });
 
     response += `\n💡 **Actions:**\n`;
+    response += `• "Supprime l'article 1" - Supprimer par numéro\n`;
     response += `• "Publie [titre]" - Publier un brouillon\n`;
-    response += `• "Supprime [titre]" - Supprimer un article\n`;
     response += `• "Stats de [titre]" - Voir les stats`;
 
     return response;
@@ -1408,29 +1395,8 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
   // ============================================
 
   async handleArticleList() {
-    const { data: posts, error } = await supabaseService.client
-      .from('blog_posts')
-      .select('*')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      return `❌ Erreur: ${error.message}`;
-    }
-
-    if (!posts || posts.length === 0) {
-      return `📝 Aucun article publié pour le moment.\n\nTu veux que je rédige le premier ?`;
-    }
-
-    let response = `📚 **Derniers articles publiés**\n\n`;
-    posts.forEach((p, i) => {
-      const date = new Date(p.published_at).toLocaleDateString('fr-FR');
-      response += `${i + 1}. **${p.title}**\n`;
-      response += `   📅 ${date} | 👁️ ${p.views_count || 0} vues | 📂 ${p.category || 'N/A'}\n\n`;
-    });
-
-    return response;
+    // Utiliser listAllArticles pour montrer tous les articles (publiés + brouillons)
+    return await this.listAllArticles();
   }
 
   // ============================================
