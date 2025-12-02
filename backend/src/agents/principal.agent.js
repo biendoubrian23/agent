@@ -595,31 +595,32 @@ DISTINCTION TRÈS IMPORTANTE:
     
     let response;
     
-    // 1. Analyser avec le regex
+    // 1. Analyser avec le regex (en arrière-plan, pour référence)
     const regexIntent = await this.analyzeJamesIntent(lowerText, text);
     console.log(`📝 Regex James: ${regexIntent.action}`);
     
-    // 2. Toujours demander confirmation à l'IA
+    // 2. Analyser avec l'IA (PRIORITAIRE)
     const aiIntent = await this.analyzeJamesIntentWithAI(text);
-    console.log(`🤖 IA James: ${aiIntent.action}`);
+    console.log(`🤖 IA James: ${aiIntent.action} (confiance: ${aiIntent.confidence || 'N/A'}%)`);
     
-    // 3. Comparer et décider
+    // 3. NOUVELLE LOGIQUE: IA est TOUJOURS prioritaire
     let intent;
-    if (regexIntent.action === 'james_unknown') {
-      // Regex n'a pas trouvé → utiliser l'IA
+    
+    if (aiIntent.action && aiIntent.action !== 'james_unknown' && aiIntent.action !== 'unknown') {
+      // IA a trouvé une action valide → l'utiliser
       intent = aiIntent;
-      console.log(`✅ Décision: IA (regex incertain)`);
-    } else if (regexIntent.action === aiIntent.action) {
-      // Regex et IA sont d'accord → utiliser l'ACTION du regex mais les PARAMS de l'IA (plus précis)
-      intent = {
-        action: regexIntent.action,
-        params: { ...regexIntent.params, ...aiIntent.params } // Fusionner, IA prioritaire
-      };
-      console.log(`✅ Décision: MATCH (regex = IA, params IA utilisés)`);
+      
+      if (regexIntent.action === aiIntent.action) {
+        console.log(`✅ Décision: IA (confirmé par regex)`);
+      } else if (regexIntent.action === 'james_unknown') {
+        console.log(`✅ Décision: IA (regex n'a pas trouvé)`);
+      } else {
+        console.log(`✅ Décision: IA prioritaire (regex suggérait: ${regexIntent.action})`);
+      }
     } else {
-      // Désaccord → faire confiance à l'IA
-      intent = aiIntent;
-      console.log(`⚠️ Décision: IA (désaccord - regex: ${regexIntent.action}, IA: ${aiIntent.action})`);
+      // IA n'a pas trouvé → fallback sur regex
+      intent = regexIntent;
+      console.log(`⚠️ Décision: Regex (fallback - IA incertaine)`);
     }
     
     console.log(`🎯 Action finale: ${intent.action}`, intent.params);

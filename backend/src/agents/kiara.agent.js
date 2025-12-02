@@ -2188,27 +2188,49 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
     // Sauvegarder la programmation dans Supabase
     const scheduledDate = dateTimeInfo.date;
     
-    const { data: scheduled, error } = await supabaseService.client
-      .from('scheduled_posts')
-      .insert({
-        post_id: article.id,
-        title: article.title,
+    // 1. Mettre à jour l'article dans blog_posts avec status = 'scheduled'
+    const { error: updateError } = await supabaseService.client
+      .from('blog_posts')
+      .update({
+        status: 'scheduled',
         scheduled_at: scheduledDate.toISOString(),
-        status: 'pending',
-        created_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
-      .select()
-      .single();
+      .eq('id', article.id);
 
-    if (error) {
-      console.error('Erreur programmation:', error);
-      // Si doublon, informer l'utilisateur
-      if (error.code === '23505') {
-        return `⚠️ Cet article est déjà programmé. Annule d'abord l'ancienne programmation avec "Annule la programmation".`;
-      }
+    if (updateError) {
+      console.error('Erreur mise à jour article:', updateError);
     }
 
-    // Créer un événement dans Outlook Calendar
+    // 2. Essayer d'insérer dans scheduled_posts (table de suivi)
+    let scheduled = null;
+    try {
+      const { data, error } = await supabaseService.client
+        .from('scheduled_posts')
+        .insert({
+          post_id: article.id,
+          title: article.title,
+          scheduled_at: scheduledDate.toISOString(),
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erreur insertion scheduled_posts:', error);
+        // Si la table n'existe pas, on continue quand même car blog_posts est déjà mis à jour
+        if (error.code === '23505') {
+          return `⚠️ Cet article est déjà programmé. Annule d'abord l'ancienne programmation avec "Annule la programmation".`;
+        }
+      } else {
+        scheduled = data;
+      }
+    } catch (e) {
+      console.log('⚠️ Table scheduled_posts non disponible:', e.message);
+    }
+
+    // 3. Créer un événement dans Outlook Calendar
     let calendarEvent = null;
     try {
       if (outlookService.isConnected()) {

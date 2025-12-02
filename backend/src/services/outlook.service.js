@@ -41,7 +41,7 @@ class OutlookService {
    */
   getAuthUrl() {
     const authCodeUrlParameters = {
-      scopes: ['Mail.Read', 'Mail.Send', 'Mail.ReadWrite', 'MailboxSettings.ReadWrite', 'User.Read', 'offline_access'],
+      scopes: ['Mail.Read', 'Mail.Send', 'Mail.ReadWrite', 'MailboxSettings.ReadWrite', 'Calendars.ReadWrite', 'User.Read', 'offline_access'],
       redirectUri: process.env.AZURE_REDIRECT_URI
     };
 
@@ -55,7 +55,7 @@ class OutlookService {
     try {
       const tokenRequest = {
         code: code,
-        scopes: ['Mail.Read', 'Mail.Send', 'Mail.ReadWrite', 'MailboxSettings.ReadWrite', 'User.Read', 'offline_access'],
+        scopes: ['Mail.Read', 'Mail.Send', 'Mail.ReadWrite', 'MailboxSettings.ReadWrite', 'Calendars.ReadWrite', 'User.Read', 'offline_access'],
         redirectUri: process.env.AZURE_REDIRECT_URI
       };
 
@@ -102,7 +102,7 @@ class OutlookService {
         
         const silentRequest = {
           account: this.account,
-          scopes: ['Mail.Read', 'Mail.Send', 'Mail.ReadWrite', 'MailboxSettings.ReadWrite', 'User.Read', 'offline_access'],
+          scopes: ['Mail.Read', 'Mail.Send', 'Mail.ReadWrite', 'MailboxSettings.ReadWrite', 'Calendars.ReadWrite', 'User.Read', 'offline_access'],
           forceRefresh: true
         };
 
@@ -1693,6 +1693,121 @@ class OutlookService {
       
     } catch (error) {
       console.error('❌ Erreur get email by ID:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // ==================== CALENDAR METHODS ====================
+
+  /**
+   * Créer un événement dans le calendrier Outlook
+   * @param {Object} eventData - Données de l'événement
+   * @param {string} eventData.subject - Titre de l'événement
+   * @param {Object} eventData.body - Corps de l'événement {contentType, content}
+   * @param {Object} eventData.start - Date de début {dateTime, timeZone}
+   * @param {Object} eventData.end - Date de fin {dateTime, timeZone}
+   * @param {number} eventData.reminderMinutesBefore - Minutes avant le rappel
+   * @param {boolean} eventData.isReminderOn - Activer le rappel
+   */
+  async createEvent(eventData) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      const event = {
+        subject: eventData.subject,
+        body: eventData.body || {
+          contentType: 'Text',
+          content: ''
+        },
+        start: eventData.start,
+        end: eventData.end,
+        isReminderOn: eventData.isReminderOn !== false,
+        reminderMinutesBeforeStart: eventData.reminderMinutesBefore || 15,
+        showAs: 'busy',
+        categories: ['📝 Blog Publication']
+      };
+      
+      const response = await axios.post(
+        `${this.graphBaseUrl}/me/events`,
+        event,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('✅ Événement calendrier créé:', response.data.id);
+      
+      return {
+        id: response.data.id,
+        subject: response.data.subject,
+        start: response.data.start,
+        end: response.data.end,
+        webLink: response.data.webLink
+      };
+      
+    } catch (error) {
+      console.error('❌ Erreur création événement:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Lister les événements du calendrier
+   * @param {number} days - Nombre de jours à récupérer (défaut: 7)
+   */
+  async getEvents(days = 7) {
+    const accessToken = await this.ensureValidToken();
+    
+    const startDate = new Date().toISOString();
+    const endDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    
+    try {
+      const response = await axios.get(
+        `${this.graphBaseUrl}/me/calendarView?startDateTime=${startDate}&endDateTime=${endDate}&$orderby=start/dateTime&$top=50`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+      
+      return response.data.value.map(event => ({
+        id: event.id,
+        subject: event.subject,
+        start: event.start,
+        end: event.end,
+        location: event.location?.displayName,
+        isAllDay: event.isAllDay,
+        webLink: event.webLink
+      }));
+      
+    } catch (error) {
+      console.error('❌ Erreur récupération événements:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Supprimer un événement du calendrier
+   * @param {string} eventId - ID de l'événement
+   */
+  async deleteEvent(eventId) {
+    const accessToken = await this.ensureValidToken();
+    
+    try {
+      await axios.delete(
+        `${this.graphBaseUrl}/me/events/${eventId}`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+      
+      console.log('✅ Événement supprimé:', eventId);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Erreur suppression événement:', error.response?.data || error.message);
       throw error;
     }
   }
