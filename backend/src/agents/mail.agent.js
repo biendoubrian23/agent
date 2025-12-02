@@ -119,7 +119,7 @@ class MailAgent {
    * @param {boolean} options.allFolders - Récupérer depuis tous les dossiers
    */
   async getFilteredEmailSummary(options = {}) {
-    const { count = 10, filter = null, from = null, allFolders = true } = options;
+    const { count = null, filter = null, from = null, allFolders = true } = options;
     
     try {
       if (!outlookService.isConnected()) {
@@ -132,8 +132,29 @@ class MailAgent {
 
       statsService.logConnectionCheck('outlook', true);
       
-      // Récupérer plus d'emails pour pouvoir filtrer ensuite
-      const fetchCount = (filter || from) ? Math.max(count * 5, 200) : count;
+      // Si un filtre temporel est spécifié et pas de count, récupérer beaucoup plus d'emails
+      // pour s'assurer d'avoir TOUS les mails de la période
+      const hasTemporalFilter = filter && ['today', 'yesterday', 'week', 'month', '7days', '14days', '30days'].includes(filter);
+      
+      // Définir combien d'emails récupérer
+      let fetchCount;
+      if (count === null && hasTemporalFilter) {
+        // Pas de limite, on veut TOUS les mails de la période
+        // Récupérer beaucoup pour être sûr (500 pour today/yesterday, plus pour week/month)
+        if (filter === 'today' || filter === 'yesterday') {
+          fetchCount = 500;
+        } else if (filter === 'week' || filter === '7days') {
+          fetchCount = 500;
+        } else {
+          fetchCount = 1000;
+        }
+      } else if (count) {
+        // Un nombre spécifique est demandé
+        fetchCount = (filter || from) ? Math.max(count * 5, 200) : count;
+      } else {
+        // Par défaut
+        fetchCount = 200;
+      }
       
       // Récupérer depuis TOUS les dossiers par défaut
       let emails;
@@ -151,8 +172,11 @@ class MailAgent {
       // Appliquer les filtres (expéditeur + temporel)
       emails = this.filterEmails(emails, filter, from);
       
-      // Limiter au nombre EXACT demandé
-      emails = emails.slice(0, count);
+      // Limiter au nombre demandé SEULEMENT si un count est spécifié
+      // Sinon on garde TOUS les emails de la période
+      if (count !== null) {
+        emails = emails.slice(0, count);
+      }
       
       if (emails.length === 0) {
         let noResultMsg = `📭 Aucun email trouvé`;

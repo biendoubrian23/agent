@@ -53,19 +53,23 @@ class PrincipalAgent {
    → Délègue à James
    → Détermine si c'est: résumé, classification, création de règle, action immédiate
    
-   📊 **EXTRACTION DES NOMBRES (TRÈS IMPORTANT - respecter EXACTEMENT le nombre demandé):**
+   📊 **EXTRACTION DES NOMBRES (TRÈS IMPORTANT):**
    - "mes 2 derniers mails" → count: 2
    - "mes 3 derniers mails" → count: 3
    - "les 10 derniers emails" → count: 10
    - "le dernier mail" → count: 1
-   - "mes mails" (sans nombre) → count: 10 (défaut raisonnable)
+   - "mes mails" (sans nombre ET sans période) → count: 10 (défaut)
+   - ⚠️ **IMPORTANT: Si une PÉRIODE est spécifiée (today, yesterday, week, etc.), NE PAS mettre de count !**
+   - "mails d'aujourd'hui" → filter: "today" (PAS de count - on veut TOUS les mails d'aujourd'hui)
+   - "mails de la journée" → filter: "today" (PAS de count)
+   - "mails d'hier" → filter: "yesterday" (PAS de count - on veut TOUS les mails d'hier)
    
-   📅 **FILTRES TEMPORELS (IMPORTANT):**
-   - "mails d'aujourd'hui" → filter: "today"
-   - "mails de cette semaine" → filter: "week"  
-   - "mails d'hier" → filter: "yesterday"
-   - "mails du mois" ou "ce mois" → filter: "month"
-   - "mails des 7 derniers jours" → filter: "7days"
+   📅 **FILTRES TEMPORELS (IMPORTANT - NE PAS AJOUTER DE COUNT QUAND PÉRIODE SPÉCIFIÉE):**
+   - "mails d'aujourd'hui" / "mails de la journée" → filter: "today" (sans count!)
+   - "mails de cette semaine" → filter: "week" (sans count!)
+   - "mails d'hier" → filter: "yesterday" (sans count!)
+   - "mails du mois" ou "ce mois" → filter: "month" (sans count!)
+   - "mails des 7 derniers jours" → filter: "7days" (sans count!)
    - "mails des 14 derniers jours" → filter: "14days"
    - "mails des 30 derniers jours" → filter: "30days"
    
@@ -225,6 +229,11 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
 
 EXEMPLES IMPORTANTS:
 - "résume mes 3 derniers mails" → action: "email_summary", count: 3
+- "résume les mails d'aujourd'hui" → action: "email_summary", filter: "today" (PAS de count!)
+- "résume les mails de la journée" → action: "email_summary", filter: "today" (PAS de count!)
+- "résume les mails d'hier" → action: "email_summary", filter: "yesterday" (PAS de count!)
+- "résume les mails de la semaine" → action: "email_summary", filter: "week" (PAS de count!)
+- "résume les mails du mois" → action: "email_summary", filter: "month" (PAS de count!)
 - "résume les mails de LinkedIn d'hier" → action: "email_summary", from: "LinkedIn", filter: "yesterday"
 - "mails de ISCOD cette semaine" → action: "email_summary", from: "ISCOD", filter: "week"
 - "les mails de Google du mois" → action: "email_summary", from: "Google", filter: "month"
@@ -2031,12 +2040,18 @@ Message utilisateur: "${text}"
    * Supporte: count, filter (temporel), from (expéditeur)
    */
   async handleEmailSummary(params) {
-    const count = params.count || 10; // Par défaut 10, pas 50
     const filter = params.filter || null;
     const from = params.from || null;
     
+    // Si un filtre temporel est spécifié (today, yesterday, week, etc.), 
+    // on récupère TOUS les mails de cette période (pas de limite arbitraire)
+    // Sinon on utilise le count demandé ou 10 par défaut
+    const hasTemporalFilter = filter && ['today', 'yesterday', 'week', 'month', '7days', '14days', '30days'].includes(filter);
+    const count = hasTemporalFilter ? null : (params.count || 10);
+    
     let logMessage = `📧 James analyse`;
     if (from) logMessage += ` les emails de ${from}`;
+    else if (hasTemporalFilter) logMessage += ` tous les emails`;
     else logMessage += ` les ${count} derniers emails`;
     if (filter) logMessage += ` (${filter})`;
     console.log(logMessage + '...');
@@ -2056,6 +2071,13 @@ Message utilisateur: "${text}"
     if (from) {
       header += `les emails de **${from}**`;
       if (filter) header += ` (${filter})`;
+    } else if (hasTemporalFilter) {
+      header += `vos ${result.emailCount} emails`;
+      if (filter === 'today') header += ` d'aujourd'hui`;
+      else if (filter === 'yesterday') header += ` d'hier`;
+      else if (filter === 'week') header += ` de la semaine`;
+      else if (filter === 'month') header += ` du mois`;
+      else header += ` (${filter})`;
     } else {
       header += count === 1 ? 'votre dernier email' : `vos ${result.emailCount || count} derniers emails`;
     }
