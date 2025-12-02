@@ -772,8 +772,14 @@ class OutlookService {
 
     for (const email of emails) {
       try {
+        // Log pour debug - voir ce qui est envoyé à la classification
+        console.log(`📧 Classification de: ${email.from} (${email.fromName}) - "${email.subject?.substring(0, 40)}..."`);
+        
         // Demander à l'IA de classifier l'email
         const classification = await openaiService.classifyEmailForFolder(email);
+        
+        // Log le résultat
+        console.log(`   → ${classification.category} (${classification.reason?.substring(0, 50) || 'IA'})`);
         
         // Déplacer l'email
         const moveResult = await this.classifyAndMoveEmail(email, classification.category);
