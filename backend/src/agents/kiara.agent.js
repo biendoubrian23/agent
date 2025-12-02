@@ -977,10 +977,10 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
     });
 
     response += `\n💡 **Actions:**\n`;
-    response += `• "Supprime l'article 1" - Supprimer par numéro\n`;
     if (status === 'draft') {
-      response += `• "Publie [titre]" - Publier un brouillon\n`;
+      response += `• "Publie le 1" ou "Publie [titre]" - Publier un brouillon\n`;
     }
+    response += `• "Supprime l'article 1" - Supprimer par numéro\n`;
     response += `• "Stats de [titre]" - Voir les stats`;
 
     return response;
@@ -1710,51 +1710,125 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
   // PUBLICATION D'ARTICLES
   // ============================================
 
+  /**
+   * Formater la liste des brouillons numérotés
+   */
+  formatDraftsList(drafts) {
+    if (!drafts || drafts.length === 0) {
+      return "Aucun brouillon disponible.";
+    }
+    return drafts.map((d, i) => `${i + 1}. 📝 ${d.title}`).join('\n');
+  }
+
   async handlePublishRequest(message, context = {}) {
-    // Chercher l'article par titre ou ID
-    const titleMatch = message.match(/(?:publie|publier)\s+(?:l'article\s+)?["']?(.+?)["']?$/i);
+    const lowerMessage = message.toLowerCase();
     
     let article = null;
     
-    // Si pas de titre spécifié, utiliser le dernier article généré
-    if (!titleMatch || titleMatch[1].trim() === 'article' || titleMatch[1].trim() === "l'article") {
-      if (this.lastGeneratedArticle?.id) {
-        // Récupérer le dernier article généré
-        const { data, error } = await supabaseService.client
-          .from('blog_posts')
-          .select('*')
-          .eq('id', this.lastGeneratedArticle.id)
-          .single();
+    // D'abord, récupérer tous les brouillons pour référence
+    const { data: allDrafts, error: draftsError } = await supabaseService.client
+      .from('blog_posts')
+      .select('*')
+      .eq('status', 'draft')
+      .order('created_at', { ascending: false });
+    
+    if (draftsError) {
+      return `❌ Erreur lors de la récupération des brouillons.`;
+    }
+    
+    // Vérifier s'il y a un numéro dans le message (gère "le 1", "brouillon 1", "1", etc.)
+    const numPatterns = [
+      /publie\s+(?:le\s+)?(?:brouillon\s+)?(\d+)/i,
+      /publie\s+(?:l'article\s+)?(\d+)/i,
+      /publie\s+(\d+)/i,
+      /^(\d+)$/
+    ];
+    
+    let draftNumber = null;
+    for (const pattern of numPatterns) {
+      const match = lowerMessage.match(pattern);
+      if (match) {
+        draftNumber = parseInt(match[1]);
+        break;
+      }
+    }
+    
+    // Si on a trouvé un numéro, publier ce brouillon
+    if (draftNumber !== null) {
+      if (!allDrafts || allDrafts.length === 0) {
+        return `❌ Aucun brouillon à publier.\n\n💡 Crée d'abord un article avec "Rédige un article sur..."`;
+      }
+      
+      const index = draftNumber - 1;
+      if (index < 0 || index >= allDrafts.length) {
+        return `❌ Brouillon n°${draftNumber} non trouvé.\n\n📋 **Brouillons disponibles:**\n${this.formatDraftsList(allDrafts)}\n\n💡 Dis "Publie 1" ou "Publie le brouillon 2"`;
+      }
+      
+      article = allDrafts[index];
+    }
+    
+    // Patterns qui indiquent "publier le dernier article" sans titre spécifique
+    if (!article) {
+      const publishLastPatterns = [
+        'publie sur le blog',
+        'publie le sur le blog',
+        'publie-le',
+        'publie l\'article',
+        'publier l\'article',
+        'publie article',
+        'publie ça',
+        'publier'
+      ];
+      
+      const isPublishLast = publishLastPatterns.some(p => lowerMessage.includes(p)) && 
+                            !lowerMessage.match(/publie\s+["']?.{10,}["']?/i);
+      
+      if (isPublishLast || lowerMessage === 'publie' || lowerMessage === 'publier') {
+        // Essayer le dernier article généré
+        if (this.lastGeneratedArticle?.id) {
+          const { data, error } = await supabaseService.client
+            .from('blog_posts')
+            .select('*')
+            .eq('id', this.lastGeneratedArticle.id)
+            .single();
+          
+          if (!error && data) {
+            article = data;
+          }
+        }
         
-        if (!error && data) {
-          article = data;
+        // Si pas de dernier article, prendre le brouillon le plus récent
+        if (!article && allDrafts && allDrafts.length > 0) {
+          article = allDrafts[0];
+        }
+        
+        if (!article) {
+          return `❌ Aucun brouillon à publier.\n\n💡 Crée d'abord un article avec "Rédige un article sur..."`;
         }
       }
+    }
+    
+    // Si toujours pas d'article, chercher par titre
+    if (!article) {
+      let searchTerm = message
+        .replace(/publie[rz]?\s*/i, '')
+        .replace(/l'article\s*/i, '')
+        .replace(/le\s+brouillon\s*/i, '')
+        .replace(/sur le blog/i, '')
+        .trim();
       
-      // Si toujours pas d'article, lister les brouillons
-      if (!article) {
-        return await this.listDrafts();
+      if (searchTerm.length > 2 && allDrafts && allDrafts.length > 0) {
+        article = allDrafts.find(d => 
+          d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          d.slug.includes(searchTerm.toLowerCase())
+        );
       }
-    } else {
-      const searchTerm = titleMatch[1].trim();
-      
-      // Chercher le brouillon
-      const { data: drafts, error } = await supabaseService.client
-        .from('blog_posts')
-        .select('*')
-        .eq('status', 'draft');
-
-      if (error || !drafts) {
-        return `❌ Erreur lors de la recherche: ${error?.message || 'Aucun brouillon trouvé'}`;
-      }
-
-      article = drafts.find(d => 
-        d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.slug.includes(searchTerm.toLowerCase())
-      );
 
       if (!article) {
-        return `❌ Brouillon "${searchTerm}" non trouvé.\n\nBrouillons disponibles:\n${drafts.map(d => `• ${d.title}`).join('\n')}`;
+        if (!allDrafts || allDrafts.length === 0) {
+          return `❌ Aucun brouillon disponible.\n\n💡 Crée d'abord un article avec "Rédige un article sur..."`;
+        }
+        return `❌ Brouillon "${searchTerm}" non trouvé.\n\n📋 **Brouillons disponibles:**\n${this.formatDraftsList(allDrafts)}\n\n💡 Dis "Publie 1" ou "Publie [titre]"`;
       }
     }
 

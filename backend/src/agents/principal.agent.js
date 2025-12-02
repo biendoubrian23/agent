@@ -493,8 +493,16 @@ DISTINCTION TRÈS IMPORTANTE:
     
     let response;
     
-    // Analyser l'intention dans le contexte Kiara
-    const intent = this.analyzeKiaraIntent(lowerText, text);
+    // Analyser l'intention dans le contexte Kiara (regex d'abord)
+    let intent = this.analyzeKiaraIntent(lowerText, text);
+    
+    // Si le regex ne trouve pas → demander à l'IA
+    if (intent.action === 'kiara_unknown') {
+      console.log('🤔 Regex incertain, demande à l\'IA...');
+      intent = await this.analyzeKiaraIntentWithAI(text);
+    }
+    
+    console.log(`🎯 Action Kiara: ${intent.action}`);
     
     // Récupérer l'historique pour le contexte
     const conversationHistory = this.getConversationHistory(from, 'kiara');
@@ -545,6 +553,7 @@ DISTINCTION TRÈS IMPORTANTE:
       case 'describe_kiara':
         response = this.getKiaraCapabilities();
         break;
+      case 'kiara_general':
       default:
         // Demande générale à Kiara avec contexte de conversation
         response = await this.handleKiaraGeneral(from, { text, conversationHistory });
@@ -568,8 +577,16 @@ DISTINCTION TRÈS IMPORTANTE:
     
     let response;
     
-    // Analyser l'intention dans le contexte James
-    const intent = await this.analyzeJamesIntent(lowerText, text);
+    // Analyser l'intention dans le contexte James (regex d'abord)
+    let intent = await this.analyzeJamesIntent(lowerText, text);
+    
+    // Si le regex ne trouve pas → demander à l'IA
+    if (intent.action === 'james_unknown') {
+      console.log('🤔 Regex incertain, demande à l\'IA...');
+      intent = await this.analyzeJamesIntentWithAI(text);
+    }
+    
+    console.log(`🎯 Action James: ${intent.action}`);
     
     switch (intent.action) {
       case 'email_summary':
@@ -638,6 +655,7 @@ DISTINCTION TRÈS IMPORTANTE:
       case 'describe_james':
         response = this.getJamesCapabilities();
         break;
+      case 'james_general':
       default:
         // Demande générale à James
         response = await this.handleGeneralQuestion(text);
@@ -844,8 +862,63 @@ DISTINCTION TRÈS IMPORTANTE:
       return { action: 'describe_kiara', params: {} };
     }
     
-    // Par défaut, discussion générale
-    return { action: 'kiara_general', params: { text: originalText } };
+    // Par défaut, laisser l'IA décider
+    return { action: 'kiara_unknown', params: { text: originalText } };
+  }
+
+  /**
+   * Analyse IA pour Kiara quand le regex ne trouve pas
+   */
+  async analyzeKiaraIntentWithAI(text) {
+    const prompt = `Tu es un assistant qui analyse les intentions utilisateur pour Kiara (gestionnaire de blog/SEO).
+
+Message utilisateur: "${text}"
+
+Analyse ce message et détermine l'action à effectuer parmi:
+- kiara_trends: rechercher les tendances/actualités
+- kiara_generate_article: rédiger/écrire/générer un article
+- kiara_publish: publier un article/brouillon sur le blog
+- kiara_list_articles: lister tous les articles
+- kiara_list_published: lister les articles publiés
+- kiara_list_drafts: lister les brouillons
+- kiara_delete_article: supprimer un article
+- kiara_count_articles: compter les articles
+- kiara_pdf: générer/recevoir un PDF
+- kiara_modify: modifier un article existant
+- kiara_global_stats: voir les statistiques
+- kiara_schedule: programmer une publication
+- describe_kiara: expliquer les capacités de Kiara
+- kiara_general: question générale ou conversation
+
+Réponds en JSON:
+{
+  "action": "nom_action",
+  "params": { "text": "message original", ... },
+  "confidence": 0-100,
+  "reasoning": "explication courte"
+}`;
+
+    try {
+      const response = await openaiService.chat([
+        { role: 'system', content: 'Tu analyses les intentions pour un assistant blog/SEO. Réponds uniquement en JSON.' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.1 });
+
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log(`🤖 IA Kiara: ${parsed.action} (${parsed.confidence}%) - ${parsed.reasoning}`);
+        return {
+          action: parsed.action,
+          params: { ...parsed.params, text }
+        };
+      }
+    } catch (error) {
+      console.error('❌ Erreur analyse IA Kiara:', error.message);
+    }
+
+    // Fallback si l'IA échoue
+    return { action: 'kiara_general', params: { text } };
   }
 
   /**
@@ -959,7 +1032,69 @@ DISTINCTION TRÈS IMPORTANTE:
       return { action: 'describe_james', params: {} };
     }
     
-    // Par défaut, résumé des emails récents
+    // Par défaut, laisser l'IA décider
+    return { action: 'james_unknown', params: { text: originalText } };
+  }
+
+  /**
+   * Analyse IA pour James quand le regex ne trouve pas
+   */
+  async analyzeJamesIntentWithAI(text) {
+    const prompt = `Tu es un assistant qui analyse les intentions utilisateur pour James (gestionnaire d'emails Outlook).
+
+Message utilisateur: "${text}"
+
+Analyse ce message et détermine l'action à effectuer parmi:
+- email_summary: résumer les emails récents
+- email_unread: voir les emails non lus
+- email_classify: classer/trier les emails dans des dossiers
+- email_reclassify: reclasser des emails déjà classés
+- email_important: voir les emails importants/urgents
+- send_email: envoyer un email à quelqu'un
+- email_search: chercher un email spécifique
+- contact_search: chercher un contact
+- email_reply: répondre à un email
+- create_reminder: créer un rappel
+- list_reminders: voir mes rappels
+- email_cleanup: nettoyer/supprimer des emails
+- daily_summary: résumé quotidien complet
+- create_folder: créer un dossier
+- delete_folder: supprimer un dossier
+- list_folders: voir mes dossiers
+- config_james: configurer une règle de classement
+- config_list_rules: voir les règles
+- delete_rule: supprimer une règle
+- describe_james: expliquer les capacités de James
+- james_general: question générale
+
+Réponds en JSON:
+{
+  "action": "nom_action",
+  "params": { "text": "message original", ... },
+  "confidence": 0-100,
+  "reasoning": "explication courte"
+}`;
+
+    try {
+      const response = await openaiService.chat([
+        { role: 'system', content: 'Tu analyses les intentions pour un assistant email. Réponds uniquement en JSON.' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.1 });
+
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log(`🤖 IA James: ${parsed.action} (${parsed.confidence}%) - ${parsed.reasoning}`);
+        return {
+          action: parsed.action,
+          params: { ...parsed.params, text }
+        };
+      }
+    } catch (error) {
+      console.error('❌ Erreur analyse IA James:', error.message);
+    }
+
+    // Fallback si l'IA échoue
     return { action: 'email_summary', params: { count: 10 } };
   }
 
