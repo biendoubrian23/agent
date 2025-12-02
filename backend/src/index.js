@@ -11,6 +11,7 @@ const reminderService = require('./services/reminder.service');
 const principalAgent = require('./agents/principal.agent');
 const mailAgent = require('./agents/mail.agent');
 const emailScheduler = require('./scheduler/email.scheduler');
+const articleScheduler = require('./scheduler/article.scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -139,6 +140,11 @@ app.get('/auth/callback', async (req, res) => {
     
     // Scheduler d'emails désactivé - l'utilisateur préfère vérifier manuellement
     // emailScheduler.start();
+    
+    // Démarrer le scheduler d'articles si pas déjà actif
+    if (!articleScheduler.isRunning) {
+      articleScheduler.start();
+    }
     
     res.send(`
       <!DOCTYPE html>
@@ -301,8 +307,30 @@ app.get('/api/status', async (req, res) => {
   res.json({
     whatsapp: 'configured',
     outlook: outlookConnected ? 'connected' : 'disconnected',
-    scheduler: emailScheduler.intervalId ? 'running' : 'stopped'
+    emailScheduler: emailScheduler.intervalId ? 'running' : 'stopped',
+    articleScheduler: articleScheduler.getStatus()
   });
+});
+
+/**
+ * Voir les articles programmés en attente
+ */
+app.get('/api/scheduled-posts', async (req, res) => {
+  try {
+    const pending = await articleScheduler.getPendingScheduled();
+    res.json({
+      count: pending.length,
+      posts: pending.map(p => ({
+        id: p.id,
+        title: p.title,
+        scheduledAt: p.scheduled_at,
+        status: p.status,
+        createdAt: p.created_at
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ==================== API AGENTS ====================
@@ -443,4 +471,8 @@ app.listen(PORT, () => {
   
   // Démarrer le scheduler de rappels
   reminderService.init(whatsappService);
+  
+  // Démarrer le scheduler de publication d'articles
+  articleScheduler.start();
+  console.log('📰 Article Scheduler démarré');
 });

@@ -273,6 +273,14 @@ Réponds toujours de manière professionnelle et utile.`;
         return await this.handleScheduleRequest(message, context);
       }
 
+      if (this.isScheduleListRequest(lowerMessage)) {
+        return await this.handleScheduleList();
+      }
+
+      if (this.isCancelScheduleRequest(lowerMessage)) {
+        return await this.handleCancelSchedule(message);
+      }
+
       if (this.isArticleList(lowerMessage)) {
         return await this.handleArticleList();
       }
@@ -647,6 +655,16 @@ ${sourcesForPrompt}
 
   isScheduleRequest(message) {
     const keywords = ['programme', 'planifie', 'schedule', 'programmer', 'planifier', 'plus tard'];
+    return keywords.some(k => message.includes(k));
+  }
+
+  isScheduleListRequest(message) {
+    const keywords = ['mes programmations', 'programmations', 'articles programmés', 'publications programmées', 'prévus'];
+    return keywords.some(k => message.includes(k));
+  }
+
+  isCancelScheduleRequest(message) {
+    const keywords = ['annule la programmation', 'annuler programmation', 'supprimer programmation', 'déprogramme'];
     return keywords.some(k => message.includes(k));
   }
 
@@ -2117,11 +2135,16 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
   async handleScheduleRequest(message) {
     console.log('⏰ Kiara programme un article...');
     
-    // Parser la date et l'heure
-    const dateTimeInfo = this.parseDateTimeFromMessage(message);
+    // Parser la date et l'heure avec l'IA (plus robuste que le regex)
+    const dateTimeInfo = await this.parseDateTimeWithAI(message);
     
     if (!dateTimeInfo.date) {
-      return `⏰ **Programmation d'articles**\n\nJe n'ai pas compris la date. Exemples:\n• "Programme pour demain 9h"\n• "Programme pour le 15 décembre à 14h"\n• "Programme pour lundi prochain 10h"`;
+      // Fallback sur le parsing regex classique
+      const regexDateInfo = this.parseDateTimeFromMessage(message);
+      if (!regexDateInfo.date) {
+        return `⏰ **Programmation d'articles**\n\nJe n'ai pas compris la date. Exemples:\n• "Programme pour demain 9h"\n• "Programme pour le 15 décembre à 14h"\n• "Programme pour lundi prochain 10h"`;
+      }
+      dateTimeInfo.date = regexDateInfo.date;
     }
 
     // Chercher l'article à programmer (dernier généré ou spécifié)
@@ -2165,7 +2188,10 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
 
     if (error) {
       console.error('Erreur programmation:', error);
-      // Continuer quand même si la table n'existe pas
+      // Si doublon, informer l'utilisateur
+      if (error.code === '23505') {
+        return `⚠️ Cet article est déjà programmé. Annule d'abord l'ancienne programmation avec "Annule la programmation".`;
+      }
     }
 
     // Créer un événement dans Outlook Calendar
@@ -2176,12 +2202,14 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
           subject: `📝 Publication Blog: ${article.title}`,
           body: {
             contentType: 'HTML',
-            content: `<h2>Article programmé pour publication</h2>
+            content: `<h2>🚀 Article programmé pour publication automatique</h2>
               <p><strong>Titre:</strong> ${article.title}</p>
               <p><strong>Catégorie:</strong> ${article.category || 'Non catégorisé'}</p>
               <p><strong>Extrait:</strong> ${article.excerpt || ''}</p>
+              <p><strong>Publication automatique:</strong> ✅ OUI</p>
               <hr>
-              <p>🤖 Programmé par Kiara - BiendouCorp Agent</p>`
+              <p>🤖 Programmé par Kiara - BiendouCorp Agent</p>
+              <p>L'article sera publié automatiquement à l'heure prévue.</p>`
           },
           start: {
             dateTime: scheduledDate.toISOString(),
@@ -2194,7 +2222,15 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
           reminderMinutesBefore: 60, // Rappel 1h avant
           isReminderOn: true
         });
-        console.log('✅ Événement Outlook créé');
+        console.log('✅ Événement Outlook créé:', calendarEvent?.id);
+        
+        // Mettre à jour la programmation avec l'ID Outlook
+        if (calendarEvent?.id && scheduled?.id) {
+          await supabaseService.client
+            .from('scheduled_posts')
+            .update({ outlook_event_id: calendarEvent.id })
+            .eq('id', scheduled.id);
+        }
       }
     } catch (e) {
       console.log('⚠️ Impossible de créer l\'événement Outlook:', e.message);
@@ -2212,8 +2248,11 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
 
     let response = `✅ **Article programmé !**\n\n`;
     response += `📝 **Article:** ${article.title}\n`;
-    response += `📅 **Publication:** ${formattedDate}\n`;
+    response += `📅 **Publication prévue:** ${formattedDate}\n`;
     response += `📂 **Catégorie:** ${article.category || 'Non catégorisé'}\n\n`;
+    
+    response += `🤖 **Publication automatique:** ✅ Activée\n`;
+    response += `*L'article sera publié automatiquement à l'heure prévue.*\n\n`;
     
     if (calendarEvent) {
       response += `📆 **Outlook Calendar:** ✅ Événement créé avec rappel 1h avant\n\n`;
@@ -2222,8 +2261,7 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
     }
 
     response += `👉 **Actions:**\n`;
-    response += `• "PDF de l'article" - Recevoir le PDF\n`;
-    response += `• "Modifie..." - Modifier l'article\n`;
+    response += `• "Mes programmations" - Voir les articles programmés\n`;
     response += `• "Publie maintenant" - Publier immédiatement\n`;
     response += `• "Annule la programmation" - Annuler`;
 
@@ -2231,7 +2269,187 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
   }
 
   /**
-   * Parse une date/heure depuis un message en langage naturel
+   * Liste les articles programmés
+   */
+  async handleScheduleList() {
+    console.log('📋 Liste des programmations...');
+    
+    const { data: scheduled, error } = await supabaseService.client
+      .from('scheduled_posts')
+      .select('*')
+      .eq('status', 'pending')
+      .order('scheduled_at', { ascending: true });
+
+    if (error) {
+      console.error('Erreur liste programmations:', error);
+      return `❌ Erreur lors de la récupération des programmations.`;
+    }
+
+    if (!scheduled || scheduled.length === 0) {
+      return `📅 **Aucun article programmé**\n\nUtilise "Programme l'article pour [date]" après avoir généré un article.`;
+    }
+
+    let response = `📅 **Articles programmés** (${scheduled.length})\n\n`;
+
+    for (const item of scheduled) {
+      const scheduledDate = new Date(item.scheduled_at);
+      const formattedDate = scheduledDate.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      const now = new Date();
+      const diff = scheduledDate - now;
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      let timeRemaining = '';
+      if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        timeRemaining = `dans ${days} jour${days > 1 ? 's' : ''}`;
+      } else if (hours > 0) {
+        timeRemaining = `dans ${hours}h${minutes > 0 ? minutes + 'min' : ''}`;
+      } else if (minutes > 0) {
+        timeRemaining = `dans ${minutes} minutes`;
+      } else {
+        timeRemaining = `🔜 imminent`;
+      }
+
+      response += `📝 **${item.title}**\n`;
+      response += `   📆 ${formattedDate}\n`;
+      response += `   ⏱️ ${timeRemaining}\n`;
+      response += `   ${item.outlook_event_id ? '✅ Sync Outlook' : '⚠️ Non sync Outlook'}\n\n`;
+    }
+
+    response += `👉 **Actions:**\n`;
+    response += `• "Annule la programmation de [titre]" pour annuler`;
+
+    return response;
+  }
+
+  /**
+   * Annule une programmation
+   */
+  async handleCancelSchedule(message) {
+    console.log('❌ Annulation programmation...');
+    
+    // Trouver l'article à annuler
+    const { data: scheduled, error } = await supabaseService.client
+      .from('scheduled_posts')
+      .select('*')
+      .eq('status', 'pending');
+
+    if (error || !scheduled || scheduled.length === 0) {
+      return `❌ Aucun article programmé à annuler.`;
+    }
+
+    // Chercher par titre si spécifié
+    let toCancel = null;
+    const titleMatch = message.match(/(?:de|l'article)\s+["']?([^"']+)["']?/i);
+    
+    if (titleMatch) {
+      const searchTerm = titleMatch[1].trim().toLowerCase();
+      toCancel = scheduled.find(s => 
+        s.title.toLowerCase().includes(searchTerm)
+      );
+    } else {
+      // Annuler le dernier ou le seul
+      toCancel = scheduled[0];
+    }
+
+    if (!toCancel) {
+      return `❌ Article non trouvé. Programmations en cours:\n${scheduled.map(s => `• ${s.title}`).join('\n')}`;
+    }
+
+    // Annuler dans Supabase
+    const { error: updateError } = await supabaseService.client
+      .from('scheduled_posts')
+      .update({ 
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString()
+      })
+      .eq('id', toCancel.id);
+
+    if (updateError) {
+      return `❌ Erreur lors de l'annulation.`;
+    }
+
+    // TODO: Supprimer l'événement Outlook si connecté
+
+    return `✅ **Programmation annulée**\n\n📝 **Article:** ${toCancel.title}\n\nL'article reste en brouillon, tu peux le reprogrammer quand tu veux.`;
+  }
+
+  /**
+   * Parse une date/heure avec l'IA (plus robuste que le regex)
+   */
+  async parseDateTimeWithAI(message) {
+    const now = new Date();
+    const nowStr = now.toISOString();
+    
+    const prompt = `Tu es un assistant qui extrait des dates et heures à partir de messages en français.
+    
+Date/heure actuelle: ${nowStr} (fuseau Europe/Paris)
+
+Message: "${message}"
+
+Extrais la date et l'heure de publication souhaitée.
+Réponds UNIQUEMENT en JSON valide:
+{
+  "found": true/false,
+  "year": 2025,
+  "month": 1-12,
+  "day": 1-31,
+  "hour": 0-23,
+  "minute": 0-59,
+  "confidence": 0-100
+}
+
+Si aucune date n'est trouvée, retourne {"found": false}
+Si l'heure n'est pas précisée, utilise 9h par défaut.
+"Demain" = date actuelle + 1 jour
+"Lundi prochain" = le prochain lundi après aujourd'hui`;
+
+    try {
+      const response = await openaiService.chat(
+        'Tu es un extracteur de dates. Réponds uniquement en JSON.',
+        prompt,
+        { json: true, maxTokens: 200 }
+      );
+      
+      let cleanResponse = response.trim();
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+      }
+      
+      const parsed = JSON.parse(cleanResponse);
+      
+      if (parsed.found && parsed.year && parsed.month && parsed.day) {
+        const date = new Date(
+          parsed.year,
+          parsed.month - 1, // JavaScript: mois 0-11
+          parsed.day,
+          parsed.hour || 9,
+          parsed.minute || 0,
+          0,
+          0
+        );
+        
+        console.log(`🤖 IA a parsé la date: ${date.toISOString()} (confiance: ${parsed.confidence}%)`);
+        return { date, confidence: parsed.confidence };
+      }
+      
+      return { date: null };
+    } catch (error) {
+      console.log('⚠️ Fallback sur parsing regex:', error.message);
+      return { date: null };
+    }
+  }
+
+  /**
+   * Parse une date/heure depuis un message en langage naturel (regex fallback)
    */
   parseDateTimeFromMessage(message) {
     const lowerMessage = message.toLowerCase();
