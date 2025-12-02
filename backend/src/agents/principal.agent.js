@@ -141,11 +141,13 @@ class PrincipalAgent {
    - L'email nécessite: destinataire + intention/message
    - C'est différent de "résumer mes mails" ou "classer mes mails"
 
-10. **RECHERCHE D'EMAILS (contenu):**
+10. **RECHERCHE D'EMAILS (contenu/sujet):**
    - "cherche les mails concernant le devis" → action: "email_search", params: { query: "devis" }
    - "trouve les emails qui parlent de facture" → action: "email_search", params: { query: "facture" }
-   - "emails de la semaine dernière de Amazon" → action: "email_search"
-   - "montre moi les mails de LinkedIn" → action: "email_search", params: { from: "LinkedIn" }
+   - "cherche le mail où Joseph parle de football" → action: "email_search", params: { from: "Joseph", contentKeyword: "football" }
+   - "trouve les mails de Pierre concernant le projet" → action: "email_search", params: { from: "Pierre", contentKeyword: "projet" }
+   - "emails de LinkedIn qui parlent de promotion" → action: "email_search", params: { from: "LinkedIn", contentKeyword: "promotion" }
+   - "mails avec le mot budget" → action: "email_search", params: { contentKeyword: "budget" }
 
 11. **RECHERCHE DE CONTACT (adresse email d'une personne/entreprise):**
    - IMPORTANT: Quand l'utilisateur veut l'ADRESSE EMAIL de quelqu'un, c'est contact_search !
@@ -200,6 +202,7 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "count": number (OBLIGATOIRE - extrait EXACTEMENT le nombre demandé. Ex: "3 derniers mails" → count: 3),
     "filter": "today" | "yesterday" | "week" | "month" | "7days" | "14days" | "30days" | "important" | "urgent" | null,
     "from": string (TRÈS IMPORTANT - expéditeur/source. Ex: "mails de LinkedIn" → from: "LinkedIn"),
+    "contentKeyword": string (mot-clé à chercher dans le CONTENU du mail. Ex: "mail où il parle de football" → contentKeyword: "football"),
     "pattern": string (optionnel, pour les règles),
     "folder": string (optionnel, pour les règles OU pour créer/supprimer un dossier),
     "sourceFolder": string (optionnel, dossier source pour re-classification, avec emojis si applicable),
@@ -246,6 +249,8 @@ EXEMPLES IMPORTANTS:
 - "cherche moi l'email de Brian" → action: "contact_search", params: { name: "Brian" } (ADRESSE - singulier "l'email")
 - "cherche les mails concernant le projet" → action: "email_search", params: { query: "projet" } (CONTENU, pas expéditeur)
 - "trouve les mails qui parlent de facture" → action: "email_search", params: { query: "facture" } (CONTENU)
+- "cherche le mail où Joseph parle de football" → action: "email_search", params: { from: "Joseph", contentKeyword: "football" }
+- "emails de Marie qui mentionnent réunion" → action: "email_search", params: { from: "Marie", contentKeyword: "réunion" }
 - "Recherche les 2 articles sur les GPU et génère un blog" → action: "kiara_complete_workflow", target_agent: "kiara", topic: "GPU", articleCount: 2
 - "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
 - "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
@@ -1517,7 +1522,13 @@ Message utilisateur: "${text}"
         return { action: 'delete_rule', params: { ruleNumber: params.ruleNumber } };
       
       case 'email_search':
-        return { action: 'email_search', params: { query: params.query, filter: params.filter } };
+        return { action: 'email_search', params: { 
+          query: params.query, 
+          from: params.from, 
+          subject: params.subject,
+          contentKeyword: params.contentKeyword || params.keyword,
+          filter: params.filter 
+        } };
       
       case 'contact_search':
         return { action: 'contact_search', params: { name: params.name || params.query, text: params.text } };
@@ -2754,14 +2765,24 @@ _(Recherche → Rédaction → PDF → Brouillon)_
    */
   async handleEmailSearch(params) {
     const query = params.query || params.text;
+    const from = params.from;
+    const subject = params.subject;
+    const contentKeyword = params.contentKeyword || params.keyword;
     
-    if (!query) {
-      return `🔍 **Recherche d'emails**\n\nQue cherchez-vous ?\n\nExemples:\n• "Cherche les mails de LinkedIn"\n• "Trouve les emails contenant facture"\n• "Recherche les mails d'Amazon du mois dernier"`;
+    if (!query && !from && !subject && !contentKeyword) {
+      return `🔍 **Recherche d'emails**\n\nQue cherchez-vous ?\n\nExemples:\n• "Cherche les mails de LinkedIn"\n• "Trouve les emails contenant facture"\n• "Recherche les mails où Joseph parle de football"`;
     }
 
-    console.log(`🔍 James recherche: "${query}"...`);
+    console.log(`🔍 James recherche avec critères:`, { query, from, subject, contentKeyword });
     
-    const result = await mailAgent.searchEmails(query);
+    // Passer tous les critères à mailAgent
+    const searchCriteria = {};
+    if (query) searchCriteria.query = query;
+    if (from) searchCriteria.from = from;
+    if (subject) searchCriteria.subject = subject;
+    if (contentKeyword) searchCriteria.contentKeyword = contentKeyword;
+    
+    const result = await mailAgent.searchEmails(null, searchCriteria);
     
     return `🤖 **James** rapporte:\n\n${result.message}`;
   }

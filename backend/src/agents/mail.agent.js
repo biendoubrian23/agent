@@ -1277,16 +1277,38 @@ class MailAgent {
         };
       }
 
-      // Résumer les résultats avec l'IA
-      const summary = await openaiService.summarizeEmails(emails, {
-        instruction: 'Résume les résultats de recherche de manière concise, en mettant en avant les emails les plus pertinents.'
-      });
+      // Formater les résultats avec info dossier
+      let formattedResults = `🔍 **${emails.length} email(s) trouvé(s)**\n\n`;
+      
+      for (const email of emails.slice(0, 10)) { // Limiter à 10 pour l'affichage
+        const date = new Date(email.receivedAt).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        formattedResults += `━━━━━━━━━━━━━━━━━━━━\n`;
+        formattedResults += `📧 **${email.subject || '(Sans sujet)'}**\n`;
+        formattedResults += `👤 De: ${email.fromName || email.from}\n`;
+        formattedResults += `📁 Dossier: ${email.folder || 'Inconnu'}\n`;
+        formattedResults += `📅 ${date}\n`;
+        if (email.preview) {
+          formattedResults += `💬 "${email.preview.substring(0, 100)}${email.preview.length > 100 ? '...' : ''}"\n`;
+        }
+        formattedResults += `\n`;
+      }
+      
+      if (emails.length > 10) {
+        formattedResults += `\n... et ${emails.length - 10} autre(s) email(s)`;
+      }
 
       statsService.addActivity('james', `Recherche: ${emails.length} emails trouvés`);
 
       return {
         success: true,
-        message: `🔍 **${emails.length} email(s) trouvé(s)**\n\n${summary}`,
+        message: formattedResults,
         count: emails.length,
         emails: emails
       };

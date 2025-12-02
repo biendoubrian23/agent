@@ -1276,68 +1276,132 @@ class OutlookService {
     const accessToken = await this.ensureValidToken();
     
     try {
-      let filterParts = [];
-      let searchQuery = '';
+      console.log('🔍 Recherche emails avancée:', criteria);
       
-      // Construire le filtre OData
-      if (criteria.from) {
-        filterParts.push(`from/emailAddress/address eq '${criteria.from}' or contains(from/emailAddress/name, '${criteria.from}')`);
-      }
+      // Récupérer la liste des dossiers pour avoir leurs noms
+      const folders = await this.getFolders();
+      const folderMap = new Map(folders.map(f => [f.id, f.name]));
       
-      if (criteria.after) {
-        const afterDate = new Date(criteria.after).toISOString();
-        filterParts.push(`receivedDateTime ge ${afterDate}`);
-      }
+      // Liste des dossiers principaux à rechercher
+      const foldersToSearch = ['inbox', 'sentitems', 'drafts', 'archive'];
       
-      if (criteria.before) {
-        const beforeDate = new Date(criteria.before).toISOString();
-        filterParts.push(`receivedDateTime le ${beforeDate}`);
-      }
+      // Ajouter les sous-dossiers de inbox (dossiers personnalisés)
+      const inbox = folders.find(f => f.name.toLowerCase() === 'inbox' || f.name.toLowerCase() === 'boîte de réception');
+      const customFolders = folders.filter(f => f.parentId === inbox?.id).map(f => f.id);
       
-      // Construire l'URL avec $search pour la recherche full-text
-      let url = `${this.graphBaseUrl}/me/messages?$top=${criteria.limit || 20}&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,bodyPreview,isRead,importance,flag`;
+      let allResults = [];
       
-      // Utiliser $search pour la recherche dans le contenu
-      if (criteria.query) {
-        // Microsoft Graph utilise KQL pour la recherche
-        searchQuery = `"${criteria.query}"`;
-        url += `&$search="${encodeURIComponent(criteria.query)}"`;
-      }
-      
-      // Ajouter le filtre si présent
-      if (filterParts.length > 0 && !criteria.query) {
-        url += `&$filter=${encodeURIComponent(filterParts.join(' and '))}`;
-      }
-      
-      console.log('🔍 Recherche emails:', criteria);
-      
-      const response = await axios.get(url, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'ConsistencyLevel': 'eventual' // Requis pour $search
+      // Rechercher dans chaque dossier
+      for (const folderIdOrName of [...foldersToSearch, ...customFolders]) {
+        try {
+          // Construire l'URL de recherche pour ce dossier
+          let url;
+          if (foldersToSearch.includes(folderIdOrName)) {
+            url = `${this.graphBaseUrl}/me/mailFolders/${folderIdOrName}/messages`;
+          } else {
+            url = `${this.graphBaseUrl}/me/mailFolders/${folderIdOrName}/messages`;
+          }
+          
+          url += `?$top=${criteria.limit || 50}&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,bodyPreview,body,isRead,importance,flag,parentFolderId`;
+          
+          // Utiliser $search pour la recherche full-text si query présent
+          if (criteria.query) {
+            url += `&$search="${encodeURIComponent(criteria.query)}"`;
+          }
+          
+          const response = await axios.get(url, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'ConsistencyLevel': 'eventual'
+            }
+          });
+          
+          const emails = response.data.value || [];
+          
+          // Ajouter l'info du dossier à chaque email
+          const emailsWithFolder = emails.map(email => ({
+            ...email,
+            folderName: this.getFolderDisplayName(folderIdOrName, folderMap)
+          }));
+          
+          allResults = [...allResults, ...emailsWithFolder];
+        } catch (e) {
+          // Ignorer les erreurs par dossier (certains peuvent être vides ou inaccessibles)
+          console.log(`⚠️ Impossible de rechercher dans le dossier ${folderIdOrName}:`, e.message);
         }
-      });
-      
-      let emails = response.data.value || [];
-      
-      // Filtrage supplémentaire côté client si nécessaire
-      if (criteria.from && criteria.query) {
-        const fromLower = criteria.from.toLowerCase();
-        emails = emails.filter(e => 
-          (e.from?.emailAddress?.address || '').toLowerCase().includes(fromLower) ||
-          (e.from?.emailAddress?.name || '').toLowerCase().includes(fromLower)
-        );
       }
       
+      // Dédupliquer par ID (au cas où un email apparaîtrait dans plusieurs résultats)
+      const uniqueEmails = Array.from(new Map(allResults.map(e => [e.id, e])).values());
+      
+      // Filtrage précis côté client
+      let filteredEmails = uniqueEmails;
+      
+      // Filtrer par expéditeur (nom ou adresse)
+      if (criteria.from) {
+        const fromLower = criteria.from.toLowerCase();
+        filteredEmails = filteredEmails.filter(e => {
+          const emailAddr = (e.from?.emailAddress?.address || '').toLowerCase();
+          const emailName = (e.from?.emailAddress?.name || '').toLowerCase();
+          return emailAddr.includes(fromLower) || emailName.includes(fromLower);
+        });
+      }
+      
+      // Filtrer par sujet
       if (criteria.subject) {
         const subjectLower = criteria.subject.toLowerCase();
-        emails = emails.filter(e => 
+        filteredEmails = filteredEmails.filter(e => 
           (e.subject || '').toLowerCase().includes(subjectLower)
         );
       }
       
-      return emails.map(email => ({
+      // Filtrer par contenu (bodyPreview ou body.content)
+      if (criteria.contentKeyword) {
+        const keywordLower = criteria.contentKeyword.toLowerCase();
+        filteredEmails = filteredEmails.filter(e => {
+          const preview = (e.bodyPreview || '').toLowerCase();
+          const bodyContent = (e.body?.content || '').toLowerCase();
+          const subject = (e.subject || '').toLowerCase();
+          return preview.includes(keywordLower) || bodyContent.includes(keywordLower) || subject.includes(keywordLower);
+        });
+      }
+      
+      // Si une query générale, filtrer aussi par pertinence
+      if (criteria.query && !criteria.from && !criteria.subject && !criteria.contentKeyword) {
+        const queryLower = criteria.query.toLowerCase();
+        filteredEmails = filteredEmails.filter(e => {
+          const preview = (e.bodyPreview || '').toLowerCase();
+          const subject = (e.subject || '').toLowerCase();
+          const fromName = (e.from?.emailAddress?.name || '').toLowerCase();
+          const fromAddr = (e.from?.emailAddress?.address || '').toLowerCase();
+          return preview.includes(queryLower) || 
+                 subject.includes(queryLower) || 
+                 fromName.includes(queryLower) ||
+                 fromAddr.includes(queryLower);
+        });
+      }
+      
+      // Filtrer par date
+      if (criteria.after) {
+        const afterDate = new Date(criteria.after);
+        filteredEmails = filteredEmails.filter(e => new Date(e.receivedDateTime) >= afterDate);
+      }
+      
+      if (criteria.before) {
+        const beforeDate = new Date(criteria.before);
+        filteredEmails = filteredEmails.filter(e => new Date(e.receivedDateTime) <= beforeDate);
+      }
+      
+      // Trier par date décroissante
+      filteredEmails.sort((a, b) => new Date(b.receivedDateTime) - new Date(a.receivedDateTime));
+      
+      // Limiter les résultats
+      const limitedEmails = filteredEmails.slice(0, criteria.limit || 20);
+      
+      console.log(`✅ Recherche terminée: ${limitedEmails.length} résultat(s) sur ${uniqueEmails.length} emails analysés`);
+      
+      return limitedEmails.map(email => ({
         id: email.id,
         subject: email.subject,
         from: email.from?.emailAddress?.address || 'Inconnu',
@@ -1346,13 +1410,48 @@ class OutlookService {
         preview: email.bodyPreview,
         isRead: email.isRead,
         importance: email.importance,
-        isFlagged: email.flag?.flagStatus === 'flagged'
+        isFlagged: email.flag?.flagStatus === 'flagged',
+        folder: email.folderName || 'Inconnu'
       }));
       
     } catch (error) {
       console.error('❌ Erreur recherche emails:', error.response?.data || error.message);
       throw error;
     }
+  }
+
+  /**
+   * Convertir un ID de dossier en nom affichable
+   */
+  getFolderDisplayName(folderIdOrName, folderMap) {
+    // Dossiers système connus
+    const systemFolders = {
+      'inbox': '📥 Boîte de réception',
+      'sentitems': '📤 Envoyés',
+      'drafts': '📝 Brouillons',
+      'archive': '📦 Archives',
+      'deleteditems': '🗑️ Corbeille',
+      'junkemail': '⚠️ Spam'
+    };
+    
+    if (systemFolders[folderIdOrName.toLowerCase()]) {
+      return systemFolders[folderIdOrName.toLowerCase()];
+    }
+    
+    // Chercher dans la map des dossiers
+    if (folderMap.has(folderIdOrName)) {
+      const name = folderMap.get(folderIdOrName);
+      // Ajouter des emojis pour les dossiers personnalisés
+      if (name.includes('Urgent')) return '🔴 ' + name;
+      if (name.includes('Professionnel')) return '💼 ' + name;
+      if (name.includes('Shopping')) return '🛒 ' + name;
+      if (name.includes('Newsletter')) return '📰 ' + name;
+      if (name.includes('Finance')) return '🏦 ' + name;
+      if (name.includes('Social')) return '🤝 ' + name;
+      return '📁 ' + name;
+    }
+    
+    return '📁 Dossier';
   }
 
   // ==================== RECHERCHE DE CONTACTS ====================
