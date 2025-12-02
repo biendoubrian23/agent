@@ -741,9 +741,19 @@ class OutlookService {
     
     console.log(`📂 Classification de ${count} emails...`);
     
-    // Recharger les règles depuis Supabase pour avoir la dernière version
+    // TOUJOURS recharger les règles depuis Supabase avant de classifier
     await openaiService.initFromSupabase();
-    console.log(`📋 Règles rechargées: ${openaiService.customClassificationRules?.length || 0} règles actives`);
+    
+    const rulesCount = openaiService.customClassificationRules?.length || 0;
+    console.log(`📋 Règles personnalisées chargées: ${rulesCount}`);
+    
+    // Afficher les règles pour debug
+    if (rulesCount > 0) {
+      console.log('📋 Règles actives:');
+      openaiService.customClassificationRules.forEach((r, i) => {
+        console.log(`   ${i+1}. [${r.type}] "${r.pattern}" → ${r.folder}`);
+      });
+    }
     
     // Récupérer les emails
     const emails = await this.getEmails(count);

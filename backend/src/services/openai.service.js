@@ -423,32 +423,48 @@ Aperçu: ${email.preview || ''}
     const subjectLower = (email.subject || '').toLowerCase();
     const previewLower = (email.preview || '').toLowerCase();
 
+    // Log pour debug
+    if (this.customClassificationRules.length > 0) {
+      console.log(`🔍 Vérification de ${this.customClassificationRules.length} règles pour: ${email.from} - "${email.subject?.substring(0, 50)}"`);
+    }
+
     for (const rule of this.customClassificationRules) {
       const pattern = rule.pattern.toLowerCase();
+      let matched = false;
       
       switch (rule.type) {
         case 'sender':
-          if (fromLower.includes(pattern) || fromNameLower.includes(pattern)) {
+          matched = fromLower.includes(pattern) || fromNameLower.includes(pattern);
+          if (matched) {
+            console.log(`  ✅ Règle SENDER "${rule.pattern}" → ${rule.folder} (match: ${email.from})`);
             return rule;
           }
           break;
         case 'subject':
-          if (subjectLower.includes(pattern)) {
+          matched = subjectLower.includes(pattern);
+          if (matched) {
+            console.log(`  ✅ Règle SUBJECT "${rule.pattern}" → ${rule.folder} (match: ${email.subject})`);
             return rule;
           }
           break;
         case 'contains':
         default:
-          if (fromLower.includes(pattern) || 
-              fromNameLower.includes(pattern) || 
-              subjectLower.includes(pattern) || 
-              previewLower.includes(pattern)) {
+          matched = fromLower.includes(pattern) || 
+                   fromNameLower.includes(pattern) || 
+                   subjectLower.includes(pattern) || 
+                   previewLower.includes(pattern);
+          if (matched) {
+            console.log(`  ✅ Règle CONTAINS "${rule.pattern}" → ${rule.folder}`);
             return rule;
           }
           break;
       }
     }
     
+    // Aucune règle ne correspond
+    if (this.customClassificationRules.length > 0) {
+      console.log(`  ❌ Aucune règle ne correspond pour: ${email.from}`);
+    }
     return null;
   }
 

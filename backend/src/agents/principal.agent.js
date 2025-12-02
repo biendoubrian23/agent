@@ -629,8 +629,9 @@ EXEMPLES IMPORTANTS:
         return { 
           action: 'email_summary', 
           params: { 
-            count: params.count || 50,
-            filter: params.filter || null
+            count: params.count || 10,
+            filter: params.filter || null,
+            from: params.from || null  // Expéditeur pour filtrer
           } 
         };
       
