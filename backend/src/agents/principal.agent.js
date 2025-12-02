@@ -212,15 +212,24 @@ EXEMPLES IMPORTANTS:
 - "les mails de Google du mois" → action: "email_summary", from: "Google", filter: "month"
 - "mails de Amazon des 7 derniers jours" → action: "email_summary", from: "Amazon", filter: "7days"
 - "le dernier mail de Brian" → action: "email_summary", from: "Brian", count: 1
+- "retrouve le mail de Adrian" → action: "email_summary", from: "Adrian" (FILTRER par expéditeur)
+- "trouve moi les mails ou il y'a Google" → action: "email_summary", from: "Google" (FILTRER)
+- "le mail avec Amazon" → action: "email_summary", from: "Amazon" (FILTRER)
+- "montre les mails d'Adrian" → action: "email_summary", from: "Adrian" (FILTRER)
 - "classe mes 5 derniers mails" → action: "email_classify", count: 5
 - "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
 - "envoie un mail à jean@test.com pour lui dire bonjour" → action: "send_email", text: "..."
-- "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" }
+- "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" } (ADRESSE email)
+- "quelle est l'adresse de Brian" → action: "contact_search", params: { name: "Brian" } (ADRESSE)
 - "cherche les mails concernant le projet" → action: "email_search", params: { query: "projet" }
 - "Recherche les 2 articles sur les GPU et génère un blog" → action: "kiara_complete_workflow", target_agent: "kiara", topic: "GPU", articleCount: 2
 - "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
 - "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
-- "publie l'article" → action: "kiara_publish", target_agent: "kiara"`;
+- "publie l'article" → action: "kiara_publish", target_agent: "kiara"
+
+DISTINCTION IMPORTANTE:
+- "retrouve/trouve/montre le mail DE X" ou "mail OU il y'a X" → email_summary avec from: "X" (afficher les mails de cet expéditeur)
+- "quel est LE MAIL de X" ou "adresse de X" → contact_search (trouver l'adresse email de ce contact)`;
   }
 
   /**
