@@ -2648,7 +2648,9 @@ Agents disponibles:
     console.log(`✍️ Kiara génère un article...`);
     
     try {
-      const result = await kiaraAgent.handleMessage(params.query, 'user');
+      // Récupérer le message depuis les différentes sources possibles
+      const message = params.text || params.topic || params.query || 'article';
+      const result = await kiaraAgent.handleMessage(message, 'user');
       return result;
     } catch (error) {
       console.error('Erreur Kiara article:', error);
