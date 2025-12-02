@@ -33,9 +33,8 @@ interface KiaraModalProps {
   }
 }
 
-// URL Supabase correcte (même que le portfolio)
-const SUPABASE_URL = 'https://izhfgbgxmqdcfgxrpqmv.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aGZnYmd4bXFkY2ZneHJwcW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3MTcyNTIsImV4cCI6MjA2MjI5MzI1Mn0.gSKLbT6HNuLBIE3lKkMSdOGmFglf0sLDoSg4J9KmxBk'
+// API Backend
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
   const [message, setMessage] = useState('')
@@ -55,7 +54,7 @@ const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
   const [articles, setArticles] = useState<Article[]>([])
   const [topArticles, setTopArticles] = useState<Article[]>([])
 
-  // Récupérer les données depuis Supabase
+  // Récupérer les données via le backend
   const fetchKiaraData = useCallback(async () => {
     if (!isOpen) return
     
@@ -64,48 +63,25 @@ const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
     try {
       setError(null)
       
-      // Récupérer les articles depuis Supabase
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/blog_posts?select=*&order=created_at.desc`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      // Récupérer les articles via le backend (qui a accès à Supabase)
+      const res = await fetch(`${API_BASE}/api/agents/kiara/blog-stats`)
 
       if (res.ok) {
-        const data: Article[] = await res.json()
-        console.log('📊 Articles récupérés:', data.length)
-        setArticles(data)
+        const data = await res.json()
+        console.log('📊 Données Kiara récupérées:', data)
         
-        // Calculer les stats
-        const published = data.filter(a => a.status === 'published')
-        const drafts = data.filter(a => a.status === 'draft')
-        
-        const totalViews = data.reduce((sum, a) => sum + (a.views_count || 0), 0)
-        
-        // Compter par catégorie
-        const categories: { [key: string]: number } = {}
-        data.forEach(a => {
-          if (a.category) {
-            categories[a.category] = (categories[a.category] || 0) + 1
-          }
+        setArticles(data.articles || [])
+        setStats(data.stats || {
+          totalArticles: 0,
+          publishedArticles: 0,
+          draftsCount: 0,
+          totalViews: 0,
+          categories: {}
         })
-
-        setStats({
-          totalArticles: data.length,
-          publishedArticles: published.length,
-          draftsCount: drafts.length,
-          totalViews,
-          categories
-        })
-
-        // Top articles par vues
-        const sorted = [...published].sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
-        setTopArticles(sorted.slice(0, 5))
+        setTopArticles(data.stats?.topArticles || [])
       } else {
         const errorText = await res.text()
-        console.error('Erreur Supabase:', res.status, errorText)
+        console.error('Erreur backend Kiara:', res.status, errorText)
         setError(`Erreur ${res.status}: ${errorText}`)
       }
 

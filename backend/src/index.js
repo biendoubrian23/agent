@@ -337,25 +337,8 @@ app.get('/api/scheduled-posts', async (req, res) => {
 // ==================== API AGENTS ====================
 
 /**
- * Obtenir les statistiques d'un agent
- */
-app.get('/api/agents/:agentName/stats', (req, res) => {
-  const { agentName } = req.params;
-  
-  // Mettre à jour le status de connexion Outlook
-  statsService.setConnectionStatus('outlook', outlookService.isConnected());
-  
-  const summary = statsService.getAgentSummary(agentName);
-  
-  if (!summary.stats) {
-    return res.status(404).json({ error: 'Agent non trouvé' });
-  }
-
-  res.json(summary);
-});
-
-/**
  * Obtenir les statistiques du blog pour Kiara
+ * IMPORTANT: Cette route spécifique DOIT être AVANT la route générique :agentName
  */
 app.get('/api/agents/kiara/blog-stats', async (req, res) => {
   try {
@@ -424,6 +407,24 @@ app.get('/api/agents/kiara/blog-stats', async (req, res) => {
     console.error('❌ Erreur stats blog Kiara:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+/**
+ * Obtenir les statistiques d'un agent (route générique)
+ */
+app.get('/api/agents/:agentName/stats', (req, res) => {
+  const { agentName } = req.params;
+  
+  // Mettre à jour le status de connexion Outlook
+  statsService.setConnectionStatus('outlook', outlookService.isConnected());
+  
+  const summary = statsService.getAgentSummary(agentName);
+  
+  if (!summary.stats) {
+    return res.status(404).json({ error: 'Agent non trouvé' });
+  }
+
+  res.json(summary);
 });
 
 /**
