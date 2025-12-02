@@ -508,16 +508,19 @@ DISTINCTION TRÈS IMPORTANTE:
       intent = aiIntent;
       console.log(`✅ Décision: IA (regex incertain)`);
     } else if (regexIntent.action === aiIntent.action) {
-      // Regex et IA sont d'accord → utiliser le regex (plus rapide, params plus précis)
-      intent = regexIntent;
-      console.log(`✅ Décision: MATCH (regex = IA)`);
+      // Regex et IA sont d'accord → utiliser l'ACTION du regex mais les PARAMS de l'IA (plus précis)
+      intent = {
+        action: regexIntent.action,
+        params: { ...regexIntent.params, ...aiIntent.params } // Fusionner, IA prioritaire
+      };
+      console.log(`✅ Décision: MATCH (regex = IA, params IA utilisés)`);
     } else {
       // Désaccord → faire confiance à l'IA
       intent = aiIntent;
       console.log(`⚠️ Décision: IA (désaccord - regex: ${regexIntent.action}, IA: ${aiIntent.action})`);
     }
     
-    console.log(`🎯 Action finale: ${intent.action}`);
+    console.log(`🎯 Action finale: ${intent.action}`, intent.params);
     
     // Récupérer l'historique pour le contexte
     const conversationHistory = this.getConversationHistory(from, 'kiara');
@@ -607,16 +610,19 @@ DISTINCTION TRÈS IMPORTANTE:
       intent = aiIntent;
       console.log(`✅ Décision: IA (regex incertain)`);
     } else if (regexIntent.action === aiIntent.action) {
-      // Regex et IA sont d'accord → utiliser le regex (params plus précis)
-      intent = regexIntent;
-      console.log(`✅ Décision: MATCH (regex = IA)`);
+      // Regex et IA sont d'accord → utiliser l'ACTION du regex mais les PARAMS de l'IA (plus précis)
+      intent = {
+        action: regexIntent.action,
+        params: { ...regexIntent.params, ...aiIntent.params } // Fusionner, IA prioritaire
+      };
+      console.log(`✅ Décision: MATCH (regex = IA, params IA utilisés)`);
     } else {
       // Désaccord → faire confiance à l'IA
       intent = aiIntent;
       console.log(`⚠️ Décision: IA (désaccord - regex: ${regexIntent.action}, IA: ${aiIntent.action})`);
     }
     
-    console.log(`🎯 Action finale: ${intent.action}`);
+    console.log(`🎯 Action finale: ${intent.action}`, intent.params);
     
     switch (intent.action) {
       case 'email_summary':
