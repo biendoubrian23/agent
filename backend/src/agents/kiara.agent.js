@@ -730,39 +730,122 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
   }
 
   /**
-   * Lister tous les articles (brouillons + publiés)
+   * Lister les articles avec filtres optionnels
+   * @param {Object} options - Options de filtrage
+   * @param {string} options.status - 'published', 'draft', ou null (tous)
+   * @param {string} options.period - 'week', 'month', ou null (tous)
+   * @param {boolean} options.countOnly - Si true, retourne juste le compte
    */
-  async listAllArticles() {
-    const { data: posts, error } = await supabaseService.client
+  async listArticlesFiltered(options = {}) {
+    const { status, period, countOnly } = options;
+    
+    let query = supabaseService.client
       .from('blog_posts')
-      .select('id, title, status, views_count, created_at, published_at')
-      .order('created_at', { ascending: false });
+      .select('id, title, status, views_count, created_at, published_at');
+    
+    // Filtre par statut
+    if (status === 'published') {
+      query = query.eq('status', 'published');
+    } else if (status === 'draft') {
+      query = query.eq('status', 'draft');
+    }
+    
+    // Filtre par période
+    if (period) {
+      const now = new Date();
+      let startDate;
+      
+      if (period === 'week') {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === 'month') {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (period === 'today') {
+        startDate = new Date(now.setHours(0, 0, 0, 0));
+      }
+      
+      if (startDate) {
+        // Pour les publiés, filtrer sur published_at, sinon created_at
+        if (status === 'published') {
+          query = query.gte('published_at', startDate.toISOString());
+        } else {
+          query = query.gte('created_at', startDate.toISOString());
+        }
+      }
+    }
+    
+    query = query.order('created_at', { ascending: false });
+    
+    const { data: posts, error } = await query;
 
     if (error) {
       return `❌ Erreur: ${error.message}`;
     }
 
-    if (!posts?.length) {
-      return `📭 Aucun article trouvé.`;
+    // Mode comptage uniquement
+    if (countOnly) {
+      const count = posts?.length || 0;
+      let statusText = '';
+      let periodText = '';
+      
+      if (status === 'published') statusText = 'publié(s)';
+      else if (status === 'draft') statusText = 'en brouillon';
+      else statusText = 'au total';
+      
+      if (period === 'week') periodText = ' cette semaine';
+      else if (period === 'month') periodText = ' ce mois';
+      else if (period === 'today') periodText = " aujourd'hui";
+      
+      if (count === 0) {
+        return `📊 **0 article** ${statusText}${periodText}.`;
+      }
+      return `📊 **${count} article${count > 1 ? 's' : ''}** ${statusText}${periodText}.`;
     }
 
-    // Numérotation GLOBALE pour la suppression par numéro
-    let response = `📚 **Mes Articles** (${posts.length} total)\n\n`;
+    if (!posts?.length) {
+      let msg = `📭 Aucun article`;
+      if (status === 'published') msg += ' publié';
+      else if (status === 'draft') msg += ' en brouillon';
+      if (period === 'week') msg += ' cette semaine';
+      else if (period === 'month') msg += ' ce mois';
+      msg += '.';
+      return msg;
+    }
+
+    // Construire le titre
+    let title = '📚 ';
+    if (status === 'published') title += 'Articles Publiés';
+    else if (status === 'draft') title += 'Brouillons';
+    else title += 'Mes Articles';
+    
+    if (period === 'week') title += ' (cette semaine)';
+    else if (period === 'month') title += ' (ce mois)';
+    else if (period === 'today') title += " (aujourd'hui)";
+    
+    let response = `${title} - ${posts.length} article${posts.length > 1 ? 's' : ''}\n\n`;
     
     posts.forEach((p, i) => {
       const num = i + 1;
-      const status = p.status === 'published' ? '📢' : '📝';
+      const statusIcon = p.status === 'published' ? '📢' : '📝';
       const views = p.status === 'published' ? ` - 👁️ ${p.views_count || 0} vues` : '';
-      const date = new Date(p.created_at).toLocaleDateString('fr-FR');
-      response += `${num}. ${status} "${p.title}"${views} (${date})\n`;
+      const date = new Date(p.status === 'published' ? p.published_at : p.created_at).toLocaleDateString('fr-FR');
+      response += `${num}. ${statusIcon} "${p.title}"${views} (${date})\n`;
     });
 
     response += `\n💡 **Actions:**\n`;
     response += `• "Supprime l'article 1" - Supprimer par numéro\n`;
-    response += `• "Publie [titre]" - Publier un brouillon\n`;
+    if (status === 'draft') {
+      response += `• "Publie [titre]" - Publier un brouillon\n`;
+    }
     response += `• "Stats de [titre]" - Voir les stats`;
 
     return response;
+  }
+
+  /**
+   * Lister tous les articles (brouillons + publiés) - Wrapper pour compatibilité
+   */
+  async listAllArticles() {
+    return this.listArticlesFiltered({});
   }
 
   // ============================================

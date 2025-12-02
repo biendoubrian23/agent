@@ -194,7 +194,7 @@ class PrincipalAgent {
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
   "target_agent": "brian" | "james" | "kiara" | "magali",
-  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "describe_kiara" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "kiara_delete_article" | "kiara_list_articles" | "unknown",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "describe_kiara" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "kiara_delete_article" | "kiara_list_articles" | "kiara_list_published" | "kiara_list_drafts" | "kiara_count_articles" | "unknown",
   "params": {
     "count": number (OBLIGATOIRE - extrait EXACTEMENT le nombre demandé. Ex: "3 derniers mails" → count: 3),
     "filter": "today" | "yesterday" | "week" | "month" | "7days" | "14days" | "30days" | "important" | "urgent" | null,
@@ -209,6 +209,9 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "topic": string (optionnel, sujet pour Kiara),
     "title": string (optionnel, titre d'article pour Kiara - suppression/modification),
     "articleCount": number (optionnel, nombre d'articles à rechercher pour Kiara),
+    "status": "published" | "draft" | null (optionnel, filtrer par statut d'article),
+    "period": "week" | "month" | "today" | null (optionnel, filtrer par période),
+    "countOnly": boolean (optionnel, true pour compter au lieu de lister),
     "name": string (optionnel, nom du contact à chercher),
     "olderThanDays": number (optionnel, pour nettoyage)
   },
@@ -254,6 +257,15 @@ EXEMPLES IMPORTANTS:
 - "liste mes articles" → action: "kiara_list_articles" (TOUS les articles)
 - "mes articles" → action: "kiara_list_articles" (TOUS les articles)
 - "liste complète" → action: "kiara_list_articles" (TOUS les articles)
+- "articles publiés" → action: "kiara_list_published" (seulement publiés)
+- "mes articles publiés" → action: "kiara_list_published"
+- "affiche mes brouillons" → action: "kiara_list_drafts" (seulement brouillons)
+- "liste les brouillons" → action: "kiara_list_drafts"
+- "articles publiés cette semaine" → action: "kiara_list_published", period: "week"
+- "articles du mois" → action: "kiara_list_articles", period: "month"
+- "combien d'articles publiés" → action: "kiara_count_articles", status: "published"
+- "combien de brouillons" → action: "kiara_count_articles", status: "draft"
+- "combien d'articles cette semaine" → action: "kiara_count_articles", period: "week"
 - "stats du blog" → action: "kiara_global_stats"
 - "fonctionnalités de Kiara" → action: "describe_kiara"
 - "que peut faire Kiara" → action: "describe_kiara"
@@ -493,16 +505,24 @@ DISTINCTION TRÈS IMPORTANTE:
         response = await this.handleKiaraPDF(from, intent.params);
         break;
 
-      case 'kiara_list_drafts':
-        response = await this.handleKiaraListDrafts(from);
-        break;
-
       case 'kiara_delete_article':
         response = await this.handleKiaraDeleteArticle(intent.params);
         break;
 
       case 'kiara_list_articles':
-        response = await this.handleKiaraListArticles();
+        response = await this.handleKiaraListArticles(intent.params);
+        break;
+
+      case 'kiara_list_published':
+        response = await this.handleKiaraListPublished(intent.params);
+        break;
+
+      case 'kiara_list_drafts':
+        response = await this.handleKiaraListDrafts(intent.params);
+        break;
+
+      case 'kiara_count_articles':
+        response = await this.handleKiaraCountArticles(intent.params);
         break;
 
       case 'switch_to_james':
@@ -838,9 +858,6 @@ DISTINCTION TRÈS IMPORTANTE:
           } 
         };
       
-      case 'kiara_list_drafts':
-        return { action: 'kiara_list_drafts', params: {} };
-      
       case 'kiara_delete_article':
         // Extraire le numéro ou titre de l'article à supprimer
         let deleteTarget = params.title || params.query;
@@ -866,7 +883,37 @@ DISTINCTION TRÈS IMPORTANTE:
         };
       
       case 'kiara_list_articles':
-        return { action: 'kiara_list_articles', params: {} };
+        return { 
+          action: 'kiara_list_articles', 
+          params: { 
+            period: params.period || null 
+          } 
+        };
+      
+      case 'kiara_list_published':
+        return { 
+          action: 'kiara_list_published', 
+          params: { 
+            period: params.period || null 
+          } 
+        };
+      
+      case 'kiara_list_drafts':
+        return { 
+          action: 'kiara_list_drafts', 
+          params: { 
+            period: params.period || null 
+          } 
+        };
+      
+      case 'kiara_count_articles':
+        return { 
+          action: 'kiara_count_articles', 
+          params: { 
+            status: params.status || null,
+            period: params.period || null 
+          } 
+        };
       
       case 'switch_to_james':
         return { action: 'switch_to_james', params: {} };
@@ -2407,20 +2454,57 @@ Agents disponibles:
   }
 
   /**
-   * Lister les brouillons de Kiara
+   * Lister les brouillons de Kiara (avec filtres)
    */
-  async handleKiaraListDrafts(from) {
+  async handleKiaraListDrafts(params = {}) {
     console.log(`📝 Kiara liste les brouillons...`);
     
     try {
-      // Mettre à jour le contexte - on est avec Kiara
-      this.setUserContext(from, 'kiara');
-      
-      const result = await kiaraAgent.listDrafts();
-      return result;
+      const result = await kiaraAgent.listArticlesFiltered({ 
+        status: 'draft', 
+        period: params.period || null 
+      });
+      return `✍️ **Kiara** rapporte:\n\n${result}`;
     } catch (error) {
       console.error('Erreur Kiara list drafts:', error);
       return `❌ Kiara n'a pas pu lister les brouillons: ${error.message}`;
+    }
+  }
+
+  /**
+   * Lister les articles publiés (avec filtres)
+   */
+  async handleKiaraListPublished(params = {}) {
+    console.log(`📢 Kiara liste les articles publiés...`);
+    
+    try {
+      const result = await kiaraAgent.listArticlesFiltered({ 
+        status: 'published', 
+        period: params.period || null 
+      });
+      return `✍️ **Kiara** rapporte:\n\n${result}`;
+    } catch (error) {
+      console.error('Erreur Kiara list published:', error);
+      return `❌ Kiara n'a pas pu lister les articles publiés: ${error.message}`;
+    }
+  }
+
+  /**
+   * Compter les articles (avec filtres)
+   */
+  async handleKiaraCountArticles(params = {}) {
+    console.log(`📊 Kiara compte les articles...`);
+    
+    try {
+      const result = await kiaraAgent.listArticlesFiltered({ 
+        status: params.status || null, 
+        period: params.period || null,
+        countOnly: true 
+      });
+      return `✍️ **Kiara** rapporte:\n\n${result}`;
+    } catch (error) {
+      console.error('Erreur Kiara count articles:', error);
+      return `❌ Kiara n'a pas pu compter les articles: ${error.message}`;
     }
   }
 
@@ -2441,13 +2525,15 @@ Agents disponibles:
   }
 
   /**
-   * Lister tous les articles via Kiara
+   * Lister tous les articles via Kiara (avec filtres optionnels)
    */
-  async handleKiaraListArticles() {
+  async handleKiaraListArticles(params = {}) {
     console.log(`📚 Kiara liste les articles...`);
     
     try {
-      const result = await kiaraAgent.listAllArticles();
+      const result = await kiaraAgent.listArticlesFiltered({ 
+        period: params.period || null 
+      });
       return `✍️ **Kiara** rapporte:\n\n${result}`;
     } catch (error) {
       console.error('Erreur Kiara list articles:', error);
