@@ -583,11 +583,12 @@ RÈGLES:
 3. Structure bien le mail (salutation, corps, formule de politesse, signature)
 4. Sois concis mais complet
 5. Génère aussi un sujet approprié
+6. LA SIGNATURE À LA FIN DOIT TOUJOURS ÊTRE: "Brian BIENDOU" (jamais [Votre Nom] ou autre)
 
 RETOURNE UN JSON:
 {
   "subject": "Sujet de l'email",
-  "body": "Corps complet de l'email avec salutations et signature",
+  "body": "Corps complet de l'email avec salutations et signature (terminant par Brian BIENDOU)",
   "tone": "formel|amical|professionnel"
 }
 
@@ -629,11 +630,12 @@ RÈGLES:
 2. Garde le reste du contenu intact
 3. Maintiens la cohérence du mail
 4. Si on te demande de changer le ton, adapte tout le mail
+5. LA SIGNATURE À LA FIN DOIT TOUJOURS RESTER: "Brian BIENDOU"
 
 RETOURNE UN JSON:
 {
   "subject": "Sujet (modifié ou original)",
-  "body": "Corps complet modifié",
+  "body": "Corps complet modifié (signature: Brian BIENDOU)",
   "changes": "Résumé des modifications apportées"
 }
 

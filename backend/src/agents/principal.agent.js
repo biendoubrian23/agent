@@ -4,6 +4,7 @@ const mailAgent = require('./mail.agent');
 const kiaraAgent = require('./kiara.agent');
 const outlookService = require('../services/outlook.service');
 const statsService = require('../services/stats.service');
+const reminderService = require('../services/reminder.service');
 
 /**
  * Agent Principal (Brian) - Orchestre les autres agents
@@ -2816,6 +2817,7 @@ _(Recherche → Rédaction → PDF → Brouillon)_
 
   /**
    * Définir un rappel avec notification WhatsApp
+   * Utilise les paramètres extraits par l'IA si disponibles
    */
   async handleSetReminder(from, params) {
     const message = params.message || params.text;
@@ -2825,8 +2827,64 @@ _(Recherche → Rédaction → PDF → Brouillon)_
     }
 
     console.log(`⏰ Création d'un rappel pour ${from}...`);
+    console.log(`   📋 Params IA: message="${params.message}", delay="${params.delay}", date="${params.date}"`);
     
-    const result = await mailAgent.createReminder(from, message);
+    // Si l'IA a extrait un délai, calculer triggerAt directement
+    if (params.delay) {
+      const now = new Date();
+      let triggerAt = new Date(now);
+      
+      // Parser le délai extrait par l'IA (ex: "20s", "30min", "2h", "demain")
+      const delayStr = params.delay.toLowerCase();
+      
+      // Secondes
+      const secMatch = delayStr.match(/^(\d+)\s*(s|sec|seconde|secondes)$/i);
+      if (secMatch) {
+        triggerAt.setSeconds(triggerAt.getSeconds() + parseInt(secMatch[1]));
+      }
+      
+      // Minutes
+      const minMatch = delayStr.match(/^(\d+)\s*(m|min|minute|minutes)$/i);
+      if (minMatch) {
+        triggerAt.setMinutes(triggerAt.getMinutes() + parseInt(minMatch[1]));
+      }
+      
+      // Heures
+      const hourMatch = delayStr.match(/^(\d+)\s*(h|heure|heures)$/i);
+      if (hourMatch) {
+        triggerAt.setHours(triggerAt.getHours() + parseInt(hourMatch[1]));
+      }
+      
+      // Jours
+      const dayMatch = delayStr.match(/^(\d+)\s*(j|jour|jours)$/i);
+      if (dayMatch) {
+        triggerAt.setDate(triggerAt.getDate() + parseInt(dayMatch[1]));
+      }
+      
+      // Demain
+      if (delayStr === 'demain') {
+        triggerAt.setDate(triggerAt.getDate() + 1);
+        triggerAt.setHours(9, 0, 0, 0); // Par défaut 9h
+      }
+      
+      // Si on a réussi à parser le délai
+      if (triggerAt > now) {
+        console.log(`   ✅ Délai IA parsé: ${triggerAt.toISOString()}`);
+        
+        // Créer le rappel directement
+        const result = await reminderService.createReminder({
+          phoneNumber: from,
+          message: params.message || message,
+          triggerAt: triggerAt,
+          context: params.text
+        });
+        
+        return result.message;
+      }
+    }
+    
+    // Fallback: laisser mailAgent parser le texte complet
+    const result = await mailAgent.createReminder(from, params.text || message);
     
     return result.message;
   }
