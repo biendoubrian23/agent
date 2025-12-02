@@ -220,10 +220,18 @@ Réponds toujours de manière professionnelle et utile.`;
    * Point d'entrée principal de Kiara
    */
   async handleMessage(message, context = {}) {
+    return this.handleMessageWithContext(message, context, []);
+  }
+
+  /**
+   * Point d'entrée avec contexte de conversation
+   */
+  async handleMessageWithContext(message, context = {}, conversationHistory = []) {
     const lowerMessage = message.toLowerCase();
     
     // Stocker le contexte pour les sous-fonctions
     this.currentContext = context;
+    this.conversationHistory = conversationHistory;
 
     try {
       // Détection des références aux tendances affichées (numéros, "les deux", etc.)
@@ -269,8 +277,8 @@ Réponds toujours de manière professionnelle et utile.`;
         return await this.handleArticleList();
       }
 
-      // Conversation générale avec Kiara
-      return await this.chat(message);
+      // Conversation générale avec Kiara (avec contexte)
+      return await this.chatWithContext(message, conversationHistory);
 
     } catch (error) {
       console.error('❌ Erreur Kiara:', error);
@@ -3212,9 +3220,45 @@ Réponds en JSON:
     return content;
   }
 
+  /**
+   * Chat simple sans contexte
+   */
   async chat(message) {
-    const response = await openaiService.chat(this.systemPrompt, message);
-    return response;
+    return this.chatWithContext(message, []);
+  }
+
+  /**
+   * Chat avec contexte de conversation complet
+   */
+  async chatWithContext(message, conversationHistory = []) {
+    console.log(`💬 Kiara chat avec ${conversationHistory.length} messages de contexte`);
+    
+    // Construire les messages avec l'historique
+    const messages = [
+      { role: 'system', content: this.systemPrompt }
+    ];
+    
+    // Ajouter l'historique de conversation (limité aux 10 derniers échanges)
+    const recentHistory = conversationHistory.slice(-10);
+    for (const msg of recentHistory) {
+      messages.push({
+        role: msg.role,
+        content: msg.content
+      });
+    }
+    
+    // Ajouter le message actuel
+    messages.push({ role: 'user', content: message });
+    
+    try {
+      const response = await openaiService.chat(messages, { temperature: 0.7 });
+      return response;
+    } catch (error) {
+      console.error('Erreur chat Kiara:', error);
+      // Fallback sans historique
+      const response = await openaiService.chat(this.systemPrompt, message);
+      return response;
+    }
   }
 }
 

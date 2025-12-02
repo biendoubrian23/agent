@@ -482,23 +482,29 @@ DISTINCTION TRÈS IMPORTANTE:
   }
 
   /**
-   * Traiter une demande en mode Kiara
+   * Traiter une demande en mode Kiara (avec contexte de conversation)
    */
   async handleKiaraRequest(from, text, lowerText) {
     console.log(`✍️ Mode Kiara - Traitement: ${text}`);
     statsService.logRequest('kiara');
+    
+    // Ajouter le message utilisateur à l'historique
+    this.addToConversationHistory(from, 'kiara', 'user', text);
     
     let response;
     
     // Analyser l'intention dans le contexte Kiara
     const intent = this.analyzeKiaraIntent(lowerText, text);
     
+    // Récupérer l'historique pour le contexte
+    const conversationHistory = this.getConversationHistory(from, 'kiara');
+    
     switch (intent.action) {
       case 'kiara_trends':
         response = await this.handleKiaraTrends(intent.params);
         break;
       case 'kiara_generate_article':
-        response = await this.handleKiaraGenerateArticle(intent.params);
+        response = await this.handleKiaraGenerateArticle(intent.params, conversationHistory);
         break;
       case 'kiara_publish':
         response = await this.handleKiaraPublish(from, intent.params);
@@ -540,9 +546,12 @@ DISTINCTION TRÈS IMPORTANTE:
         response = this.getKiaraCapabilities();
         break;
       default:
-        // Demande générale à Kiara
-        response = await this.handleKiaraGeneral(from, { text });
+        // Demande générale à Kiara avec contexte de conversation
+        response = await this.handleKiaraGeneral(from, { text, conversationHistory });
     }
+    
+    // Ajouter la réponse à l'historique
+    this.addToConversationHistory(from, 'kiara', 'assistant', response);
     
     // Ajouter le rappel pour quitter
     response += `\n\n━━━━━━━━━━━━━━━━━━\n💡 *Dis "fini avec Kiara" pour revenir à Brian*`;
@@ -755,26 +764,33 @@ DISTINCTION TRÈS IMPORTANTE:
     // ==========================================
     // Liste d'articles (APRÈS tendances)
     // ==========================================
+    // Détection des mots clés pour "publiés" (avec ou sans accent)
+    const isPublishedRequest = lowerText.includes('publié') || lowerText.includes('publies') || 
+                               lowerText.includes('publie') || lowerText.includes('publish');
+    const isDraftRequest = lowerText.includes('brouillon') || lowerText.includes('draft');
+    
     if (lowerText.includes('liste') || lowerText.includes('affiche') || lowerText.includes('montre') || lowerText.includes('mes articles')) {
       // Ne pas matcher si c'est une demande de tendances
       if (lowerText.includes('tendance') || lowerText.includes('actu')) {
-        // Sera géré par la section tendances ci-dessus (ne devrait pas arriver ici)
         return { action: 'kiara_trends', params: { topic: 'tech', text: originalText } };
       }
       
-      if (lowerText.includes('publié') || lowerText.includes('publish')) {
+      // Articles publiés (priorité sur brouillons)
+      if (isPublishedRequest && !isDraftRequest) {
         const period = lowerText.includes('semaine') ? 'week' : lowerText.includes('mois') ? 'month' : null;
         return { action: 'kiara_list_published', params: { period } };
       }
-      if (lowerText.includes('brouillon') || lowerText.includes('draft')) {
+      // Brouillons
+      if (isDraftRequest) {
         return { action: 'kiara_list_drafts', params: {} };
       }
+      // Liste complète par défaut
       return { action: 'kiara_list_articles', params: {} };
     }
     
     // Comptage
     if (lowerText.includes('combien')) {
-      const status = lowerText.includes('publié') ? 'published' : lowerText.includes('brouillon') ? 'draft' : null;
+      const status = isPublishedRequest ? 'published' : isDraftRequest ? 'draft' : null;
       const period = lowerText.includes('semaine') ? 'week' : lowerText.includes('mois') ? 'month' : null;
       return { action: 'kiara_count_articles', params: { status, period } };
     }
@@ -784,8 +800,10 @@ DISTINCTION TRÈS IMPORTANTE:
       return { action: 'kiara_pdf', params: { text: originalText } };
     }
     
-    // Publication
-    if (lowerText.includes('publie') || lowerText.includes('publier')) {
+    // Publication d'un article (action de publier, pas liste des publiés)
+    // Seulement si ce n'est pas une demande de liste
+    if ((lowerText.includes('publie') || lowerText.includes('publier')) && 
+        !lowerText.includes('affiche') && !lowerText.includes('liste') && !lowerText.includes('montre') && !lowerText.includes('mes')) {
       return { action: 'kiara_publish', params: { text: originalText } };
     }
     
@@ -2746,13 +2764,15 @@ Agents disponibles:
   }
 
   /**
-   * Demande générale à Kiara
+   * Demande générale à Kiara (avec contexte de conversation)
    */
   async handleKiaraGeneral(from, params) {
-    console.log(`🤖 Kiara traite une demande générale...`);
+    console.log(`🤖 Kiara traite une demande générale avec contexte...`);
     
     try {
-      const result = await kiaraAgent.handleMessage(params.message, { from });
+      // Passer l'historique de conversation à Kiara
+      const conversationHistory = params.conversationHistory || [];
+      const result = await kiaraAgent.handleMessageWithContext(params.text || params.message, { from }, conversationHistory);
       return result;
     } catch (error) {
       console.error('Erreur Kiara general:', error);
@@ -2883,10 +2903,21 @@ Agents disponibles:
   }
 
   /**
-   * Gestion du contexte utilisateur
+   * Gestion du contexte utilisateur avec historique de conversation
    */
   setUserContext(from, agent, extraData = {}) {
+    const existingContext = this.userContexts.get(from) || {};
+    
+    // Initialiser l'historique si nécessaire
+    if (!existingContext.conversationHistory) {
+      existingContext.conversationHistory = {
+        kiara: [],
+        james: []
+      };
+    }
+    
     this.userContexts.set(from, {
+      ...existingContext,
       agent,
       lastActivity: new Date(),
       ...extraData
@@ -2896,6 +2927,56 @@ Agents disponibles:
 
   getUserContext(from) {
     return this.userContexts.get(from) || null;
+  }
+
+  /**
+   * Ajouter un message à l'historique de conversation
+   */
+  addToConversationHistory(from, agent, role, content) {
+    let context = this.userContexts.get(from);
+    if (!context) {
+      context = {
+        agent: null,
+        conversationHistory: { kiara: [], james: [] }
+      };
+    }
+    
+    if (!context.conversationHistory) {
+      context.conversationHistory = { kiara: [], james: [] };
+    }
+    
+    // Limiter l'historique à 20 messages par agent (10 échanges)
+    if (context.conversationHistory[agent].length >= 20) {
+      context.conversationHistory[agent] = context.conversationHistory[agent].slice(-18);
+    }
+    
+    context.conversationHistory[agent].push({
+      role,
+      content,
+      timestamp: new Date()
+    });
+    
+    this.userContexts.set(from, context);
+  }
+
+  /**
+   * Récupérer l'historique de conversation pour un agent
+   */
+  getConversationHistory(from, agent) {
+    const context = this.userContexts.get(from);
+    if (!context || !context.conversationHistory) return [];
+    return context.conversationHistory[agent] || [];
+  }
+
+  /**
+   * Effacer l'historique d'un agent spécifique
+   */
+  clearAgentHistory(from, agent) {
+    const context = this.userContexts.get(from);
+    if (context && context.conversationHistory && context.conversationHistory[agent]) {
+      context.conversationHistory[agent] = [];
+      this.userContexts.set(from, context);
+    }
   }
 
   clearUserContext(from) {
