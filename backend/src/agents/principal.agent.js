@@ -52,16 +52,28 @@ class PrincipalAgent {
    → Délègue à James
    → Détermine si c'est: résumé, classification, création de règle, action immédiate
    
-   📊 **EXTRACTION DES NOMBRES:**
+   📊 **EXTRACTION DES NOMBRES (TRÈS IMPORTANT - respecter EXACTEMENT le nombre demandé):**
    - "mes 2 derniers mails" → count: 2
+   - "mes 3 derniers mails" → count: 3
    - "les 10 derniers emails" → count: 10
    - "le dernier mail" → count: 1
-   - "mes mails" (sans nombre) → count: 50 (défaut)
+   - "mes mails" (sans nombre) → count: 10 (défaut raisonnable)
    
-   📅 **FILTRES TEMPORELS:**
+   📅 **FILTRES TEMPORELS (IMPORTANT):**
    - "mails d'aujourd'hui" → filter: "today"
    - "mails de cette semaine" → filter: "week"  
    - "mails d'hier" → filter: "yesterday"
+   - "mails du mois" ou "ce mois" → filter: "month"
+   - "mails des 7 derniers jours" → filter: "7days"
+   - "mails des 14 derniers jours" → filter: "14days"
+   - "mails des 30 derniers jours" → filter: "30days"
+   
+   👤 **FILTRE PAR EXPÉDITEUR (NOUVEAU - TRÈS IMPORTANT):**
+   - "résume les mails de LinkedIn" → from: "LinkedIn", action: "email_summary"
+   - "mails de ISCOD d'hier" → from: "ISCOD", filter: "yesterday"
+   - "mails de Amazon cette semaine" → from: "Amazon", filter: "week"
+   - "les emails de Google du mois" → from: "Google", filter: "month"
+   - "résume le mail de Brian" → from: "Brian", count: 1
    
    ⭐ **FILTRES D'IMPORTANCE:**
    - "mails importants" → filter: "important"
@@ -174,15 +186,15 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
   "target_agent": "brian" | "james" | "kiara" | "magali",
   "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "unknown",
   "params": {
-    "count": number (OBLIGATOIRE pour les emails - extrait du message, défaut 50),
-    "filter": "today" | "yesterday" | "week" | "important" | "urgent" | null,
+    "count": number (OBLIGATOIRE - extrait EXACTEMENT le nombre demandé. Ex: "3 derniers mails" → count: 3),
+    "filter": "today" | "yesterday" | "week" | "month" | "7days" | "14days" | "30days" | "important" | "urgent" | null,
+    "from": string (TRÈS IMPORTANT - expéditeur/source. Ex: "mails de LinkedIn" → from: "LinkedIn"),
     "pattern": string (optionnel, pour les règles),
     "folder": string (optionnel, pour les règles OU pour créer/supprimer un dossier),
     "sourceFolder": string (optionnel, dossier source pour re-classification, avec emojis si applicable),
     "apply_now": boolean (optionnel, appliquer immédiatement aux mails existants),
     "ruleNumber": number (optionnel, numéro de règle à supprimer),
     "text": string (le message original - TOUJOURS inclure pour send_email, create_reminder),
-    "from": string (optionnel, expéditeur pour recherche/réponse),
     "query": string (optionnel, terme de recherche OU sujet pour Kiara),
     "topic": string (optionnel, sujet pour Kiara),
     "articleCount": number (optionnel, nombre d'articles à rechercher pour Kiara),
@@ -193,17 +205,18 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
   "reasoning": "explication courte de ton analyse"
 }
 
-EXEMPLES:
+EXEMPLES IMPORTANTS:
 - "résume mes 3 derniers mails" → action: "email_summary", count: 3
+- "résume les mails de LinkedIn d'hier" → action: "email_summary", from: "LinkedIn", filter: "yesterday"
+- "mails de ISCOD cette semaine" → action: "email_summary", from: "ISCOD", filter: "week"
+- "les mails de Google du mois" → action: "email_summary", from: "Google", filter: "month"
+- "mails de Amazon des 7 derniers jours" → action: "email_summary", from: "Amazon", filter: "7days"
+- "le dernier mail de Brian" → action: "email_summary", from: "Brian", count: 1
 - "classe mes 5 derniers mails" → action: "email_classify", count: 5
-- "le dernier mail" → action: "email_summary", count: 1
 - "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
 - "envoie un mail à jean@test.com pour lui dire bonjour" → action: "send_email", text: "..."
 - "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" }
-- "retrouve moi le mail de ISCOD" → action: "contact_search", params: { name: "ISCOD" }
-- "retrouve moi l'email de Jean" → action: "contact_search", params: { name: "Jean" }
 - "cherche les mails concernant le projet" → action: "email_search", params: { query: "projet" }
-- "rappelle moi mes mails" → action: "email_summary", count: 10
 - "Recherche les 2 articles sur les GPU et génère un blog" → action: "kiara_complete_workflow", target_agent: "kiara", topic: "GPU", articleCount: 2
 - "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
 - "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
@@ -1114,16 +1127,21 @@ EXEMPLES:
 
   /**
    * Gérer la demande de résumé d'emails
+   * Supporte: count, filter (temporel), from (expéditeur)
    */
   async handleEmailSummary(params) {
-    const count = params.count || 50;
+    const count = params.count || 10; // Par défaut 10, pas 50
     const filter = params.filter || null;
+    const from = params.from || null;
     
-    let logMessage = `📧 James analyse les ${count} derniers emails`;
-    if (filter) logMessage += ` (filtre: ${filter})`;
+    let logMessage = `📧 James analyse`;
+    if (from) logMessage += ` les emails de ${from}`;
+    else logMessage += ` les ${count} derniers emails`;
+    if (filter) logMessage += ` (${filter})`;
     console.log(logMessage + '...');
     
-    const result = await mailAgent.getEmailSummary(count, filter);
+    // Utiliser la nouvelle méthode avec filtres avancés
+    const result = await mailAgent.getFilteredEmailSummary({ count, filter, from });
     
     if (!result.success) {
       if (result.message.includes('pas connecté')) {
@@ -1132,8 +1150,17 @@ EXEMPLES:
       return result.message;
     }
 
-    const countInfo = count === 1 ? 'votre dernier email' : `vos ${count} derniers emails`;
-    return `🤖 **James** a analysé ${countInfo}:\n\n${result.message}`;
+    // Construire le message de retour
+    let header = `🤖 **James** a analysé `;
+    if (from) {
+      header += `les emails de **${from}**`;
+      if (filter) header += ` (${filter})`;
+    } else {
+      header += count === 1 ? 'votre dernier email' : `vos ${result.emailCount || count} derniers emails`;
+    }
+    header += ':\n\n';
+    
+    return header + result.message;
   }
 
   /**

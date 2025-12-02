@@ -33,31 +33,56 @@ class MailAgent {
 
   /**
    * Filtrer les emails selon un critère temporel ou d'importance
+   * Supporte: today, yesterday, week, month, Xdays (ex: "7days", "30days")
    */
-  filterEmails(emails, filter) {
-    if (!filter) return emails;
+  filterEmails(emails, filter, fromFilter = null) {
+    let filteredEmails = emails;
+    
+    // Filtrer par expéditeur si spécifié
+    if (fromFilter) {
+      const fromLower = fromFilter.toLowerCase();
+      filteredEmails = filteredEmails.filter(e => {
+        const emailFrom = (e.from || e.fromName || '').toLowerCase();
+        const emailAddr = (e.fromAddress || e.from || '').toLowerCase();
+        return emailFrom.includes(fromLower) || emailAddr.includes(fromLower);
+      });
+    }
+
+    if (!filter) return filteredEmails;
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Supporter les filtres "Xdays" (ex: "7days", "30days", "14days")
+    const daysMatch = filter.match(/^(\d+)days?$/i);
+    if (daysMatch) {
+      const days = parseInt(daysMatch[1]);
+      const daysAgo = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+      return filteredEmails.filter(e => new Date(e.receivedDateTime || e.receivedAt) >= daysAgo);
+    }
 
     switch (filter) {
       case 'today':
-        return emails.filter(e => new Date(e.receivedDateTime) >= today);
+        return filteredEmails.filter(e => new Date(e.receivedDateTime || e.receivedAt) >= today);
       
       case 'yesterday':
-        return emails.filter(e => {
-          const date = new Date(e.receivedDateTime);
+        return filteredEmails.filter(e => {
+          const date = new Date(e.receivedDateTime || e.receivedAt);
           return date >= yesterday && date < today;
         });
       
       case 'week':
-        return emails.filter(e => new Date(e.receivedDateTime) >= weekAgo);
+        return filteredEmails.filter(e => new Date(e.receivedDateTime || e.receivedAt) >= weekAgo);
+      
+      case 'month':
+        return filteredEmails.filter(e => new Date(e.receivedDateTime || e.receivedAt) >= monthAgo);
       
       case 'important':
       case 'urgent':
-        return emails.filter(e => 
+        return filteredEmails.filter(e => 
           e.importance === 'high' || 
           e.subject?.toLowerCase().includes('urgent') ||
           e.subject?.toLowerCase().includes('important') ||
@@ -65,17 +90,21 @@ class MailAgent {
         );
       
       default:
-        return emails;
+        return filteredEmails;
     }
   }
 
   /**
-   * Récupérer et résumer les derniers emails
-   * @param {number} count - Nombre d'emails à récupérer
-   * @param {string} filter - Filtre optionnel (today, yesterday, week, important)
-   * @param {boolean} allFolders - Si true, récupère depuis tous les dossiers (pas juste Inbox)
+   * Récupérer et résumer les emails avec filtres avancés
+   * @param {Object} options - Options de filtrage
+   * @param {number} options.count - Nombre d'emails à récupérer (exact)
+   * @param {string} options.filter - Filtre temporel (today, yesterday, week, month, Xdays)
+   * @param {string} options.from - Filtrer par expéditeur (nom ou email)
+   * @param {boolean} options.allFolders - Récupérer depuis tous les dossiers
    */
-  async getEmailSummary(count = 50, filter = null, allFolders = true) {
+  async getFilteredEmailSummary(options = {}) {
+    const { count = 10, filter = null, from = null, allFolders = true } = options;
+    
     try {
       if (!outlookService.isConnected()) {
         statsService.logConnectionCheck('outlook', false);
@@ -87,60 +116,70 @@ class MailAgent {
 
       statsService.logConnectionCheck('outlook', true);
       
-      // Si on a un filtre temporel, on récupère plus d'emails pour filtrer ensuite
-      const fetchCount = filter ? Math.max(count * 3, 100) : count;
+      // Récupérer plus d'emails pour pouvoir filtrer ensuite
+      const fetchCount = (filter || from) ? Math.max(count * 5, 200) : count;
       
-      // Récupérer depuis TOUS les dossiers (Inbox + classifiés) par défaut
+      // Récupérer depuis TOUS les dossiers par défaut
       let emails;
       let foldersScanned = [];
+      
       if (allFolders) {
-        emails = await outlookService.getAllRecentEmails(fetchCount);
-        foldersScanned = emails.foldersScanned || [];
+        const result = await outlookService.getAllRecentEmails(fetchCount);
+        emails = Array.isArray(result) ? result : (result.emails || result);
+        foldersScanned = result.foldersScanned || ['Tous les dossiers'];
       } else {
         emails = await outlookService.getEmails(fetchCount);
         foldersScanned = ['📥 Inbox'];
       }
       
-      // Appliquer le filtre
-      if (filter) {
-        emails = this.filterEmails(emails, filter);
-      }
+      // Appliquer les filtres (expéditeur + temporel)
+      emails = this.filterEmails(emails, filter, from);
       
-      // Limiter au nombre demandé
+      // Limiter au nombre EXACT demandé
       emails = emails.slice(0, count);
       
       if (emails.length === 0) {
-        const filterMsg = filter ? ` correspondant au filtre "${filter}"` : '';
+        let noResultMsg = `📭 Aucun email trouvé`;
+        if (from) noResultMsg += ` de "${from}"`;
+        if (filter) noResultMsg += ` (période: ${filter})`;
         return {
           success: true,
-          message: `📭 Aucun email${filterMsg} trouvé.`
+          message: noResultMsg
         };
       }
 
       // Compter les emails par dossier pour le résumé
       const folderCounts = {};
       emails.forEach(email => {
-        const folder = email.folder || 'Inconnu';
+        const folder = email.folder || 'Inbox';
         folderCounts[folder] = (folderCounts[folder] || 0) + 1;
-        
-        const isUrgent = email.importance === 'high' || 
-                         email.subject?.toLowerCase().includes('urgent');
-        statsService.logEmailProcessed(isUrgent);
       });
 
-      const summary = await openaiService.summarizeEmails(emails);
+      // Résumer avec l'IA
+      let summaryInstruction = '';
+      if (from) summaryInstruction += `Résume les emails de ${from}. `;
+      if (filter) summaryInstruction += `Période: ${filter}. `;
       
-      // Créer le header avec les sources des emails
+      const summary = await openaiService.summarizeEmails(emails, {
+        instruction: summaryInstruction || undefined
+      });
+      
+      // Créer le header avec les infos
       const folderList = Object.entries(folderCounts)
         .map(([folder, cnt]) => `${folder}: ${cnt}`)
         .join(' | ');
       
-      const sourceInfo = `📂 **Sources:** ${folderList}\n\n`;
+      let sourceInfo = `📂 **Sources:** ${folderList}\n`;
+      if (from) sourceInfo += `👤 **Expéditeur:** ${from}\n`;
+      if (filter) sourceInfo += `📅 **Période:** ${filter}\n`;
+      sourceInfo += '\n';
       
       // Logger l'activité
       statsService.logSummarySent();
-      const filterInfo = filter ? ` (filtre: ${filter})` : '';
-      statsService.addActivity('james', `Résumé de ${emails.length} emails depuis ${Object.keys(folderCounts).length} dossiers${filterInfo}`);
+      let logMsg = `Résumé de ${emails.length} emails`;
+      if (from) logMsg += ` de ${from}`;
+      if (filter) logMsg += ` (${filter})`;
+      statsService.addActivity('james', logMsg);
       
       return {
         success: true,
@@ -149,13 +188,23 @@ class MailAgent {
         folders: folderCounts
       };
     } catch (error) {
-      console.error('❌ Erreur MailAgent.getEmailSummary:', error);
-      statsService.addActivity('james', `Erreur résumé: ${error.message}`, 'error');
+      console.error('❌ Erreur MailAgent.getFilteredEmailSummary:', error);
       return {
         success: false,
-        message: `❌ Erreur lors de la récupération des emails: ${error.message}`
+        message: `❌ Erreur: ${error.message}`
       };
     }
+  }
+
+  /**
+   * Récupérer et résumer les derniers emails
+   * @param {number} count - Nombre d'emails à récupérer
+   * @param {string} filter - Filtre optionnel (today, yesterday, week, important)
+   * @param {boolean} allFolders - Si true, récupère depuis tous les dossiers (pas juste Inbox)
+   */
+  async getEmailSummary(count = 50, filter = null, allFolders = true) {
+    // Utiliser la nouvelle méthode avec options
+    return this.getFilteredEmailSummary({ count, filter, allFolders });
   }
 
   /**
