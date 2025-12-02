@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Send, BarChart3, Paperclip, RefreshCw, AlertCircle, Zap, TrendingUp, FileText, ThumbsUp, MessageCircle, Share2, Eye, PenTool, Calendar, Search, Image, FileDown } from 'lucide-react'
-import './KiaraModal.css'
+import { X, Send, BarChart3, Paperclip, RefreshCw, AlertCircle, Zap, TrendingUp, FileText, ThumbsUp, MessageCircle, Share2, Eye, PenTool, Calendar, Search, Image, FileDown, Globe, Mic, CheckCircle, Settings, History } from 'lucide-react'
+import './AgentModal.css'
 
 interface Article {
   id: string
@@ -8,12 +8,10 @@ interface Article {
   slug: string
   category: string
   views_count: number
-  likes_count: number
-  dislikes_count: number
-  comments_count: number
-  shares_count: number
-  published_at: string
   status: string
+  published_at: string
+  created_at: string
+  excerpt: string
 }
 
 interface KiaraStats {
@@ -21,10 +19,7 @@ interface KiaraStats {
   publishedArticles: number
   draftsCount: number
   totalViews: number
-  totalLikes: number
-  totalComments: number
-  totalShares: number
-  avgEngagement: number
+  categories: { [key: string]: number }
 }
 
 interface KiaraModalProps {
@@ -38,13 +33,15 @@ interface KiaraModalProps {
   }
 }
 
-const SUPABASE_URL = 'https://cagfwdtoebzotbhpkvvr.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhZ2Z3ZHRvZWJ6b3RiaHBrdnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDczMjY3MDYsImV4cCI6MjA2MjkwMjcwNn0.gy6z-x5BVaP1vj8lLlzpHTjOe5pNXC9bNY17Y8Ag_9I'
+// URL Supabase correcte (même que le portfolio)
+const SUPABASE_URL = 'https://izhfgbgxmqdcfgxrpqmv.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aGZnYmd4bXFkY2ZneHJwcW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3MTcyNTIsImV4cCI6MjA2MjI5MzI1Mn0.gSKLbT6HNuLBIE3lKkMSdOGmFglf0sLDoSg4J9KmxBk'
 
 const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'trending'>('dashboard')
   
   const [stats, setStats] = useState<KiaraStats>({
@@ -52,10 +49,7 @@ const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
     publishedArticles: 0,
     draftsCount: 0,
     totalViews: 0,
-    totalLikes: 0,
-    totalComments: 0,
-    totalShares: 0,
-    avgEngagement: 0
+    categories: {}
   })
   
   const [articles, setArticles] = useState<Article[]>([])
@@ -65,57 +59,59 @@ const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
   const fetchKiaraData = useCallback(async () => {
     if (!isOpen) return
     
+    setLoading(true)
+    
     try {
       setError(null)
       
       // Récupérer les articles depuis Supabase
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/blog_posts?select=*&order=published_at.desc`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/blog_posts?select=*&order=created_at.desc`, {
         headers: {
           'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
         }
       })
 
       if (res.ok) {
         const data: Article[] = await res.json()
+        console.log('📊 Articles récupérés:', data.length)
         setArticles(data)
         
         // Calculer les stats
         const published = data.filter(a => a.status === 'published')
         const drafts = data.filter(a => a.status === 'draft')
         
-        const totalViews = published.reduce((sum, a) => sum + (a.views_count || 0), 0)
-        const totalLikes = published.reduce((sum, a) => sum + (a.likes_count || 0), 0)
-        const totalComments = published.reduce((sum, a) => sum + (a.comments_count || 0), 0)
-        const totalShares = published.reduce((sum, a) => sum + (a.shares_count || 0), 0)
+        const totalViews = data.reduce((sum, a) => sum + (a.views_count || 0), 0)
         
-        const avgEngagement = published.length > 0 
-          ? ((totalLikes + totalComments + totalShares) / totalViews * 100) || 0 
-          : 0
+        // Compter par catégorie
+        const categories: { [key: string]: number } = {}
+        data.forEach(a => {
+          if (a.category) {
+            categories[a.category] = (categories[a.category] || 0) + 1
+          }
+        })
 
         setStats({
           totalArticles: data.length,
           publishedArticles: published.length,
           draftsCount: drafts.length,
           totalViews,
-          totalLikes,
-          totalComments,
-          totalShares,
-          avgEngagement: Math.round(avgEngagement * 100) / 100
+          categories
         })
 
-        // Top articles par engagement
-        const sorted = [...published].sort((a, b) => {
-          const scoreA = (a.likes_count || 0) * 3 + (a.comments_count || 0) * 5 + (a.shares_count || 0) * 10 + (a.views_count || 0) * 0.1
-          const scoreB = (b.likes_count || 0) * 3 + (b.comments_count || 0) * 5 + (b.shares_count || 0) * 10 + (b.views_count || 0) * 0.1
-          return scoreB - scoreA
-        })
+        // Top articles par vues
+        const sorted = [...published].sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
         setTopArticles(sorted.slice(0, 5))
+      } else {
+        const errorText = await res.text()
+        console.error('Erreur Supabase:', res.status, errorText)
+        setError(`Erreur ${res.status}: ${errorText}`)
       }
 
     } catch (err) {
       console.error('Erreur fetch Kiara data:', err)
-      setError('Impossible de charger les données')
+      setError('Impossible de charger les données du blog')
     } finally {
       setLoading(false)
     }
@@ -151,324 +147,437 @@ const KiaraModal = ({ isOpen, onClose, agent }: KiaraModalProps) => {
   if (!isOpen) return null
 
   return (
-    <div className="kiara-modal-overlay" onClick={onClose}>
-      <div className="kiara-modal-container" onClick={e => e.stopPropagation()}>
-        {/* Header avec gradient rose/violet */}
-        <div className="kiara-modal-header">
-          <div className="kiara-header-content">
-            <div className="kiara-avatar-wrapper">
-              <img src={agent.image} alt={agent.name} className="kiara-avatar" />
-              <span className="kiara-status-dot"></span>
-            </div>
-            <div className="kiara-header-info">
-              <h2>{agent.name}</h2>
-              <span className="kiara-role">{agent.role}</span>
-            </div>
-          </div>
-          <button className="kiara-close-btn" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-container" onClick={e => e.stopPropagation()}>
+        {/* Header - Style James */}
+        <div className="modal-header">
+          <h2>{agent.name}, {agent.role}</h2>
+          <button className="close-btn" onClick={onClose}>
             <X size={24} />
           </button>
         </div>
 
-        {/* Tabs Navigation */}
-        <div className="kiara-tabs">
-          <button 
-            className={`kiara-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <BarChart3 size={18} />
-            Dashboard
-          </button>
-          <button 
-            className={`kiara-tab ${activeTab === 'articles' ? 'active' : ''}`}
-            onClick={() => setActiveTab('articles')}
-          >
-            <FileText size={18} />
-            Articles
-          </button>
-          <button 
-            className={`kiara-tab ${activeTab === 'trending' ? 'active' : ''}`}
-            onClick={() => setActiveTab('trending')}
-          >
-            <TrendingUp size={18} />
-            Top Performers
-          </button>
-        </div>
-
         {/* Main Content */}
-        <div className="kiara-modal-content">
+        <div className="modal-content">
           {error && (
-            <div className="kiara-error-banner">
+            <div className="error-banner">
               <AlertCircle size={18} />
               <span>{error}</span>
               <button onClick={() => setError(null)}>×</button>
             </div>
           )}
 
-          {activeTab === 'dashboard' && (
-            <div className="kiara-dashboard">
-              {/* Stats Cards */}
-              <div className="kiara-stats-grid">
-                <div className="kiara-stat-card purple">
-                  <div className="stat-icon"><FileText size={24} /></div>
-                  <div className="stat-info">
-                    <span className="stat-value">{stats.publishedArticles}</span>
-                    <span className="stat-label">Articles publiés</span>
-                  </div>
+          {!showSettings ? (
+            <>
+              {/* Agent Avatar & Chat - Style James */}
+              <div className="agent-chat-section">
+                <div className="agent-avatar-container">
+                  <img src={agent.image} alt={agent.name} className="agent-avatar" />
                 </div>
-                <div className="kiara-stat-card blue">
-                  <div className="stat-icon"><Eye size={24} /></div>
-                  <div className="stat-info">
-                    <span className="stat-value">{formatNumber(stats.totalViews)}</span>
-                    <span className="stat-label">Vues totales</span>
+                
+                <div className="chat-bubble-container">
+                  <div className="chat-bubble">
+                    <p className="chat-greeting">Hey, je suis {agent.name}</p>
+                    <p className="chat-question">Comment puis-je vous aider ?</p>
+                    <a href="#" className="see-more-link" onClick={(e) => { e.preventDefault(); setShowSettings(true); }}>
+                      Configurer <span>→</span>
+                    </a>
                   </div>
-                </div>
-                <div className="kiara-stat-card green">
-                  <div className="stat-icon"><ThumbsUp size={24} /></div>
-                  <div className="stat-info">
-                    <span className="stat-value">{formatNumber(stats.totalLikes)}</span>
-                    <span className="stat-label">Likes</span>
+
+                  {/* Message Input */}
+                  <div className="message-input-container">
+                    <input
+                      type="text"
+                      placeholder={`Tester une commande pour ${agent.name}...`}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    />
+                    <div className="input-actions">
+                      <button className="input-action-btn"><Paperclip size={18} /></button>
+                      <button className="input-action-btn"><Globe size={18} /></button>
+                      <button className="input-action-btn"><Mic size={18} /></button>
+                      <button className="send-btn" onClick={handleSendMessage}>
+                        <Send size={18} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="kiara-stat-card orange">
-                  <div className="stat-icon"><MessageCircle size={24} /></div>
-                  <div className="stat-info">
-                    <span className="stat-value">{formatNumber(stats.totalComments)}</span>
-                    <span className="stat-label">Commentaires</span>
-                  </div>
-                </div>
-                <div className="kiara-stat-card pink">
-                  <div className="stat-icon"><Share2 size={24} /></div>
-                  <div className="stat-info">
-                    <span className="stat-value">{formatNumber(stats.totalShares)}</span>
-                    <span className="stat-label">Partages</span>
-                  </div>
-                </div>
-                <div className="kiara-stat-card cyan">
-                  <div className="stat-icon"><TrendingUp size={24} /></div>
-                  <div className="stat-info">
-                    <span className="stat-value">{stats.avgEngagement}%</span>
-                    <span className="stat-label">Engagement</span>
+
+                  {/* Info WhatsApp */}
+                  <div className="whatsapp-info">
+                    <span>💡</span>
+                    <p>Utilisez <strong>WhatsApp</strong> pour communiquer avec {agent.name} via Brian. Envoyez "Génère un article sur l'IA" à Brian.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="kiara-section">
-                <h3><Zap size={20} /> Commandes rapides</h3>
-                <div className="kiara-quick-actions">
-                  <div className="quick-action-card">
-                    <span className="action-icon">📝</span>
-                    <div className="action-info">
-                      <strong>Générer un article</strong>
-                      <code>"Rédige un article sur [sujet]"</code>
-                    </div>
+              {/* Dashboard Cards - Style James */}
+              <div className="features-grid">
+                {/* Stats du Blog */}
+                <div className="feature-card stats-card">
+                  <div className="feature-icon" style={{ background: '#fce7f3' }}>
+                    <BarChart3 size={24} color="#ec4899" />
                   </div>
-                  <div className="quick-action-card">
-                    <span className="action-icon">🔥</span>
-                    <div className="action-info">
-                      <strong>Tendances</strong>
-                      <code>"Quelles sont les tendances tech ?"</code>
-                    </div>
-                  </div>
-                  <div className="quick-action-card">
-                    <span className="action-icon">📊</span>
-                    <div className="action-info">
-                      <strong>Statistiques</strong>
-                      <code>"Stats de mon blog"</code>
-                    </div>
-                  </div>
-                  <div className="quick-action-card">
-                    <span className="action-icon">🚀</span>
-                    <div className="action-info">
-                      <strong>Publier</strong>
-                      <code>"Publie l'article"</code>
-                    </div>
-                  </div>
-                  <div className="quick-action-card">
-                    <span className="action-icon">📅</span>
-                    <div className="action-info">
-                      <strong>Programmer</strong>
-                      <code>"Programme pour demain 10h"</code>
-                    </div>
-                  </div>
-                  <div className="quick-action-card">
-                    <span className="action-icon">📄</span>
-                    <div className="action-info">
-                      <strong>PDF</strong>
-                      <code>"PDF de l'article"</code>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Brouillons en attente */}
-              {stats.draftsCount > 0 && (
-                <div className="kiara-section drafts-section">
-                  <h3><PenTool size={20} /> Brouillons en attente ({stats.draftsCount})</h3>
-                  <div className="drafts-list">
-                    {articles.filter(a => a.status === 'draft').slice(0, 3).map(draft => (
-                      <div key={draft.id} className="draft-item">
-                        <span className="draft-title">{draft.title}</span>
-                        <span className="draft-category">{draft.category || 'Non catégorisé'}</span>
+                  <h3>Statistiques du Blog</h3>
+                  {loading ? (
+                    <p className="loading-text">Chargement...</p>
+                  ) : (
+                    <div className="stats-grid">
+                      <div className="stat-item">
+                        <span className="stat-value">{stats.publishedArticles}</span>
+                        <span className="stat-label">Articles publiés</span>
                       </div>
-                    ))}
+                      <div className="stat-item">
+                        <span className="stat-value">{stats.draftsCount}</span>
+                        <span className="stat-label">Brouillons</span>
+                      </div>
+                      <div className="stat-item">
+                        <span className="stat-value">{formatNumber(stats.totalViews)}</span>
+                        <span className="stat-label">Vues totales</span>
+                      </div>
+                      <div className="stat-item">
+                        <span className="stat-value">{Object.keys(stats.categories).length}</span>
+                        <span className="stat-label">Catégories</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Top Articles */}
+                <div className="feature-card history-card">
+                  <div className="feature-icon" style={{ background: '#dbeafe' }}>
+                    <TrendingUp size={24} color="#3b82f6" />
+                  </div>
+                  <div className="history-header">
+                    <h3>Top Articles</h3>
+                    <button 
+                      className="sync-btn" 
+                      onClick={fetchKiaraData}
+                      disabled={loading}
+                    >
+                      <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+                    </button>
+                  </div>
+                  {loading ? (
+                    <p className="loading-text">Chargement...</p>
+                  ) : topArticles.length === 0 ? (
+                    <p className="no-activity">Aucun article publié</p>
+                  ) : (
+                    <div className="activity-list">
+                      {topArticles.slice(0, 4).map((article, index) => (
+                        <div key={article.id} className="activity-item">
+                          <span style={{ 
+                            fontWeight: 'bold', 
+                            color: index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : index === 2 ? '#b45309' : '#9ca3af',
+                            marginRight: '8px'
+                          }}>
+                            #{index + 1}
+                          </span>
+                          <div className="activity-info">
+                            <span className="activity-action">{article.title.substring(0, 35)}{article.title.length > 35 ? '...' : ''}</span>
+                            <span className="activity-time">
+                              <Eye size={12} style={{ marginRight: '4px' }} />
+                              {formatNumber(article.views_count || 0)} vues
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Capacités de Kiara */}
+                <div className="feature-card capabilities-card">
+                  <div className="feature-icon" style={{ background: '#f3e8ff' }}>
+                    <Zap size={24} color="#a855f7" />
+                  </div>
+                  <h3>Capacités de {agent.name}</h3>
+                  <div className="capabilities-grid">
+                    <div className="capability-item">
+                      <span className="capability-icon">🔍</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Recherche tendances</span>
+                        <span className="capability-example">"Quelles sont les tendances tech ?"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">✍️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Rédaction article</span>
+                        <span className="capability-example">"Rédige un article sur l'IA"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">🚀</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Workflow complet</span>
+                        <span className="capability-example">"Recherche 3 articles sur les GPU et génère un blog"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">🖼️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Images libres</span>
+                        <span className="capability-example">"Trouve des images sur le cloud computing"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📄</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Export PDF</span>
+                        <span className="capability-example">"Génère le PDF de l'article"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📅</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Programmation</span>
+                        <span className="capability-example">"Programme l'article pour demain 9h"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📤</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Publication</span>
+                        <span className="capability-example">"Publie l'article"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">✏️</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Modification</span>
+                        <span className="capability-example">"Modifie le titre par '...'"</span>
+                      </div>
+                    </div>
+                    <div className="capability-item">
+                      <span className="capability-icon">📊</span>
+                      <div className="capability-info">
+                        <span className="capability-name">Statistiques</span>
+                        <span className="capability-example">"Stats de mon blog"</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Brouillons en attente */}
+                <div className="feature-card status-card">
+                  <div className="feature-icon" style={{ background: '#fef3c7' }}>
+                    <PenTool size={24} color="#f59e0b" />
+                  </div>
+                  <h3>Brouillons</h3>
+                  {loading ? (
+                    <p className="loading-text">Chargement...</p>
+                  ) : stats.draftsCount === 0 ? (
+                    <div className="connection-status">
+                      <CheckCircle size={18} className="status-icon connected" />
+                      <span className="status-text connected">Aucun brouillon en attente</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="connection-status">
+                        <AlertCircle size={18} className="status-icon disconnected" style={{ color: '#f59e0b' }} />
+                        <span className="status-text" style={{ color: '#f59e0b' }}>{stats.draftsCount} brouillon(s) en attente</span>
+                      </div>
+                      <div style={{ marginTop: '12px', fontSize: '13px', color: '#6b7280' }}>
+                        {articles.filter(a => a.status === 'draft').slice(0, 3).map(d => (
+                          <div key={d.id} style={{ padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
+                            📝 {d.title.substring(0, 30)}{d.title.length > 30 ? '...' : ''}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Configuration */}
+                <div className="feature-card settings-card" onClick={() => setShowSettings(true)}>
+                  <div className="feature-icon" style={{ background: '#f3f4f6' }}>
+                    <Settings size={24} color="#6b7280" />
+                  </div>
+                  <h3>Configurer {agent.name}</h3>
+                  <p>Voir les articles et statistiques détaillées</p>
+                  <a href="#" className="feature-link" onClick={(e) => e.preventDefault()}>Voir plus <span>→</span></a>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Articles Panel - comme settings mais pour les articles */
+            <div className="settings-panel">
+              <div className="settings-header">
+                <button className="back-btn" onClick={() => setShowSettings(false)}>
+                  ← Retour
+                </button>
+                <h3>Articles du Blog</h3>
+              </div>
+
+              {/* Tabs */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                <button 
+                  onClick={() => setActiveTab('dashboard')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'dashboard' ? '#ec4899' : '#f3f4f6',
+                    color: activeTab === 'dashboard' ? 'white' : '#6b7280',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  📊 Stats
+                </button>
+                <button 
+                  onClick={() => setActiveTab('articles')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'articles' ? '#ec4899' : '#f3f4f6',
+                    color: activeTab === 'articles' ? 'white' : '#6b7280',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  📝 Articles ({articles.length})
+                </button>
+                <button 
+                  onClick={() => setActiveTab('trending')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'trending' ? '#ec4899' : '#f3f4f6',
+                    color: activeTab === 'trending' ? 'white' : '#6b7280',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  🏆 Top
+                </button>
+              </div>
+
+              {activeTab === 'dashboard' && (
+                <div className="settings-section">
+                  <h4>📊 Statistiques détaillées</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginTop: '16px' }}>
+                    <div style={{ padding: '16px', background: '#fce7f3', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#ec4899' }}>{stats.publishedArticles}</div>
+                      <div style={{ fontSize: '14px', color: '#9d174d' }}>Articles publiés</div>
+                    </div>
+                    <div style={{ padding: '16px', background: '#dbeafe', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#3b82f6' }}>{formatNumber(stats.totalViews)}</div>
+                      <div style={{ fontSize: '14px', color: '#1e40af' }}>Vues totales</div>
+                    </div>
+                    <div style={{ padding: '16px', background: '#fef3c7', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#f59e0b' }}>{stats.draftsCount}</div>
+                      <div style={{ fontSize: '14px', color: '#b45309' }}>Brouillons</div>
+                    </div>
+                    <div style={{ padding: '16px', background: '#f3e8ff', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#a855f7' }}>{Object.keys(stats.categories).length}</div>
+                      <div style={{ fontSize: '14px', color: '#7c3aed' }}>Catégories</div>
+                    </div>
+                  </div>
+
+                  {Object.keys(stats.categories).length > 0 && (
+                    <div style={{ marginTop: '24px' }}>
+                      <h4>📂 Par catégorie</h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                        {Object.entries(stats.categories).map(([cat, count]) => (
+                          <span key={cat} style={{ 
+                            padding: '6px 12px', 
+                            background: '#f3f4f6', 
+                            borderRadius: '16px',
+                            fontSize: '13px',
+                            color: '#374151'
+                          }}>
+                            {cat} ({count})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'articles' && (
+                <div className="settings-section">
+                  <h4>📝 Tous les articles</h4>
+                  <div style={{ marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                    {articles.length === 0 ? (
+                      <p style={{ color: '#6b7280', textAlign: 'center', padding: '20px' }}>Aucun article</p>
+                    ) : (
+                      articles.map(article => (
+                        <div key={article.id} style={{ 
+                          padding: '12px 16px', 
+                          borderBottom: '1px solid #f3f4f6',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <div>
+                            <div style={{ fontWeight: 500, color: '#1f2937' }}>{article.title}</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                              <span style={{ 
+                                padding: '2px 8px', 
+                                background: article.status === 'published' ? '#d1fae5' : '#fef3c7',
+                                color: article.status === 'published' ? '#065f46' : '#b45309',
+                                borderRadius: '4px',
+                                marginRight: '8px'
+                              }}>
+                                {article.status === 'published' ? '✅ Publié' : '📝 Brouillon'}
+                              </span>
+                              {article.category && <span style={{ marginRight: '8px' }}>{article.category}</span>}
+                              <span><Eye size={12} /> {article.views_count || 0}</span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                            {formatDate(article.published_at || article.created_at)}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* WhatsApp Info */}
-              <div className="kiara-whatsapp-info">
-                <span>💬</span>
-                <p>Communiquez avec <strong>Kiara</strong> via WhatsApp. Envoyez vos commandes à Brian qui transmettra à Kiara.</p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'articles' && (
-            <div className="kiara-articles">
-              <div className="articles-header">
-                <h3>Tous les articles ({articles.length})</h3>
-                <button className="refresh-btn" onClick={fetchKiaraData}>
-                  <RefreshCw size={16} />
-                </button>
-              </div>
-              
-              <div className="articles-table-wrapper">
-                <table className="articles-table">
-                  <thead>
-                    <tr>
-                      <th>Titre</th>
-                      <th>Catégorie</th>
-                      <th>Status</th>
-                      <th><Eye size={14} /></th>
-                      <th><ThumbsUp size={14} /></th>
-                      <th><MessageCircle size={14} /></th>
-                      <th><Share2 size={14} /></th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td colSpan={8} className="loading-cell">Chargement...</td></tr>
-                    ) : articles.length === 0 ? (
-                      <tr><td colSpan={8} className="empty-cell">Aucun article</td></tr>
+              {activeTab === 'trending' && (
+                <div className="settings-section">
+                  <h4>🏆 Top 5 par vues</h4>
+                  <div style={{ marginTop: '16px' }}>
+                    {topArticles.length === 0 ? (
+                      <p style={{ color: '#6b7280', textAlign: 'center', padding: '20px' }}>Aucun article publié</p>
                     ) : (
-                      articles.map(article => (
-                        <tr key={article.id} className={article.status === 'draft' ? 'draft-row' : ''}>
-                          <td className="title-cell">
-                            <a href={`https://brian-biendou.com/blog/${article.slug}`} target="_blank" rel="noopener noreferrer">
-                              {article.title.length > 40 ? article.title.substring(0, 40) + '...' : article.title}
-                            </a>
-                          </td>
-                          <td><span className="category-badge">{article.category || '-'}</span></td>
-                          <td>
-                            <span className={`status-badge ${article.status}`}>
-                              {article.status === 'published' ? '✅' : '📝'} {article.status}
+                      topArticles.map((article, index) => (
+                        <div key={article.id} style={{ 
+                          padding: '16px', 
+                          background: index === 0 ? '#fef3c7' : index === 1 ? '#f3f4f6' : index === 2 ? '#fed7aa' : 'white',
+                          borderRadius: '12px',
+                          marginBottom: '12px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ 
+                              fontSize: '24px', 
+                              fontWeight: 'bold',
+                              color: index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : index === 2 ? '#ea580c' : '#9ca3af'
+                            }}>
+                              #{index + 1}
                             </span>
-                          </td>
-                          <td>{formatNumber(article.views_count || 0)}</td>
-                          <td>{formatNumber(article.likes_count || 0)}</td>
-                          <td>{formatNumber(article.comments_count || 0)}</td>
-                          <td>{formatNumber(article.shares_count || 0)}</td>
-                          <td>{formatDate(article.published_at)}</td>
-                        </tr>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, color: '#1f2937' }}>{article.title}</div>
+                              <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
+                                {article.category} • <Eye size={12} /> {formatNumber(article.views_count || 0)} vues
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       ))
                     )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'trending' && (
-            <div className="kiara-trending">
-              <h3>🏆 Top 5 Articles par Engagement</h3>
-              <p className="trending-subtitle">Classement basé sur: likes × 3 + commentaires × 5 + partages × 10 + vues × 0.1</p>
-              
-              <div className="top-articles-list">
-                {loading ? (
-                  <p className="loading-text">Chargement...</p>
-                ) : topArticles.length === 0 ? (
-                  <p className="empty-text">Aucun article publié</p>
-                ) : (
-                  topArticles.map((article, index) => (
-                    <div key={article.id} className={`top-article-card rank-${index + 1}`}>
-                      <div className="rank-badge">#{index + 1}</div>
-                      <div className="article-content">
-                        <h4>{article.title}</h4>
-                        <span className="article-category">{article.category}</span>
-                        <div className="article-stats">
-                          <span><Eye size={14} /> {formatNumber(article.views_count || 0)}</span>
-                          <span><ThumbsUp size={14} /> {formatNumber(article.likes_count || 0)}</span>
-                          <span><MessageCircle size={14} /> {formatNumber(article.comments_count || 0)}</span>
-                          <span><Share2 size={14} /> {formatNumber(article.shares_count || 0)}</span>
-                        </div>
-                      </div>
-                      <a 
-                        href={`https://brian-biendou.com/blog/${article.slug}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="view-article-btn"
-                      >
-                        Voir →
-                      </a>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Capacités de Kiara */}
-              <div className="kiara-capabilities">
-                <h3><Zap size={20} /> Toutes les capacités de Kiara</h3>
-                <div className="capabilities-grid">
-                  <div className="capability-item">
-                    <Search size={18} />
-                    <span>Recherche de tendances</span>
-                  </div>
-                  <div className="capability-item">
-                    <PenTool size={18} />
-                    <span>Rédaction SEO</span>
-                  </div>
-                  <div className="capability-item">
-                    <Image size={18} />
-                    <span>Images libres de droit</span>
-                  </div>
-                  <div className="capability-item">
-                    <FileDown size={18} />
-                    <span>Export PDF</span>
-                  </div>
-                  <div className="capability-item">
-                    <Calendar size={18} />
-                    <span>Programmation + Outlook</span>
-                  </div>
-                  <div className="capability-item">
-                    <BarChart3 size={18} />
-                    <span>Statistiques détaillées</span>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
-        </div>
-
-        {/* Footer avec input message */}
-        <div className="kiara-modal-footer">
-          <div className="kiara-message-input">
-            <input
-              type="text"
-              placeholder="Tester une commande pour Kiara..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            />
-            <div className="input-actions">
-              <button className="input-action-btn"><Paperclip size={18} /></button>
-              <button className="send-btn" onClick={handleSendMessage}>
-                <Send size={18} />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

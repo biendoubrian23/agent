@@ -10,6 +10,7 @@ const supabaseService = require('./services/supabase.service');
 const reminderService = require('./services/reminder.service');
 const principalAgent = require('./agents/principal.agent');
 const mailAgent = require('./agents/mail.agent');
+const kiaraAgent = require('./agents/kiara.agent');
 const emailScheduler = require('./scheduler/email.scheduler');
 const articleScheduler = require('./scheduler/article.scheduler');
 
@@ -351,6 +352,78 @@ app.get('/api/agents/:agentName/stats', (req, res) => {
   }
 
   res.json(summary);
+});
+
+/**
+ * Obtenir les statistiques du blog pour Kiara
+ */
+app.get('/api/agents/kiara/blog-stats', async (req, res) => {
+  try {
+    // Récupérer tous les articles du blog depuis Supabase
+    const { data: articles, error } = await supabaseService.client
+      .from('blog_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Erreur récupération articles:', error);
+      return res.status(500).json({ error: error.message });
+    }
+    
+    // Calculer les stats
+    const publishedArticles = articles.filter(a => a.status === 'published');
+    const drafts = articles.filter(a => a.status === 'draft');
+    const scheduled = articles.filter(a => a.status === 'scheduled');
+    
+    // Compter par catégorie
+    const categories = {};
+    articles.forEach(article => {
+      const cat = article.category || 'Non catégorisé';
+      categories[cat] = (categories[cat] || 0) + 1;
+    });
+    
+    // Total des vues
+    const totalViews = articles.reduce((sum, a) => sum + (a.views_count || 0), 0);
+    
+    // Top articles par vues
+    const topArticles = [...publishedArticles]
+      .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+      .slice(0, 5)
+      .map(a => ({
+        id: a.id,
+        title: a.title,
+        views: a.views_count || 0,
+        category: a.category
+      }));
+    
+    const stats = {
+      totalArticles: articles.length,
+      publishedArticles: publishedArticles.length,
+      draftsCount: drafts.length,
+      scheduledCount: scheduled.length,
+      totalViews,
+      categories,
+      topArticles
+    };
+    
+    res.json({
+      stats,
+      articles: articles.map(a => ({
+        id: a.id,
+        title: a.title,
+        slug: a.slug,
+        category: a.category,
+        views_count: a.views_count || 0,
+        status: a.status,
+        published_at: a.published_at,
+        created_at: a.created_at,
+        excerpt: a.excerpt || (a.content ? a.content.substring(0, 150) + '...' : '')
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Erreur stats blog Kiara:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /**
