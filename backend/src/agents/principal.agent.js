@@ -897,47 +897,149 @@ DISTINCTION TRÈS IMPORTANTE:
   }
 
   /**
-   * Analyse IA pour Kiara quand le regex ne trouve pas
+   * Analyse IA avancée pour Kiara - extrait l'action ET tous les paramètres
    */
   async analyzeKiaraIntentWithAI(text) {
-    const prompt = `Tu es un assistant qui analyse les intentions utilisateur pour Kiara (gestionnaire de blog/SEO).
+    const prompt = `Tu es un assistant expert qui analyse les intentions utilisateur pour Kiara (gestionnaire de blog/SEO).
 
 Message utilisateur: "${text}"
 
-Analyse ce message et détermine l'action à effectuer parmi:
-- kiara_trends: rechercher les tendances/actualités
-- kiara_generate_article: rédiger/écrire/générer un article
-- kiara_publish: publier un article/brouillon sur le blog
-- kiara_list_articles: lister tous les articles
-- kiara_list_published: lister les articles publiés
-- kiara_list_drafts: lister les brouillons
-- kiara_delete_article: supprimer un article
-- kiara_count_articles: compter les articles
-- kiara_pdf: générer/recevoir un PDF
-- kiara_modify: modifier un article existant
-- kiara_global_stats: voir les statistiques
-- kiara_schedule: programmer une publication
-- describe_kiara: expliquer les capacités de Kiara
-- kiara_general: question générale ou conversation
+🎯 ACTIONS DISPONIBLES ET LEURS PARAMÈTRES:
 
-Réponds en JSON:
+1. **kiara_trends** - Rechercher les tendances/actualités
+   Params requis:
+   - topic: string (domaine: "tech", "ia", "crypto", "gaming", "spatial", "politique", "economie", "auto", "sante", "environnement", "science", "sport")
+   - period: string | null ("today", "yesterday", "2days", "Xdays", "week", "lastweek", "month", "lastmonth")
+   Exemples:
+   - "tendances IA" → topic: "ia", period: null
+   - "tendances crypto d'hier" → topic: "crypto", period: "yesterday"
+   - "actualités gaming cette semaine" → topic: "gaming", period: "week"
+
+2. **kiara_generate_article** - Rédiger/générer un article
+   Params requis:
+   - topic: string (le sujet principal de l'article)
+   - count: number (nombre d'articles à générer, défaut: 1)
+   - style: string | null ("informatif", "tutorial", "news", "analyse", "comparatif")
+   Exemples:
+   - "génère 3 articles sur les GPU" → topic: "GPU", count: 3, style: null
+   - "rédige un tutoriel sur Python" → topic: "Python", count: 1, style: "tutorial"
+   - "écris un article comparatif sur les smartphones" → topic: "smartphones", count: 1, style: "comparatif"
+
+3. **kiara_publish** - Publier un article/brouillon
+   Params requis:
+   - draftNumber: number | null (numéro du brouillon à publier)
+   - title: string | null (titre partiel pour identifier l'article)
+   - publishLast: boolean (true si "publie le dernier article" ou "publie l'article")
+   Exemples:
+   - "publie le brouillon 2" → draftNumber: 2
+   - "publie l'article sur les GPU" → title: "GPU"
+   - "publie l'article" → publishLast: true
+   - "publie sur le blog" → publishLast: true
+
+4. **kiara_schedule** - Programmer une publication
+   Params requis:
+   - draftNumber: number | null
+   - date: string | null (format: "YYYY-MM-DD" ou "demain", "lundi", etc.)
+   - time: string | null (format: "HH:MM" ou "14h", "midi", etc.)
+   Exemples:
+   - "programme le brouillon 1 pour demain à 10h" → draftNumber: 1, date: "demain", time: "10:00"
+   - "planifie l'article pour lundi" → date: "lundi"
+
+5. **kiara_delete_article** - Supprimer un article
+   Params requis:
+   - draftNumber: number | null (numéro si brouillon)
+   - publishedNumber: number | null (numéro si publié)
+   - title: string | null (titre partiel pour identifier)
+   - status: string ("draft" ou "published")
+   Exemples:
+   - "supprime le brouillon 3" → draftNumber: 3, status: "draft"
+   - "supprime l'article publié 1" → publishedNumber: 1, status: "published"
+   - "efface l'article sur les GPU" → title: "GPU", status: null
+
+6. **kiara_list_articles** - Lister tous les articles
+   Params: { period: string | null }
+
+7. **kiara_list_published** - Lister les articles publiés
+   Params:
+   - period: string | null ("week", "month", "today")
+   - count: number | null (nombre max à afficher)
+   Exemples:
+   - "mes 5 derniers articles publiés" → count: 5
+   - "articles publiés cette semaine" → period: "week"
+
+8. **kiara_list_drafts** - Lister les brouillons
+   Params: { count: number | null }
+
+9. **kiara_count_articles** - Compter les articles
+   Params:
+   - status: string | null ("draft", "published", null pour tous)
+   - period: string | null
+
+10. **kiara_modify** - Modifier un article existant
+    Params:
+    - draftNumber: number | null
+    - field: string | null ("title", "content", "meta_description", "tags")
+    - newValue: string | null (nouvelle valeur)
+    Exemples:
+    - "modifie le titre du brouillon 1 par 'Nouveau titre'" → draftNumber: 1, field: "title", newValue: "Nouveau titre"
+    - "change la meta description" → field: "meta_description"
+
+11. **kiara_pdf** - Générer/envoyer un PDF
+    Params:
+    - draftNumber: number | null
+    - articleTitle: string | null
+    Exemples:
+    - "envoie le PDF du brouillon 2" → draftNumber: 2
+    - "PDF de l'article GPU" → articleTitle: "GPU"
+
+12. **kiara_global_stats** - Voir les statistiques globales
+    Params: {}
+
+13. **kiara_complete_workflow** - Workflow complet (recherche + génération)
+    Params:
+    - topic: string
+    - articleCount: number (nombre d'articles à rechercher)
+    - generatePDF: boolean
+    Exemples:
+    - "recherche 5 articles sur l'IA et génère un blog" → topic: "IA", articleCount: 5
+
+14. **describe_kiara** - Expliquer les capacités
+    Params: {}
+
+15. **kiara_general** - Conversation générale avec Kiara
+    Params: { text: string }
+
+📋 RÉPONDS EN JSON STRICT:
 {
   "action": "nom_action",
-  "params": { "text": "message original", ... },
+  "params": {
+    // Inclure TOUS les paramètres pertinents extraits du message
+    // Utiliser null si le paramètre n'est pas mentionné
+  },
   "confidence": 0-100,
-  "reasoning": "explication courte"
-}`;
+  "reasoning": "explication courte de ton analyse"
+}
+
+⚠️ IMPORTANT:
+- Extrais TOUS les chiffres mentionnés (ex: "3 articles" → count: 3)
+- Détecte le sujet/topic précis (ex: "sur les GPU Nvidia" → topic: "GPU Nvidia")
+- Identifie les périodes temporelles (hier, semaine, mois, etc.)
+- Si plusieurs interprétations possibles, choisis la plus probable et explique dans reasoning`;
 
     try {
       const response = await openaiService.chat([
-        { role: 'system', content: 'Tu analyses les intentions pour un assistant blog/SEO. Réponds uniquement en JSON.' },
+        { role: 'system', content: 'Tu es un expert en analyse d\'intentions pour un assistant blog/SEO. Tu extrais TOUS les paramètres pertinents du message. Réponds UNIQUEMENT en JSON valide.' },
         { role: 'user', content: prompt }
-      ], { temperature: 0.1 });
+      ], { temperature: 0.1, max_tokens: 500 });
 
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        console.log(`🤖 IA Kiara: ${parsed.action} (${parsed.confidence}%) - ${parsed.reasoning}`);
+        console.log(`🤖 IA Kiara: ${parsed.action} (${parsed.confidence}%)`);
+        console.log(`   📋 Params extraits:`, JSON.stringify(parsed.params));
+        console.log(`   💭 Reasoning: ${parsed.reasoning}`);
+        
+        // Toujours inclure le texte original
         return {
           action: parsed.action,
           params: { ...parsed.params, text }
@@ -2807,15 +2909,28 @@ Agents disponibles:
   }
 
   /**
-   * Génération d'article
+   * Génération d'article (avec params extraits par l'IA)
    */
-  async handleKiaraGenerateArticle(params) {
-    console.log(`✍️ Kiara génère un article...`);
+  async handleKiaraGenerateArticle(params, conversationHistory = []) {
+    // Extraire les paramètres de l'IA
+    const topic = params.topic || params.text || 'tech';
+    const count = params.count || 1;
+    const style = params.style || null;
+    
+    console.log(`✍️ Kiara génère ${count} article(s) sur "${topic}"${style ? ` (style: ${style})` : ''}...`);
     
     try {
-      // Récupérer le message depuis les différentes sources possibles
-      const message = params.text || params.topic || params.query || 'article';
-      const result = await kiaraAgent.handleMessage(message, 'user');
+      // Construire un message enrichi avec les paramètres
+      let message = `génère ${count > 1 ? count + ' articles' : 'un article'} sur ${topic}`;
+      if (style) message += ` en style ${style}`;
+      
+      // Passer les paramètres enrichis à Kiara
+      const result = await kiaraAgent.handleMessage(message, 'user', {
+        topic,
+        count,
+        style,
+        conversationHistory
+      });
       return result;
     } catch (error) {
       console.error('Erreur Kiara article:', error);
@@ -2824,13 +2939,24 @@ Agents disponibles:
   }
 
   /**
-   * Publication d'article
+   * Publication d'article (avec params extraits par l'IA)
    */
   async handleKiaraPublish(from, params) {
-    console.log(`📤 Kiara prépare la publication...`);
+    // Extraire les paramètres de l'IA
+    const draftNumber = params.draftNumber || null;
+    const title = params.title || null;
+    const publishLast = params.publishLast || false;
+    
+    console.log(`📤 Kiara publication - draft#${draftNumber || 'auto'}, title:"${title || 'auto'}", last:${publishLast}`);
     
     try {
-      const result = await kiaraAgent.handlePublishRequest(params.text || 'publie l\'article', { from });
+      // Passer les paramètres structurés à Kiara
+      const result = await kiaraAgent.handlePublishRequest(params.text || 'publie l\'article', {
+        from,
+        draftNumber,
+        title,
+        publishLast
+      });
       return result;
     } catch (error) {
       console.error('Erreur Kiara publish:', error);
@@ -2842,10 +2968,20 @@ Agents disponibles:
    * Programmation d'article
    */
   async handleKiaraSchedule(from, params) {
-    console.log(`📅 Kiara programme un article...`);
+    // Extraire les paramètres de l'IA
+    const draftNumber = params.draftNumber || null;
+    const date = params.date || null;
+    const time = params.time || null;
+    
+    console.log(`📅 Kiara programme - draft#${draftNumber || 'auto'}, date:${date || 'auto'}, time:${time || 'auto'}`);
     
     try {
-      const result = await kiaraAgent.handleScheduleRequest(params.text, { from });
+      const result = await kiaraAgent.handleScheduleRequest(params.text, { 
+        from,
+        draftNumber,
+        date,
+        time
+      });
       return result;
     } catch (error) {
       console.error('Erreur Kiara schedule:', error);
@@ -2854,13 +2990,23 @@ Agents disponibles:
   }
 
   /**
-   * Modification d'article
+   * Modification d'article (avec params extraits par l'IA)
    */
   async handleKiaraModify(from, params) {
-    console.log(`✏️ Kiara modifie un article...`);
+    // Extraire les paramètres de l'IA
+    const draftNumber = params.draftNumber || null;
+    const field = params.field || null; // 'title', 'content', 'meta_description', 'tags'
+    const newValue = params.newValue || null;
+    
+    console.log(`✏️ Kiara modifie - draft#${draftNumber || 'auto'}, field:${field || 'auto'}, value:"${newValue || 'auto'}"`);
     
     try {
-      const result = await kiaraAgent.handleModifyRequest(params.text, { from });
+      const result = await kiaraAgent.handleModifyRequest(params.text, { 
+        from,
+        draftNumber,
+        field,
+        newValue
+      });
       return result;
     } catch (error) {
       console.error('Erreur Kiara modify:', error);
@@ -3036,14 +3182,26 @@ Agents disponibles:
   }
 
   /**
-   * Supprimer un article via Kiara
+   * Supprimer un article via Kiara (avec params extraits par l'IA)
    */
   async handleKiaraDeleteArticle(params) {
-    console.log(`🗑️ Kiara supprime un article...`, params);
+    // Extraire les paramètres de l'IA
+    const draftNumber = params.draftNumber || null;
+    const publishedNumber = params.publishedNumber || null;
+    const title = params.title || params.query || null;
+    const status = params.status || null; // 'published', 'draft', ou null
+    
+    // Construire le terme de recherche
+    let searchTerm = title;
+    if (draftNumber && status === 'draft') {
+      searchTerm = String(draftNumber);
+    } else if (publishedNumber && status === 'published') {
+      searchTerm = String(publishedNumber);
+    }
+    
+    console.log(`🗑️ Kiara supprime - draft#${draftNumber}, pub#${publishedNumber}, title:"${title}", status:${status}`);
     
     try {
-      const searchTerm = params.title || params.query || null;
-      const status = params.status || null; // 'published', 'draft', ou null
       const result = await kiaraAgent.deleteArticle(searchTerm, status);
       return `✍️ **Kiara** rapporte:\n\n${result}`;
     } catch (error) {
