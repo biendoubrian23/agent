@@ -535,19 +535,40 @@ class OutlookService {
 
   /**
    * Classifier un email et le déplacer
+   * Supporte les dossiers par défaut ET les dossiers personnalisés créés par l'utilisateur
    */
   async classifyAndMoveEmail(email, category) {
-    // Mapper la catégorie au nom du dossier
-    let folderName;
+    // Normaliser la catégorie
+    const categoryLower = category.toLowerCase().trim();
     
-    // Vérifier les catégories prédéfinies
-    if (CLASSIFICATION_FOLDERS[category.toLowerCase()]) {
-      folderName = CLASSIFICATION_FOLDERS[category.toLowerCase()];
-    } else if (category.toLowerCase() === 'iscod' || category.toLowerCase() === 'école' || category.toLowerCase() === 'ecole') {
-      folderName = 'ISCOD';
-    } else {
-      // Catégorie par défaut
-      folderName = CLASSIFICATION_FOLDERS['newsletter'];
+    // 1. D'abord chercher dans les dossiers par défaut
+    let folderName = CLASSIFICATION_FOLDERS[categoryLower];
+    
+    // 2. Si pas trouvé, vérifier les cas spéciaux connus
+    if (!folderName) {
+      const specialFolders = {
+        'iscod': 'ISCOD',
+        'école': 'ISCOD',
+        'ecole': 'ISCOD',
+        'formation': 'ISCOD',
+        'publicites': 'Publicites',
+        'publicité': 'Publicites',
+        'pub': 'Publicites',
+        'spam': 'Spam',
+        'perso': 'Personnel',
+        'personnel': 'Personnel',
+        'travail': '💼 Professionnel',
+        'pro': '💼 Professionnel',
+        'job': '💼 Professionnel'
+      };
+      folderName = specialFolders[categoryLower];
+    }
+    
+    // 3. Si toujours pas trouvé, utiliser la catégorie comme nom de dossier directement
+    // (pour les dossiers personnalisés créés par l'utilisateur)
+    if (!folderName) {
+      // Capitaliser la première lettre
+      folderName = category.charAt(0).toUpperCase() + category.slice(1);
     }
 
     const folderId = await this.getFolderIdByName(folderName);

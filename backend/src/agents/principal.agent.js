@@ -83,41 +83,51 @@ class PrincipalAgent {
    → L'utilisateur veut SOUVENT les deux: créer une règle ET appliquer maintenant
    → Tu dois proposer les deux options
 
-5. **Gestion des DOSSIERS:**
+5. **CLASSIFICATION vs RE-CLASSIFICATION (DISTINCTION CRITIQUE):**
+
+   📥 **CLASSIFICATION (email_classify)** = Trier les mails de la BOÎTE DE RÉCEPTION:
+   - "classe mes mails" → action: "email_classify"
+   - "classe mes 6 derniers mails" → action: "email_classify", count: 6
+   - "classement mes 10 derniers mails" → action: "email_classify", count: 10
+   - "trie mes emails" → action: "email_classify"
+   - "organise ma boîte de réception" → action: "email_classify"
+   - C'est TOUJOURS depuis l'Inbox vers les dossiers de classification
+   - RESPECTE LE NOMBRE EXACT demandé !
+
+   🔄 **RE-CLASSIFICATION (email_reclassify)** = Re-trier des mails DÉJÀ CLASSÉS:
+   - "reclasse mes mails" → action: "email_reclassify"
+   - "reclasse le dossier Newsletter" → action: "email_reclassify", sourceFolder: "📰 Newsletter"
+   - "reclasse les mails du dossier Finance" → action: "email_reclassify", sourceFolder: "🏦 Finance"
+   - "refais l'analyse" → action: "email_reclassify"
+   - "applique les nouvelles règles" → action: "email_reclassify"
+   - C'est pour CORRIGER des mails mal classés avec les règles actuelles
+   - Quand un DOSSIER est mentionné, c'est RE-classification !
+
+6. **Gestion des DOSSIERS:**
    - "créer un dossier X" → action: "create_folder", folder: "X"
    - "crée le dossier Publicité" → action: "create_folder", folder: "Publicité"
    - "supprime le dossier X" → action: "delete_folder", folder: "X"
    - "liste mes dossiers" → action: "list_folders"
 
-6. **RE-CLASSIFICATION (emails déjà classés):**
-   - "reclasse mes mails" → action: "email_reclassify"
-   - "reclasse" → action: "email_reclassify"
-   - "reclasse mes 10 derniers mails" → action: "email_reclassify", count: 10
-   - "reclasse mes 20 derniers mails" → action: "email_reclassify", count: 20
-   - "reclasse les mails du dossier Finance" → action: "email_reclassify", sourceFolder: "🏦 Finance"
-   - "reclasse le dossier Social" → action: "email_reclassify", sourceFolder: "🤝 Social"
-   - "refais une analyse" → action: "email_reclassify"
-   - "refais l'analyse des mails" → action: "email_reclassify"
-   - "réanalyse mes mails" → action: "email_reclassify"
-   - "ré-analyse" → action: "email_reclassify"
-   - "re-classe" → action: "email_reclassify"
-   - "applique les nouvelles règles" → action: "email_reclassify"
-   - "relance la classification" → action: "email_reclassify"
-   
-   **Mapping des dossiers:**
+7. **MAPPING DES DOSSIERS (pour sourceFolder):**
    - "finance" → "🏦 Finance"
    - "social" → "🤝 Social"
    - "urgent" → "🔴 Urgent"
    - "professionnel" → "💼 Professionnel"
    - "shopping" → "🛒 Shopping"
    - "newsletter" → "📰 Newsletter"
-   - "publicites" ou "pub" → "Publicites" (dossier personnalisé)
+   - "publicites" ou "pub" → "Publicites"
+   - "iscod" → "ISCOD"
 
 7. **Description des agents:**
    - "que peut faire James" → action: "describe_james"
    - "les capacités de James" → action: "describe_james"
    - "quels sont les rôles de James" → action: "describe_james"
    - "les tâches de James" → action: "describe_james"
+   - "que peut faire Kiara" → action: "describe_kiara"
+   - "les capacités de Kiara" → action: "describe_kiara"
+   - "fonctionnalités de Kiara" → action: "describe_kiara"
+   - "comment utiliser Kiara" → action: "describe_kiara"
 
 8. **Sujet BANCAIRE** (contient: banque, compte, argent, magali, budget):
    → Délègue à Magali (pas encore implémenté)
@@ -184,7 +194,7 @@ class PrincipalAgent {
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
   "target_agent": "brian" | "james" | "kiara" | "magali",
-  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "unknown",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "describe_kiara" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "kiara_delete_article" | "kiara_list_articles" | "unknown",
   "params": {
     "count": number (OBLIGATOIRE - extrait EXACTEMENT le nombre demandé. Ex: "3 derniers mails" → count: 3),
     "filter": "today" | "yesterday" | "week" | "month" | "7days" | "14days" | "30days" | "important" | "urgent" | null,
@@ -197,6 +207,7 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "text": string (le message original - TOUJOURS inclure pour send_email, create_reminder),
     "query": string (optionnel, terme de recherche OU sujet pour Kiara),
     "topic": string (optionnel, sujet pour Kiara),
+    "title": string (optionnel, titre d'article pour Kiara - suppression/modification),
     "articleCount": number (optionnel, nombre d'articles à rechercher pour Kiara),
     "name": string (optionnel, nom du contact à chercher),
     "olderThanDays": number (optionnel, pour nettoyage)
@@ -218,7 +229,12 @@ EXEMPLES IMPORTANTS:
 - "montre les mails d'Adrian" → action: "email_summary", from: "Adrian" (FILTRER)
 - "cherche les mails de Adrian" → action: "email_summary", from: "Adrian" (FILTRER par expéditeur, PAS email_search!)
 - "trouve les mails de LinkedIn" → action: "email_summary", from: "LinkedIn" (FILTRER)
-- "classe mes 5 derniers mails" → action: "email_classify", count: 5
+- "classe mes 5 derniers mails" → action: "email_classify", count: 5 (IMPORTANT: respecter le nombre!)
+- "classement mes 6 derniers mails" → action: "email_classify", count: 6
+- "classe 10 mails" → action: "email_classify", count: 10
+- "trie mes 3 emails" → action: "email_classify", count: 3
+- "reclasse les mails du dossier Newsletter" → action: "email_reclassify", sourceFolder: "Newsletter"
+- "reclasse 20 mails de Newsletter" → action: "email_reclassify", count: 20, sourceFolder: "Newsletter"
 - "mails importants d'aujourd'hui" → action: "email_important", filter: "today"
 - "envoie un mail à jean@test.com pour lui dire bonjour" → action: "send_email", text: "..."
 - "quel est le mail de Brian" → action: "contact_search", params: { name: "Brian" } (ADRESSE email)
@@ -230,6 +246,13 @@ EXEMPLES IMPORTANTS:
 - "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
 - "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
 - "publie l'article" → action: "kiara_publish", target_agent: "kiara"
+- "supprime l'article sur les GPU" → action: "kiara_delete_article", title: "GPU"
+- "supprime le brouillon" → action: "kiara_delete_article"
+- "liste mes articles" → action: "kiara_list_articles"
+- "mes articles" → action: "kiara_list_articles"
+- "stats du blog" → action: "kiara_global_stats"
+- "fonctionnalités de Kiara" → action: "describe_kiara"
+- "que peut faire Kiara" → action: "describe_kiara"
 
 DISTINCTION TRÈS IMPORTANTE:
 - "cherche/trouve/montre LES MAILS de X" → email_summary avec from: "X" (FILTRER les mails de cet expéditeur)
@@ -417,6 +440,10 @@ DISTINCTION TRÈS IMPORTANTE:
         response = this.getJamesCapabilities();
         break;
 
+      case 'describe_kiara':
+        response = this.getKiaraCapabilities();
+        break;
+
       // ========== KIARA ACTIONS ==========
       case 'kiara_trends':
         response = await this.handleKiaraTrends(intent.params);
@@ -464,6 +491,14 @@ DISTINCTION TRÈS IMPORTANTE:
 
       case 'kiara_list_drafts':
         response = await this.handleKiaraListDrafts(from);
+        break;
+
+      case 'kiara_delete_article':
+        response = await this.handleKiaraDeleteArticle(intent.params);
+        break;
+
+      case 'kiara_list_articles':
+        response = await this.handleKiaraListArticles();
         break;
 
       case 'switch_to_james':
@@ -705,6 +740,9 @@ DISTINCTION TRÈS IMPORTANTE:
       case 'describe_james':
         return { action: 'describe_james', params };
       
+      case 'describe_kiara':
+        return { action: 'describe_kiara', params };
+      
       case 'delete_rule':
         return { action: 'delete_rule', params: { ruleNumber: params.ruleNumber } };
       
@@ -798,6 +836,18 @@ DISTINCTION TRÈS IMPORTANTE:
       
       case 'kiara_list_drafts':
         return { action: 'kiara_list_drafts', params: {} };
+      
+      case 'kiara_delete_article':
+        return { 
+          action: 'kiara_delete_article', 
+          params: { 
+            title: params.title || params.query,
+            text: originalText 
+          } 
+        };
+      
+      case 'kiara_list_articles':
+        return { action: 'kiara_list_articles', params: {} };
       
       case 'switch_to_james':
         return { action: 'switch_to_james', params: {} };
@@ -1815,6 +1865,66 @@ DISTINCTION TRÈS IMPORTANTE:
   }
 
   /**
+   * Retourne les capacités de Kiara (description agent SEO/Blog)
+   */
+  getKiaraCapabilities() {
+    return `✍️ **Kiara - Assistant SEO & Blog Intelligent**
+
+━━━━━ 🔥 TENDANCES ━━━━━
+• "Quelles sont les tendances tech ?"
+• "Tendances actuelles en IA"
+• "C'est quoi le buzz en ce moment ?"
+
+━━━━━ 📝 GÉNÉRATION D'ARTICLES ━━━━━
+• "Rédige un article sur les GPU"
+• "Écris un blog sur l'intelligence artificielle"
+• "Génère un article sur le cloud computing"
+
+━━━━━ 🚀 WORKFLOW COMPLET ━━━━━
+_(Recherche → Rédaction → PDF → Brouillon)_
+• "Recherche 3 articles sur les GPU et génère un blog"
+• "Fais moi un article complet sur l'IA générative"
+• "Crée un article tech sur React avec 2 sources"
+
+━━━━━ 📊 STATISTIQUES ━━━━━
+• "Stats du blog"
+• "Combien de vues sur mes articles ?"
+• "Quels sont les articles les plus lus ?"
+
+━━━━━ 📄 PDF ━━━━━
+• "Envoie-moi le PDF"
+• "Génère le PDF de l'article"
+• "Je veux le PDF"
+
+━━━━━ ✏️ MODIFICATION ━━━━━
+• "Change le titre par..."
+• "Modifie l'introduction"
+• "Corrige le paragraphe sur..."
+
+━━━━━ 📅 PUBLICATION ━━━━━
+• "Publie l'article"
+• "Programme l'article pour demain 10h"
+• "Planifie la publication pour lundi"
+
+━━━━━ 📋 GESTION ARTICLES ━━━━━
+• "Mes articles" - Voir tous (publiés + brouillons)
+• "Mes brouillons" - Articles en attente
+• "Supprime l'article [titre]"
+• "Supprime le brouillon"
+
+━━━━━ 🗑️ SUPPRESSION ━━━━━
+• "Supprime l'article sur les GPU"
+• "Supprime le numéro 2"
+• "Supprime article" (voir la liste)
+
+💡 **Conseil:** Commence par "Recherche X articles sur [sujet] et génère un blog" pour un workflow complet !
+
+🔍 **SEO:** Articles optimisés avec meta, keywords, FAQ et structure H2/H3
+
+🌐 **Blog:** www.brianbiendou.com/blog`;
+  }
+
+  /**
    * Recherche d'emails par mots-clés
    */
   async handleEmailSearch(params) {
@@ -2292,6 +2402,37 @@ Agents disponibles:
     } catch (error) {
       console.error('Erreur Kiara list drafts:', error);
       return `❌ Kiara n'a pas pu lister les brouillons: ${error.message}`;
+    }
+  }
+
+  /**
+   * Supprimer un article via Kiara
+   */
+  async handleKiaraDeleteArticle(params) {
+    console.log(`🗑️ Kiara supprime un article...`);
+    
+    try {
+      const searchTerm = params.title || params.query || params.text || null;
+      const result = await kiaraAgent.deleteArticle(searchTerm);
+      return `✍️ **Kiara** rapporte:\n\n${result}`;
+    } catch (error) {
+      console.error('Erreur Kiara delete article:', error);
+      return `❌ Kiara n'a pas pu supprimer l'article: ${error.message}`;
+    }
+  }
+
+  /**
+   * Lister tous les articles via Kiara
+   */
+  async handleKiaraListArticles() {
+    console.log(`📚 Kiara liste les articles...`);
+    
+    try {
+      const result = await kiaraAgent.listAllArticles();
+      return `✍️ **Kiara** rapporte:\n\n${result}`;
+    } catch (error) {
+      console.error('Erreur Kiara list articles:', error);
+      return `❌ Kiara n'a pas pu lister les articles: ${error.message}`;
     }
   }
 

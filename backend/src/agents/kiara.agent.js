@@ -304,8 +304,8 @@ Réponds toujours de manière professionnelle et utile.`;
 
     const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
 
-    const articlePrompt = `Tu es un EXCELLENT rédacteur web FRANÇAIS. Tu écris UNIQUEMENT en français.
-Rédige un article de blog captivant qui traite de ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
+    const articlePrompt = `Tu es un EXCELLENT rédacteur web FRANÇAIS et expert SEO. Tu écris UNIQUEMENT en français.
+Rédige un article de blog captivant ET optimisé SEO qui traite de ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
 
 🔍 SUJETS/SOURCES À ANALYSER (les titres sont en anglais, TRADUIS-LES en français):
 ${sourcesForPrompt}
@@ -317,36 +317,50 @@ ${sourcesForPrompt}
 - **ACCESSIBLE**: Explique les concepts complexes simplement
 ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujets' : ''}
 
-⚠️ RÈGLES STRICTES:
-1. **TITRE EN FRANÇAIS** - Max 55 caractères, accrocheur
-2. **100% FRANÇAIS** - Tout l'article en français
-3. **PAS DE 'Introduction' ou 'Conclusion'** - Commence directement par l'accroche, termine par une phrase fun
-4. **MARKDOWN BIEN FORMATÉ** - Utilise ## pour les titres, **gras** pour les mots clés, listes à puces
+🔍 OPTIMISATION SEO OBLIGATOIRE:
+1. **TITRE**: 50-60 caractères, mot-clé principal au début
+2. **META DESCRIPTION**: 150-160 caractères, incite au clic, contient le mot-clé
+3. **KEYWORDS**: 5-8 mots-clés pertinents (principal + secondaires + longue traîne)
+4. **STRUCTURE H2/H3**: Titres avec mots-clés, hiérarchie logique
+5. **MOTS-CLÉS DANS LE CONTENU**: Densité 1-2%, répartis naturellement
+6. **LIENS INTERNES SUGGÉRÉS**: Propose 2-3 sujets liés pour maillage interne
+7. **FAQ SEO**: 2-3 questions fréquentes à la fin (format ## FAQ)
 
-📏 LONGUEUR: 600-800 mots
+⚠️ RÈGLES STRICTES:
+1. **TITRE EN FRANÇAIS** - 50-60 caractères, mot-clé au début, accrocheur
+2. **100% FRANÇAIS** - Tout l'article en français
+3. **PAS DE 'Introduction' ou 'Conclusion'** - Commence directement par l'accroche
+4. **MARKDOWN BIEN FORMATÉ** - ## pour H2, ### pour H3, **gras** pour mots clés
+
+📏 LONGUEUR: 800-1200 mots (meilleur pour le SEO)
 
 📋 STRUCTURE DU CONTENU MARKDOWN:
-1. **Accroche** (2-3 phrases percutantes, PAS de titre "Introduction")
-2. **## Titre Section 1** (créatif, pas "Qu'est-ce que...")
+1. **Accroche** (2-3 phrases percutantes avec mot-clé principal)
+2. **## Titre Section 1** (mot-clé secondaire)
    - Paragraphe explicatif avec **mots clés en gras**
    - Liste à puces si pertinent
-3. **## Titre Section 2** (autre angle)
-   - Exemples concrets, chiffres
-4. **## Titre Section 3** (impact/futur)
-   - Analyse, point de vue
-5. **Phrase de fin fun** (PAS de titre "Conclusion")
+3. **## Titre Section 2** (angle différent, autre mot-clé)
+   - Exemples concrets, chiffres, données
+4. **## Titre Section 3** (impact/futur/tendances)
+   - Analyse, point de vue expert
+5. **## FAQ** (2-3 questions SEO-friendly)
+   - ### Question 1 ?
+   - Réponse courte et claire
+6. **Phrase de fin** engageante avec CTA
 
 📄 FORMAT JSON:
 {
-  "title": "Titre accrocheur et fun (max 60 car)",
-  "meta_description": "Description engageante",
-  "keywords": ["mot1", "mot2"],
-  "excerpt": "2-3 phrases qui donnent envie de lire",
-  "content": "Contenu Markdown complet",
+  "title": "Titre SEO 50-60 car avec mot-clé au début",
+  "meta_description": "Description 150-160 car engageante avec mot-clé",
+  "keywords": ["mot-clé principal", "mot-clé 2", "mot-clé 3", "longue traîne 1", "longue traîne 2"],
+  "excerpt": "2-3 phrases accrocheuses pour les réseaux sociaux",
+  "content": "Contenu Markdown complet avec FAQ",
   "category": "${category}",
   "reading_time_minutes": 5,
-  "tags": ["tag1", "tag2"],
-  "sources": [${sources.map(s => `"${s.link}"`).join(', ')}]
+  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "sources": [${sources.map(s => `"${s.link}"`).join(', ')}],
+  "internal_links_suggestions": ["sujet lié 1", "sujet lié 2"],
+  "focus_keyword": "mot-clé principal ciblé"
 }`;
 
     try {
@@ -636,6 +650,130 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
       response += `🏆 **Article le plus populaire:**\n`;
       response += `"${topPost.title}" avec ${topPost.views_count || 0} vues`;
     }
+
+    return response;
+  }
+
+  // ============================================
+  // SUPPRESSION D'ARTICLES
+  // ============================================
+
+  /**
+   * Supprimer un article (brouillon ou publié)
+   * @param {string} searchTerm - Titre, slug ou ID de l'article
+   */
+  async deleteArticle(searchTerm) {
+    if (!searchTerm) {
+      // Lister les articles disponibles à supprimer
+      const { data: allPosts, error } = await supabaseService.client
+        .from('blog_posts')
+        .select('id, title, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error || !allPosts?.length) {
+        return `📭 Aucun article trouvé.`;
+      }
+
+      let response = `🗑️ **Quel article veux-tu supprimer ?**\n\n`;
+      allPosts.forEach((p, i) => {
+        const status = p.status === 'published' ? '📢' : '📝';
+        response += `${i + 1}. ${status} "${p.title}"\n`;
+      });
+      response += `\n💡 Dis "supprime l'article [titre]" ou "supprime le numéro X"`;
+      return response;
+    }
+
+    // Chercher l'article
+    const { data: posts, error: fetchError } = await supabaseService.client
+      .from('blog_posts')
+      .select('*');
+
+    if (fetchError) {
+      return `❌ Erreur: ${fetchError.message}`;
+    }
+
+    // Chercher par numéro, titre ou slug
+    let article;
+    const num = parseInt(searchTerm);
+    
+    if (!isNaN(num) && num > 0) {
+      // Recherche par numéro (position dans la liste)
+      const sortedPosts = [...posts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      article = sortedPosts[num - 1];
+    } else {
+      // Recherche par titre ou slug
+      article = posts.find(p => 
+        p.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.slug?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.id === searchTerm
+      );
+    }
+
+    if (!article) {
+      return `❌ Article "${searchTerm}" non trouvé.\n\n💡 Dis "supprime article" pour voir la liste.`;
+    }
+
+    // Confirmer la suppression
+    const status = article.status === 'published' ? '(publié)' : '(brouillon)';
+    
+    // Supprimer l'article
+    const { error: deleteError } = await supabaseService.client
+      .from('blog_posts')
+      .delete()
+      .eq('id', article.id);
+
+    if (deleteError) {
+      return `❌ Erreur lors de la suppression: ${deleteError.message}`;
+    }
+
+    return `✅ **Article supprimé avec succès !**\n\n🗑️ "${article.title}" ${status}\n\n💡 L'article a été définitivement supprimé.`;
+  }
+
+  /**
+   * Lister tous les articles (brouillons + publiés)
+   */
+  async listAllArticles() {
+    const { data: posts, error } = await supabaseService.client
+      .from('blog_posts')
+      .select('id, title, status, views_count, created_at, published_at')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return `❌ Erreur: ${error.message}`;
+    }
+
+    if (!posts?.length) {
+      return `📭 Aucun article trouvé.`;
+    }
+
+    const drafts = posts.filter(p => p.status === 'draft');
+    const published = posts.filter(p => p.status === 'published');
+
+    let response = `📚 **Mes Articles** (${posts.length} total)\n\n`;
+
+    if (published.length > 0) {
+      response += `📢 **Publiés** (${published.length}):\n`;
+      published.slice(0, 5).forEach((p, i) => {
+        response += `${i + 1}. "${p.title}" - 👁️ ${p.views_count || 0} vues\n`;
+      });
+      if (published.length > 5) response += `   ... et ${published.length - 5} autres\n`;
+      response += `\n`;
+    }
+
+    if (drafts.length > 0) {
+      response += `📝 **Brouillons** (${drafts.length}):\n`;
+      drafts.slice(0, 5).forEach((p, i) => {
+        const date = new Date(p.created_at).toLocaleDateString('fr-FR');
+        response += `${i + 1}. "${p.title}" - ${date}\n`;
+      });
+      if (drafts.length > 5) response += `   ... et ${drafts.length - 5} autres\n`;
+    }
+
+    response += `\n💡 **Actions:**\n`;
+    response += `• "Publie [titre]" - Publier un brouillon\n`;
+    response += `• "Supprime [titre]" - Supprimer un article\n`;
+    response += `• "Stats de [titre]" - Voir les stats`;
 
     return response;
   }
