@@ -421,94 +421,103 @@ Réponds toujours de manière professionnelle et utile.`;
 
     const sourcesForPrompt = sources.map(s => `- "${s.title}" (${s.source}): ${s.link}`).join('\n');
 
-    const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent, expert en articles captivants et bien présentés.
+    const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent et EXPERT SEO, spécialisé en référencement naturel.
 Rédige un article professionnel EN FRANÇAIS sur ${trendsCount > 1 ? 'ces actualités' : 'cette actualité'}:
 
 🔍 SOURCES (traduis les titres anglais en français):
 ${sourcesForPrompt}
 
 ═══════════════════════════════════════════════════════════════
+🎯 OPTIMISATION SEO (TRÈS IMPORTANT !)
+═══════════════════════════════════════════════════════════════
+
+1. **TITRE (title)**: 50-60 caractères
+   - Mot-clé principal AU DÉBUT
+   - Accrocheur et clair
+   - Peut contenir un jeu de mots ou emoji
+
+2. **META TITLE**: Titre optimisé pour Google (max 60 car)
+   - Peut différer légèrement du titre
+   - Inclut le mot-clé principal
+
+3. **META DESCRIPTION**: 150-160 caractères
+   - Résumé engageant qui donne envie de cliquer
+   - Inclut le mot-clé principal
+   - Appel à l'action implicite
+
+4. **KEYWORDS**: 5-8 mots-clés
+   - 1 mot-clé principal (focus_keyword)
+   - 2-3 mots-clés secondaires
+   - 2-3 mots-clés longue traîne
+   - Variantes et synonymes
+
+5. **TAGS**: 3-5 tags pertinents
+   - Catégories thématiques
+   - Utiles pour le classement interne
+
+6. **STRUCTURE H2/H3**: 
+   - Sous-titres avec mots-clés
+   - Hiérarchie logique
+   - Questions si pertinent (FAQ-style)
+
+═══════════════════════════════════════════════════════════════
 🎨 TON STYLE D'ÉCRITURE
 ═══════════════════════════════════════════════════════════════
-- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots, des références fun
-- **ACCROCHEUR**: Titre percutant qui donne envie de lire immédiatement
-- **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
-- **ACCESSIBLE**: Explique les concepts complexes simplement, avec des analogies
+- **HUMOUR**: Touches d'humour, jeux de mots, références fun
+- **ACCROCHEUR**: Titre percutant qui donne envie de lire
+- **DYNAMIQUE**: Écris comme à un ami passionné de tech
+- **ACCESSIBLE**: Explique les concepts simplement
 
 ═══════════════════════════════════════════════════════════════
 ⚠️ RÈGLES STRICTES (OBLIGATOIRES)
 ═══════════════════════════════════════════════════════════════
-1. **100% FRANÇAIS** - Tout l'article en français (sauf termes tech en *italique*)
-2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun/percutante
-3. **MARKDOWN BIEN FORMATÉ** - Le contenu DOIT être en Markdown pur (pas de HTML)
-4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées dans le champ sources
+1. **100% FRANÇAIS** - Tout en français (sauf termes tech en *italique*)
+2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement
+3. **MARKDOWN BIEN FORMATÉ** - Contenu en Markdown pur
+4. **MOT-CLÉ DANS LE 1ER PARAGRAPHE** - SEO oblige !
 
 ═══════════════════════════════════════════════════════════════
-📝 FORMATAGE MARKDOWN (TRÈS IMPORTANT !)
+📝 FORMATAGE MARKDOWN
 ═══════════════════════════════════════════════════════════════
 
-1. **PARAGRAPHES TRÈS COURTS ET AÉRÉS**:
-   - Maximum 2-3 phrases par paragraphe
-   - UNE LIGNE VIDE entre CHAQUE paragraphe (\\n\\n obligatoire !)
-   - JAMAIS de gros blocs de texte compacts
-   - Chaque paragraphe = une idée
-
-2. **CITATIONS avec guillemets français « »**:
-   - *« Citation exacte ici »*, a-t-il déclaré.
-   - Les citations TOUJOURS en ITALIQUE + guillemets français
-
-3. **GRAS STRATÉGIQUE** avec **double astérisque**:
-   - Noms propres: **Google**, **OpenAI**, **Nvidia**
-   - Chiffres: **15 millions d'euros**, **depuis 2013**
-   - Concepts: **intelligence artificielle**, **machine learning**
-
-4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
-   - Courts et accrocheurs
-   - Jamais "Introduction" ni "Conclusion"
-
-5. **LISTES À PUCES** si approprié:
-   - Pour énumérer clairement
-   - Maximum 4-5 points
+1. **PARAGRAPHES COURTS**: 2-3 phrases max, ligne vide entre chaque
+2. **CITATIONS**: *« Citation »* en italique + guillemets français
+3. **GRAS**: **Noms propres**, **chiffres**, **concepts clés**
+4. **SOUS-TITRES ##**: Tous les 2-3 paragraphes, avec mots-clés
+5. **LISTES**: Si approprié, max 4-5 points
 
 ═══════════════════════════════════════════════════════════════
-📋 EXEMPLE DE CONTENU MARKDOWN PARFAIT
+📋 EXEMPLE DE STRUCTURE SEO-FRIENDLY
 ═══════════════════════════════════════════════════════════════
 
-La nouvelle a sidéré les fans du monde entier. Plus de onze ans après l'accident, **Michael Schumacher** semble désormais hors d'atteinte.
+[Paragraphe d'accroche avec MOT-CLÉ PRINCIPAL dès les premières lignes]
 
-Un ancien proche du paddock, **Richard Hopkins**, a lâché une bombe cette semaine. Une phrase qui résonne comme un verdict définitif.
+## [Sous-titre avec mot-clé secondaire]
+[2-3 paragraphes]
 
-*« Je ne pense pas que nous reverrons Michael »*, a-t-il confié au micro de **RMC**. Des mots durs, mais qui éclairent onze années de mystère.
+## [Sous-titre sous forme de question ?]
+[2-3 paragraphes avec citations]
 
-## Le silence de la famille
-
-Depuis **2013**, la famille protège le champion avec une détermination sans faille. **Corinna Schumacher** a érigé un mur autour de son mari.
-
-Aucune photo. Aucune vidéo. Aucune déclaration. Le secret le mieux gardé du sport mondial !
-
-## Un mystère qui s'assombrit
-
-Selon Hopkins, le septuple champion du monde ne pourrait plus communiquer normalement. Une révélation qui fait froid dans le dos.
-
-Les fans espéraient un retour miraculeux. Cette phrase vient peut-être d'éteindre définitivement la flamme de l'espoir. Et c'est tout un monde qui retient son souffle.
+## [Sous-titre avec variante du mot-clé]
+[2-3 paragraphes + conclusion naturelle]
 
 ═══════════════════════════════════════════════════════════════
 
-📏 LONGUEUR: 800-1200 mots bien espacés
+📏 LONGUEUR: 800-1200 mots (idéal SEO)
 
-📄 FORMAT DE RÉPONSE - JSON avec contenu MARKDOWN:
-Le champ "content" doit contenir du MARKDOWN pur avec des \\n\\n entre les paragraphes.
+📄 FORMAT JSON AVEC SEO COMPLET:
 {
-  "title": "Titre accrocheur avec jeu de mots (50-60 car)",
-  "meta_description": "Description engageante (150-160 car)",
-  "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
-  "excerpt": "2-3 phrases d'accroche percutantes",
-  "content": "Paragraphe 1...\\n\\nParagraphe 2...\\n\\n## Sous-titre\\n\\nParagraphe 3 avec **gras** et *« citation »*...\\n\\nParagraphe 4...",
+  "title": "Titre accrocheur avec mot-clé (50-60 car)",
+  "meta_title": "Titre SEO optimisé pour Google (max 60 car)",
+  "meta_description": "Description engageante avec mot-clé et appel à l'action (150-160 car)",
+  "keywords": ["mot-clé principal", "mot-clé secondaire 1", "mot-clé secondaire 2", "longue traîne 1", "longue traîne 2"],
+  "focus_keyword": "mot-clé principal sur lequel optimiser",
+  "excerpt": "2-3 phrases d'accroche percutantes pour les réseaux sociaux",
+  "content": "Paragraphe avec **mot-clé principal** dès le début...\\n\\n## Sous-titre avec mot-clé\\n\\nParagraphe...",
   "category": "${category}",
   "reading_time_minutes": 5,
-  "tags": ["tag1", "tag2", "tag3"],
-  "sources": [${sources.map(s => `"${s.link}"`).join(', ')}],
-  "focus_keyword": "mot-clé principal"
+  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "sources": [${sources.map(s => `"${s.link}"`).join(', ')}]
 }`;
 
     try {
@@ -1392,92 +1401,76 @@ Réponds en JSON avec ce format:
       ? relatedTrends.map(t => `- "${t.title}" - ${t.link}`).join('\n')
       : 'Aucune source externe trouvée.';
 
-    const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent, expert en articles captivants et bien présentés.
+    const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent et EXPERT SEO, spécialisé en référencement naturel.
 Rédige un article de blog professionnel EN FRANÇAIS sur: "${subject}"
 
 🔍 SOURCES À ANALYSER (utilise si pertinentes):
 ${sourcesForPrompt}
 
 ═══════════════════════════════════════════════════════════════
+🎯 OPTIMISATION SEO (TRÈS IMPORTANT !)
+═══════════════════════════════════════════════════════════════
+
+1. **TITRE (title)**: 50-60 caractères
+   - Mot-clé principal AU DÉBUT
+   - Accrocheur et clair
+
+2. **META TITLE**: Titre optimisé pour Google (max 60 car)
+   - Inclut le mot-clé principal
+
+3. **META DESCRIPTION**: 150-160 caractères
+   - Résumé engageant avec mot-clé
+   - Appel à l'action implicite
+
+4. **KEYWORDS**: 5-8 mots-clés
+   - 1 mot-clé principal (focus_keyword)
+   - 2-3 mots-clés secondaires
+   - 2-3 mots-clés longue traîne
+
+5. **TAGS**: 3-5 tags pertinents
+
+6. **STRUCTURE H2/H3**: Sous-titres avec mots-clés
+
+═══════════════════════════════════════════════════════════════
 🎨 TON STYLE D'ÉCRITURE
 ═══════════════════════════════════════════════════════════════
-- **HUMOUR**: Ajoute des touches d'humour, des jeux de mots, des références fun
-- **ACCROCHEUR**: Titre percutant qui donne envie de lire immédiatement
-- **DYNAMIQUE**: Écris comme si tu parlais à un ami passionné de tech
-- **ACCESSIBLE**: Explique les concepts complexes simplement, avec des analogies
+- **HUMOUR**: Touches d'humour, jeux de mots
+- **ACCROCHEUR**: Titre percutant
+- **DYNAMIQUE**: Écris comme à un ami passionné
+- **ACCESSIBLE**: Explique simplement
 
 ═══════════════════════════════════════════════════════════════
-⚠️ RÈGLES STRICTES (OBLIGATOIRES)
+⚠️ RÈGLES STRICTES
 ═══════════════════════════════════════════════════════════════
-1. **100% FRANÇAIS** - Tout l'article en français (sauf termes tech en *italique*)
-2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement, termine par une phrase fun/percutante
-3. **MARKDOWN BIEN FORMATÉ** - Le contenu DOIT être en Markdown pur (pas de HTML)
-4. **SOURCES** - Mets UNIQUEMENT les URLs des sources utilisées dans le champ sources
-
-═══════════════════════════════════════════════════════════════
-📝 FORMATAGE MARKDOWN (TRÈS IMPORTANT !)
-═══════════════════════════════════════════════════════════════
-
-1. **PARAGRAPHES TRÈS COURTS ET AÉRÉS**:
-   - Maximum 2-3 phrases par paragraphe
-   - UNE LIGNE VIDE entre CHAQUE paragraphe (\\n\\n obligatoire !)
-   - JAMAIS de gros blocs de texte compacts
-   - Chaque paragraphe = une idée
-
-2. **CITATIONS avec guillemets français « »**:
-   - *« Citation exacte ici »*, a-t-il déclaré.
-   - Les citations TOUJOURS en ITALIQUE + guillemets français
-
-3. **GRAS STRATÉGIQUE** avec **double astérisque**:
-   - Noms propres: **Google**, **OpenAI**, **Nvidia**
-   - Chiffres: **15 millions d'euros**, **depuis 2013**
-   - Concepts: **intelligence artificielle**, **machine learning**
-
-4. **SOUS-TITRES** avec ## (tous les 2-3 paragraphes):
-   - Courts et accrocheurs
-   - Jamais "Introduction" ni "Conclusion"
-
-5. **LISTES À PUCES** si approprié:
-   - Pour énumérer clairement
-   - Maximum 4-5 points
+1. **100% FRANÇAIS** - Sauf termes tech en *italique*
+2. **PAS DE "Introduction/Conclusion"** - Commence directement
+3. **MARKDOWN PUR** - Pas de HTML
+4. **MOT-CLÉ DANS LE 1ER PARAGRAPHE**
 
 ═══════════════════════════════════════════════════════════════
-📋 EXEMPLE DE CONTENU MARKDOWN PARFAIT
+📝 FORMATAGE MARKDOWN
 ═══════════════════════════════════════════════════════════════
-
-La nouvelle a sidéré les fans du monde entier. Plus de onze ans après l'accident, **Michael Schumacher** semble désormais hors d'atteinte.
-
-Un ancien proche du paddock, **Richard Hopkins**, a lâché une bombe cette semaine. Une phrase qui résonne comme un verdict définitif.
-
-*« Je ne pense pas que nous reverrons Michael »*, a-t-il confié au micro de **RMC**. Des mots durs, mais qui éclairent onze années de mystère.
-
-## Le silence de la famille
-
-Depuis **2013**, la famille protège le champion avec une détermination sans faille. **Corinna Schumacher** a érigé un mur autour de son mari.
-
-Aucune photo. Aucune vidéo. Aucune déclaration. Le secret le mieux gardé du sport mondial !
-
-## Un mystère qui s'assombrit
-
-Selon Hopkins, le septuple champion du monde ne pourrait plus communiquer normalement. Une révélation qui fait froid dans le dos.
-
-Les fans espéraient un retour miraculeux. Cette phrase vient peut-être d'éteindre définitivement la flamme de l'espoir !
+- Paragraphes courts (2-3 phrases), ligne vide entre chaque
+- Citations: *« Citation »* en italique + guillemets français
+- Gras: **Noms propres**, **chiffres**, **concepts**
+- Sous-titres ## avec mots-clés, tous les 2-3 paragraphes
 
 ═══════════════════════════════════════════════════════════════
 
-📏 LONGUEUR: 700-1000 mots bien espacés
+📏 LONGUEUR: 700-1000 mots (idéal SEO)
 
-📄 FORMAT DE RÉPONSE - JSON avec contenu MARKDOWN:
-Le champ "content" doit contenir du MARKDOWN pur avec des \\n\\n entre les paragraphes.
+📄 FORMAT JSON AVEC SEO COMPLET:
 {
-  "title": "Titre accrocheur avec jeu de mots (max 60 car)",
-  "meta_description": "Description engageante (150 car)",
-  "keywords": ["mot1", "mot2", "mot3"],
-  "excerpt": "2-3 phrases d'accroche percutantes",
-  "content": "Paragraphe 1...\\n\\nParagraphe 2...\\n\\n## Sous-titre\\n\\nParagraphe 3 avec **gras** et *« citation »*...\\n\\nParagraphe 4...",
+  "title": "Titre avec mot-clé (50-60 car)",
+  "meta_title": "Titre SEO optimisé (max 60 car)",
+  "meta_description": "Description avec mot-clé et CTA (150-160 car)",
+  "keywords": ["mot-clé principal", "secondaire 1", "secondaire 2", "longue traîne 1", "longue traîne 2"],
+  "focus_keyword": "mot-clé principal",
+  "excerpt": "2-3 phrases d'accroche pour réseaux sociaux",
+  "content": "Paragraphe avec **mot-clé** dès le début...\\n\\n## Sous-titre SEO\\n\\nParagraphe...",
   "category": "${category}",
   "reading_time_minutes": 5,
-  "tags": ["tag1", "tag2"],
+  "tags": ["tag1", "tag2", "tag3"],
   "sources": ["https://..."]
 }`;
 
@@ -1746,6 +1739,7 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       meta_title: (article.meta_title || safeTitle).substring(0, 70),
       meta_description: (article.meta_description || '').substring(0, 160),
       keywords: article.keywords,
+      // focus_keyword: article.focus_keyword || (article.keywords && article.keywords[0]) || null, // Mot-clé principal SEO
       canonical_url: null,
       sources: formattedSources,
       category: article.category,
