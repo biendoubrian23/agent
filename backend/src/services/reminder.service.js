@@ -262,8 +262,8 @@ class ReminderService {
       triggerAt.setHours(parseInt(demainMatch[1]), parseInt(demainMatch[2] || '0'), 0, 0);
     }
     
-    // "dans X heures/minutes"
-    const dansMatch = lowerText.match(/dans\s+(\d+)\s*(heure|minute|min|h|jour)/i);
+    // "dans X heures/minutes/secondes" - AMÉLIORÉ
+    const dansMatch = lowerText.match(/dans\s+(\d+)\s*(seconde|secondes|sec|s|minute|minutes|min|m|heure|heures|h|jour|jours|j)/i);
     if (dansMatch) {
       triggerAt = new Date(now);
       const amount = parseInt(dansMatch[1]);
@@ -273,7 +273,9 @@ class ReminderService {
         triggerAt.setHours(triggerAt.getHours() + amount);
       } else if (unit.startsWith('min') || unit === 'm') {
         triggerAt.setMinutes(triggerAt.getMinutes() + amount);
-      } else if (unit.startsWith('jour')) {
+      } else if (unit.startsWith('sec') || unit === 's') {
+        triggerAt.setSeconds(triggerAt.getSeconds() + amount);
+      } else if (unit.startsWith('jour') || unit === 'j') {
         triggerAt.setDate(triggerAt.getDate() + amount);
       }
     }
@@ -305,11 +307,12 @@ class ReminderService {
       triggerAt.setHours(parseInt(jourMatch[2] || '9'), parseInt(jourMatch[3] || '0'), 0, 0);
     }
     
-    // Extraire le message (tout sauf les indications de temps)
+    // Extraire le message (tout sauf les indications de temps) - AMÉLIORÉ
     message = text
       .replace(/rappelle[- ]?moi\s*/i, '')
+      .replace(/programme[- ]?moi\s*(un\s*)?rappel\s*/i, '')
       .replace(/demain\s*(?:à|a)?\s*\d{1,2}h?\d{0,2}/i, '')
-      .replace(/dans\s+\d+\s*(heure|minute|min|h|jour)s?/i, '')
+      .replace(/dans\s+\d+\s*(seconde|secondes|sec|s|minute|minutes|min|m|heure|heures|h|jour|jours|j)s?/i, '')
       .replace(/(?:à|a)\s*\d{1,2}h\d{0,2}/i, '')
       .replace(/(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s*(?:à|a)?\s*\d{0,2}h?\d{0,2}/i, '')
       .replace(/^(de|d'|que|pour)\s*/i, '')
