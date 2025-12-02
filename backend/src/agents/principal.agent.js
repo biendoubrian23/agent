@@ -249,11 +249,12 @@ EXEMPLES IMPORTANTS:
 - "tendances tech actuelles" → action: "kiara_trends", target_agent: "kiara"
 - "rédige un article sur l'IA" → action: "kiara_generate_article", target_agent: "kiara", topic: "IA"
 - "publie l'article" → action: "kiara_publish", target_agent: "kiara"
-- "supprime l'article 1" → action: "kiara_delete_article", title: "1" (numéro)
-- "supprime l'article 2" → action: "kiara_delete_article", title: "2" (numéro)
-- "supprime le 3" → action: "kiara_delete_article", title: "3" (numéro)
+- "supprime le brouillon 1" → action: "kiara_delete_article", title: "1", status: "draft"
+- "supprime brouillon 2" → action: "kiara_delete_article", title: "2", status: "draft"
+- "supprime l'article publié 1" → action: "kiara_delete_article", title: "1", status: "published"
+- "supprime publié 2" → action: "kiara_delete_article", title: "2", status: "published"
 - "supprime l'article sur les GPU" → action: "kiara_delete_article", title: "GPU"
-- "supprime le brouillon" → action: "kiara_delete_article"
+- "supprime article" → action: "kiara_delete_article" (affiche la liste)
 - "liste mes articles" → action: "kiara_list_articles" (TOUS les articles)
 - "mes articles" → action: "kiara_list_articles" (TOUS les articles)
 - "liste complète" → action: "kiara_list_articles" (TOUS les articles)
@@ -619,8 +620,19 @@ DISTINCTION TRÈS IMPORTANTE:
       if (lowerText.includes('modifi') || lowerText.includes('change le titre') || lowerText.includes('corrige')) {
         return { action: 'kiara_modify', params: { text } };
       }
-      if (lowerText.includes('brouillon') || lowerText.includes('drafts') || lowerText.includes('mes articles')) {
+      // Articles publiés uniquement
+      if ((lowerText.includes('publié') || lowerText.includes('publier') || lowerText.includes('publish')) && 
+          (lowerText.includes('article') || lowerText.includes('liste') || lowerText.includes('affiche') || lowerText.includes('montre'))) {
+        return { action: 'kiara_list_published', params: { text } };
+      }
+      // Brouillons uniquement
+      if (lowerText.includes('brouillon') || lowerText.includes('drafts') || lowerText.includes('draft')) {
         return { action: 'kiara_list_drafts', params: { text } };
+      }
+      // Liste complète (tous les articles)
+      if (lowerText.includes('mes articles') || lowerText.includes('liste') && lowerText.includes('article') || 
+          lowerText.includes('tous les articles') || lowerText.includes('complète') || lowerText.includes('complete')) {
+        return { action: 'kiara_list_articles', params: { text } };
       }
       if (lowerText.includes('stats') || lowerText.includes('statistiques') || lowerText.includes('vues')) {
         return { action: 'kiara_global_stats', params: { text } };
@@ -859,26 +871,39 @@ DISTINCTION TRÈS IMPORTANTE:
         };
       
       case 'kiara_delete_article':
-        // Extraire le numéro ou titre de l'article à supprimer
+        // Extraire le numéro/titre ET le statut (brouillon/publié)
         let deleteTarget = params.title || params.query;
-        if (!deleteTarget && originalText) {
-          // Extraire numéro: "supprime l'article 2", "supprime le 3", "supprime article 1"
-          const numMatch = originalText.match(/(?:supprime|delete|efface)\s+(?:l'?article|le|brouillon)?\s*(\d+)/i);
+        let deleteStatus = params.status || null;
+        
+        if (originalText) {
+          const lowerOrig = originalText.toLowerCase();
+          
+          // Détecter le statut demandé
+          if (lowerOrig.includes('brouillon') || lowerOrig.includes('draft')) {
+            deleteStatus = 'draft';
+          } else if (lowerOrig.includes('publié') || lowerOrig.includes('publier') || 
+                     lowerOrig.includes('publish') || lowerOrig.includes('publie')) {
+            deleteStatus = 'published';
+          }
+          
+          // Extraire numéro: "supprime le brouillon 2", "supprime publié 1"
+          const numMatch = originalText.match(/(?:supprime|delete|efface)\s+(?:l[ea]?\s+)?(?:article\s+)?(?:brouillon|draft|publié|publier|publish)?\s*(\d+)/i);
           if (numMatch) {
-            deleteTarget = numMatch[1]; // Juste le numéro
-          } else {
-            // Extraire titre: "supprime l'article Google" -> "Google"
-            const titleMatch = originalText.match(/(?:supprime|delete|efface)\s+(?:l'?article)?\s+(?:sur\s+)?["']?(.+?)["']?$/i);
-            if (titleMatch) {
+            deleteTarget = numMatch[1];
+          } else if (!deleteTarget) {
+            // Extraire titre: "supprime l'article GPU" -> "GPU"
+            const titleMatch = originalText.match(/(?:supprime|delete|efface)\s+(?:l[ea]?\s+)?(?:article\s+)?(?:sur\s+)?["']?([^"'\d][^"']*?)["']?$/i);
+            if (titleMatch && !titleMatch[1].match(/^(brouillon|draft|publi|publish)/i)) {
               deleteTarget = titleMatch[1].trim();
             }
           }
         }
+        
         return { 
           action: 'kiara_delete_article', 
           params: { 
             title: deleteTarget,
-            text: originalText 
+            status: deleteStatus
           } 
         };
       
@@ -2512,11 +2537,12 @@ Agents disponibles:
    * Supprimer un article via Kiara
    */
   async handleKiaraDeleteArticle(params) {
-    console.log(`🗑️ Kiara supprime un article...`);
+    console.log(`🗑️ Kiara supprime un article...`, params);
     
     try {
-      const searchTerm = params.title || params.query || params.text || null;
-      const result = await kiaraAgent.deleteArticle(searchTerm);
+      const searchTerm = params.title || params.query || null;
+      const status = params.status || null; // 'published', 'draft', ou null
+      const result = await kiaraAgent.deleteArticle(searchTerm, status);
       return `✍️ **Kiara** rapporte:\n\n${result}`;
     } catch (error) {
       console.error('Erreur Kiara delete article:', error);

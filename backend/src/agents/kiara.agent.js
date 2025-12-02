@@ -660,11 +660,12 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
 
   /**
    * Supprimer un article (brouillon ou publié)
-   * @param {string} searchTerm - Titre, slug ou ID de l'article
+   * @param {string} searchTerm - Titre, slug, ID ou numéro de l'article
+   * @param {string} status - 'published', 'draft' ou null (recherche dans tous)
    */
-  async deleteArticle(searchTerm) {
+  async deleteArticle(searchTerm, status = null) {
+    // Si pas de terme de recherche, lister les articles
     if (!searchTerm) {
-      // Lister les articles disponibles à supprimer
       const { data: allPosts, error } = await supabaseService.client
         .from('blog_posts')
         .select('id, title, status, created_at')
@@ -674,35 +675,62 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
         return `📭 Aucun article trouvé.`;
       }
 
+      const published = allPosts.filter(p => p.status === 'published');
+      const drafts = allPosts.filter(p => p.status === 'draft');
+
       let response = `🗑️ **Quel article veux-tu supprimer ?**\n\n`;
-      allPosts.forEach((p, i) => {
-        const status = p.status === 'published' ? '📢' : '📝';
-        response += `${i + 1}. ${status} "${p.title}"\n`;
-      });
-      response += `\n💡 Dis "supprime l'article 1" ou "supprime l'article 2" (par numéro)`;
+      
+      if (published.length > 0) {
+        response += `📢 **Publiés:**\n`;
+        published.forEach((p, i) => {
+          response += `${i + 1}. "${p.title}"\n`;
+        });
+        response += `\n`;
+      }
+      
+      if (drafts.length > 0) {
+        response += `📝 **Brouillons:**\n`;
+        drafts.forEach((p, i) => {
+          response += `${i + 1}. "${p.title}"\n`;
+        });
+      }
+      
+      response += `\n💡 **Pour supprimer, précise le type :**\n`;
+      response += `• "Supprime le brouillon 1" ou "supprime brouillon 2"\n`;
+      response += `• "Supprime l'article publié 1" ou "supprime publié 2"\n`;
+      response += `• "Supprime l'article [titre]" (par titre)`;
       return response;
     }
 
-    // Chercher l'article
+    // Chercher tous les articles
     const { data: posts, error: fetchError } = await supabaseService.client
       .from('blog_posts')
-      .select('*');
+      .select('*')
+      .order('created_at', { ascending: false });
 
     if (fetchError) {
       return `❌ Erreur: ${fetchError.message}`;
     }
 
-    // Chercher par numéro, titre ou slug
+    // Filtrer par statut si spécifié
+    let filteredPosts = posts;
+    if (status === 'published') {
+      filteredPosts = posts.filter(p => p.status === 'published');
+    } else if (status === 'draft') {
+      filteredPosts = posts.filter(p => p.status === 'draft');
+    }
+
+    // Chercher par numéro ou titre
     let article;
     const num = parseInt(searchTerm);
     
     if (!isNaN(num) && num > 0) {
-      // Recherche par numéro (position dans la liste)
-      const sortedPosts = [...posts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      article = sortedPosts[num - 1];
+      // Recherche par numéro (dans la liste filtrée)
+      article = filteredPosts[num - 1];
     } else {
-      // Recherche par titre ou slug
-      article = posts.find(p => 
+      // Recherche par titre ou slug (dans tous si pas de statut)
+      const searchIn = status ? filteredPosts : posts;
+      article = searchIn.find(p => 
         p.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.slug?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.id === searchTerm
@@ -710,12 +738,13 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
     }
 
     if (!article) {
-      return `❌ Article "${searchTerm}" non trouvé.\n\n💡 Dis "supprime article" pour voir la liste.`;
+      let msg = `❌ Article "${searchTerm}" non trouvé`;
+      if (status === 'published') msg += ' dans les publiés';
+      else if (status === 'draft') msg += ' dans les brouillons';
+      msg += `.\n\n💡 Dis "supprime article" pour voir la liste.`;
+      return msg;
     }
 
-    // Confirmer la suppression
-    const status = article.status === 'published' ? '(publié)' : '(brouillon)';
-    
     // Supprimer l'article
     const { error: deleteError } = await supabaseService.client
       .from('blog_posts')
@@ -726,7 +755,8 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
       return `❌ Erreur lors de la suppression: ${deleteError.message}`;
     }
 
-    return `✅ **Article supprimé avec succès !**\n\n🗑️ "${article.title}" ${status}\n\n💡 L'article a été définitivement supprimé.`;
+    const statusText = article.status === 'published' ? '📢 publié' : '📝 brouillon';
+    return `✅ **Article supprimé !**\n\n🗑️ "${article.title}" (${statusText})\n\n💡 L'article a été définitivement supprimé.`;
   }
 
   /**
