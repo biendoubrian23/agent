@@ -493,16 +493,31 @@ DISTINCTION TRÈS IMPORTANTE:
     
     let response;
     
-    // Analyser l'intention dans le contexte Kiara (regex d'abord)
-    let intent = this.analyzeKiaraIntent(lowerText, text);
+    // 1. Analyser avec le regex
+    const regexIntent = this.analyzeKiaraIntent(lowerText, text);
+    console.log(`📝 Regex Kiara: ${regexIntent.action}`);
     
-    // Si le regex ne trouve pas → demander à l'IA
-    if (intent.action === 'kiara_unknown') {
-      console.log('🤔 Regex incertain, demande à l\'IA...');
-      intent = await this.analyzeKiaraIntentWithAI(text);
+    // 2. Toujours demander confirmation à l'IA
+    const aiIntent = await this.analyzeKiaraIntentWithAI(text);
+    console.log(`🤖 IA Kiara: ${aiIntent.action}`);
+    
+    // 3. Comparer et décider
+    let intent;
+    if (regexIntent.action === 'kiara_unknown') {
+      // Regex n'a pas trouvé → utiliser l'IA
+      intent = aiIntent;
+      console.log(`✅ Décision: IA (regex incertain)`);
+    } else if (regexIntent.action === aiIntent.action) {
+      // Regex et IA sont d'accord → utiliser le regex (plus rapide, params plus précis)
+      intent = regexIntent;
+      console.log(`✅ Décision: MATCH (regex = IA)`);
+    } else {
+      // Désaccord → faire confiance à l'IA
+      intent = aiIntent;
+      console.log(`⚠️ Décision: IA (désaccord - regex: ${regexIntent.action}, IA: ${aiIntent.action})`);
     }
     
-    console.log(`🎯 Action Kiara: ${intent.action}`);
+    console.log(`🎯 Action finale: ${intent.action}`);
     
     // Récupérer l'historique pour le contexte
     const conversationHistory = this.getConversationHistory(from, 'kiara');
@@ -577,16 +592,31 @@ DISTINCTION TRÈS IMPORTANTE:
     
     let response;
     
-    // Analyser l'intention dans le contexte James (regex d'abord)
-    let intent = await this.analyzeJamesIntent(lowerText, text);
+    // 1. Analyser avec le regex
+    const regexIntent = await this.analyzeJamesIntent(lowerText, text);
+    console.log(`📝 Regex James: ${regexIntent.action}`);
     
-    // Si le regex ne trouve pas → demander à l'IA
-    if (intent.action === 'james_unknown') {
-      console.log('🤔 Regex incertain, demande à l\'IA...');
-      intent = await this.analyzeJamesIntentWithAI(text);
+    // 2. Toujours demander confirmation à l'IA
+    const aiIntent = await this.analyzeJamesIntentWithAI(text);
+    console.log(`🤖 IA James: ${aiIntent.action}`);
+    
+    // 3. Comparer et décider
+    let intent;
+    if (regexIntent.action === 'james_unknown') {
+      // Regex n'a pas trouvé → utiliser l'IA
+      intent = aiIntent;
+      console.log(`✅ Décision: IA (regex incertain)`);
+    } else if (regexIntent.action === aiIntent.action) {
+      // Regex et IA sont d'accord → utiliser le regex (params plus précis)
+      intent = regexIntent;
+      console.log(`✅ Décision: MATCH (regex = IA)`);
+    } else {
+      // Désaccord → faire confiance à l'IA
+      intent = aiIntent;
+      console.log(`⚠️ Décision: IA (désaccord - regex: ${regexIntent.action}, IA: ${aiIntent.action})`);
     }
     
-    console.log(`🎯 Action James: ${intent.action}`);
+    console.log(`🎯 Action finale: ${intent.action}`);
     
     switch (intent.action) {
       case 'email_summary':
