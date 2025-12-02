@@ -882,15 +882,108 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
   // RECHERCHE DE TENDANCES
   // ============================================
 
-  async handleTrendRequest(message) {
-    console.log('🔍 Kiara recherche les tendances en temps réel...');
+  /**
+   * Convertir une période en dates
+   */
+  getPeriodDates(period) {
+    const now = new Date();
+    let startDate = new Date();
+    let endDate = new Date();
+    let label = "aujourd'hui";
     
-    const trends = await this.fetchTrendsFromInternet();
+    switch(period) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0);
+        label = "aujourd'hui";
+        break;
+        
+      case 'yesterday':
+        startDate.setDate(now.getDate() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setDate(now.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+        label = "hier";
+        break;
+        
+      case '2days':
+        startDate.setDate(now.getDate() - 2);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setDate(now.getDate() - 2);
+        endDate.setHours(23, 59, 59, 999);
+        label = "il y a 2 jours";
+        break;
+        
+      case '3days':
+        startDate.setDate(now.getDate() - 3);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setDate(now.getDate() - 3);
+        endDate.setHours(23, 59, 59, 999);
+        label = "il y a 3 jours";
+        break;
+        
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        label = "cette semaine";
+        break;
+        
+      case 'lastweek':
+        startDate.setDate(now.getDate() - 14);
+        endDate.setDate(now.getDate() - 7);
+        label = "la semaine dernière";
+        break;
+        
+      case 'month':
+        startDate.setDate(now.getDate() - 30);
+        label = "ce mois";
+        break;
+        
+      case 'lastmonth':
+        startDate.setDate(now.getDate() - 60);
+        endDate.setDate(now.getDate() - 30);
+        label = "le mois dernier";
+        break;
+        
+      default:
+        // Match pour X days
+        const daysMatch = period?.match(/^(\d+)days$/);
+        if (daysMatch) {
+          const days = parseInt(daysMatch[1]);
+          startDate.setDate(now.getDate() - days);
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setDate(now.getDate() - days);
+          endDate.setHours(23, 59, 59, 999);
+          label = `il y a ${days} jours`;
+        } else {
+          // Par défaut: aujourd'hui
+          startDate.setHours(0, 0, 0, 0);
+          label = "aujourd'hui";
+        }
+    }
+    
+    return { startDate, endDate, label };
+  }
+
+  async handleTrendRequest(message, period = null) {
+    const { startDate, endDate, label } = this.getPeriodDates(period);
+    
+    console.log(`🔍 Kiara recherche les tendances (${label})...`);
+    
+    const trends = await this.fetchTrendsFromInternet(startDate, endDate);
     
     // Stocker les tendances pour référence ultérieure
     this.lastDisplayedTrends = trends;
     
-    let response = `🔥 **Tendances Tech en temps réel** (${new Date().toLocaleDateString('fr-FR')})\n\n`;
+    let response = `🔥 **Tendances Tech** - ${label.charAt(0).toUpperCase() + label.slice(1)}\n`;
+    response += `📅 ${startDate.toLocaleDateString('fr-FR')}${period && period !== 'today' && !period.includes('day') ? ' - ' + endDate.toLocaleDateString('fr-FR') : ''}\n\n`;
+    
+    if (trends.length === 0) {
+      response += `📭 Aucune tendance trouvée pour cette période.\n\n`;
+      response += `💡 **Suggestions:**\n`;
+      response += `• "Tendances d'aujourd'hui"\n`;
+      response += `• "Tendances de la semaine"\n`;
+      response += `• "Actualités tech d'hier"`;
+      return response;
+    }
     
     trends.forEach((trend, i) => {
       response += `${i + 1}. **${trend.title}**\n`;
@@ -899,11 +992,23 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
         response += `   ${trend.description.substring(0, 150)}...\n`;
       }
       response += `   📂 Catégorie suggérée: ${trend.category}\n`;
+      if (trend.pubDate) {
+        const pubDateStr = new Date(trend.pubDate).toLocaleDateString('fr-FR', { 
+          day: 'numeric', 
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        response += `   🕐 ${pubDateStr}\n`;
+      }
       response += `   🔗 ${trend.link}\n\n`;
     });
 
-    response += `\n💡 Tu veux que je rédige un article sur l'un de ces sujets ? Dis-moi le numéro !`;
-    response += `\n💡 Tu peux aussi dire "rédige un article sur les 2 premiers" ou "article sur le 1 et le 3" !`;
+    response += `━━━━━━━━━━━━━━━━━━\n`;
+    response += `💡 **Actions:**\n`;
+    response += `• "Rédige un article sur le 1" - Créer un article\n`;
+    response += `• "Tendances d'hier" - Voir les tendances passées\n`;
+    response += `• "Tendances de la semaine dernière"`;
     
     return response;
   }
@@ -911,7 +1016,7 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
   /**
    * Récupère les vraies tendances depuis plusieurs sources RSS
    */
-  async fetchTrendsFromInternet() {
+  async fetchTrendsFromInternet(startDate = null, endDate = null) {
     const allTrends = [];
     
     console.log('📡 Fetching trends from RSS feeds...');
@@ -936,13 +1041,36 @@ ${trendsCount > 1 ? '- **SYNTHÈSE**: Relie intelligemment les différents sujet
       }
     }
     
+    // Filtrer par période si spécifiée
+    let filteredTrends = allTrends;
+    
+    if (startDate) {
+      const now = new Date();
+      // Utiliser endDate si spécifiée, sinon maintenant
+      const effectiveEndDate = endDate || now;
+      
+      filteredTrends = allTrends.filter(trend => {
+        if (!trend.pubDate) return false;
+        const trendDate = new Date(trend.pubDate);
+        return trendDate >= startDate && trendDate <= effectiveEndDate;
+      });
+      
+      console.log(`📅 Filtrage: ${allTrends.length} → ${filteredTrends.length} (période: ${startDate.toLocaleDateString()} - ${effectiveEndDate.toLocaleDateString()})`);
+    }
+    
     // Trier par date et limiter à 10
-    const sortedTrends = allTrends
+    const sortedTrends = filteredTrends
       .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
       .slice(0, 10);
     
+    if (sortedTrends.length === 0 && filteredTrends.length === 0 && allTrends.length > 0) {
+      // Pas de résultats pour la période, mais on a des tendances - retourner liste vide pour afficher le message
+      console.log('📭 Aucune tendance pour cette période spécifique');
+      return [];
+    }
+    
     if (sortedTrends.length === 0) {
-      // Fallback si pas de RSS disponible
+      // Fallback si pas de RSS disponible du tout
       return await this.fetchTrendsFallback();
     }
     

@@ -641,10 +641,99 @@ DISTINCTION TRÈS IMPORTANTE:
   }
 
   /**
+   * Extraire la période temporelle d'un message
+   */
+  extractTimePeriod(text) {
+    const lowerText = text.toLowerCase();
+    
+    // Aujourd'hui
+    if (lowerText.includes("aujourd'hui") || lowerText.includes('today') || lowerText.includes('ce jour')) {
+      return 'today';
+    }
+    
+    // Hier
+    if (lowerText.includes('hier') || lowerText.includes('yesterday')) {
+      return 'yesterday';
+    }
+    
+    // Avant-hier / il y a 2 jours
+    if (lowerText.includes('avant-hier') || lowerText.includes('avant hier') || 
+        lowerText.match(/il y'?a?\s*(2|deux)\s*jours?/i)) {
+      return '2days';
+    }
+    
+    // Il y a X jours
+    const daysMatch = lowerText.match(/il y'?a?\s*(\d+)\s*jours?/i);
+    if (daysMatch) {
+      return `${daysMatch[1]}days`;
+    }
+    
+    // Cette semaine
+    if (lowerText.includes('cette semaine') || lowerText.includes('this week')) {
+      return 'week';
+    }
+    
+    // Semaine dernière
+    if (lowerText.includes('semaine dernière') || lowerText.includes('semaine passée') || lowerText.includes('last week')) {
+      return 'lastweek';
+    }
+    
+    // Ce mois
+    if (lowerText.includes('ce mois') || lowerText.includes('this month')) {
+      return 'month';
+    }
+    
+    // Mois dernier
+    if (lowerText.includes('mois dernier') || lowerText.includes('mois passé') || lowerText.includes('last month')) {
+      return 'lastmonth';
+    }
+    
+    return null; // Pas de période spécifique = aujourd'hui par défaut
+  }
+
+  /**
    * Analyser l'intention spécifique à Kiara (sans appeler OpenAI)
    */
   analyzeKiaraIntent(lowerText, originalText) {
+    
+    // ==========================================
+    // PRIORITÉ HAUTE: Tendances (avant liste car "montre tendances" != "montre articles")
+    // ==========================================
+    if (lowerText.includes('tendance') || lowerText.includes('trend') || 
+        lowerText.includes('actualité') || lowerText.includes('actu tech') ||
+        lowerText.includes('quoi de neuf') || lowerText.includes('news')) {
+      
+      // Extraire la période temporelle
+      const period = this.extractTimePeriod(originalText);
+      
+      // Extraire le sujet/topic si mentionné
+      let topic = null;
+      const topicPatterns = [
+        /tendances?\s+(?:sur|de|du|en|tech|ia|gpu|nvidia|amd|intel|apple|google|microsoft|amazon)/i,
+        /actualités?\s+(?:sur|de|du|en|tech|ia|gpu)/i
+      ];
+      
+      for (const pattern of topicPatterns) {
+        const match = originalText.match(pattern);
+        if (match) {
+          topic = match[0].replace(/tendances?\s+(?:sur|de|du|en)?/i, '').trim();
+          break;
+        }
+      }
+      
+      return { 
+        action: 'kiara_trends', 
+        params: { 
+          topic: topic || 'tech', 
+          period: period,
+          text: originalText 
+        } 
+      };
+    }
+    
+    // ==========================================
     // Suppression d'articles
+    // ==========================================
     if (lowerText.includes('supprime') || lowerText.includes('efface') || lowerText.includes('delete')) {
       let status = null;
       let title = null;
@@ -663,8 +752,16 @@ DISTINCTION TRÈS IMPORTANTE:
       return { action: 'kiara_delete_article', params: { title, status } };
     }
     
-    // Liste d'articles
+    // ==========================================
+    // Liste d'articles (APRÈS tendances)
+    // ==========================================
     if (lowerText.includes('liste') || lowerText.includes('affiche') || lowerText.includes('montre') || lowerText.includes('mes articles')) {
+      // Ne pas matcher si c'est une demande de tendances
+      if (lowerText.includes('tendance') || lowerText.includes('actu')) {
+        // Sera géré par la section tendances ci-dessus (ne devrait pas arriver ici)
+        return { action: 'kiara_trends', params: { topic: 'tech', text: originalText } };
+      }
+      
       if (lowerText.includes('publié') || lowerText.includes('publish')) {
         const period = lowerText.includes('semaine') ? 'week' : lowerText.includes('mois') ? 'month' : null;
         return { action: 'kiara_list_published', params: { period } };
@@ -705,11 +802,6 @@ DISTINCTION TRÈS IMPORTANTE:
     // Stats
     if (lowerText.includes('stats') || lowerText.includes('statistiques') || lowerText.includes('vues')) {
       return { action: 'kiara_global_stats', params: {} };
-    }
-    
-    // Tendances
-    if (lowerText.includes('tendance') || lowerText.includes('trend') || lowerText.includes('actualité')) {
-      return { action: 'kiara_trends', params: { topic: originalText } };
     }
     
     // Génération d'article
@@ -2513,15 +2605,17 @@ Agents disponibles:
   // ========================================
 
   /**
-   * Recherche de tendances
+   * Recherche de tendances avec période temporelle
    */
   async handleKiaraTrends(params) {
     const topic = params.topic || 'tech';
-    console.log(`🔍 Kiara recherche les tendances: ${topic}...`);
+    const period = params.period || null;
+    
+    console.log(`🔍 Kiara recherche les tendances: ${topic}, période: ${period || 'aujourd\'hui'}...`);
     
     try {
-      // Appeler la méthode handleTrendRequest de Kiara
-      const result = await kiaraAgent.handleTrendRequest(topic);
+      // Appeler la méthode handleTrendRequest de Kiara avec la période
+      const result = await kiaraAgent.handleTrendRequest(topic, period);
       return result;
     } catch (error) {
       console.error('Erreur Kiara trends:', error);
