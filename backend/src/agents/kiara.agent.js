@@ -1817,6 +1817,20 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
     if (article.sources && Array.isArray(article.sources)) {
       formattedSources = article.sources.map(s => {
         if (typeof s === 'string') {
+          // Si c'est une URL, l'utiliser comme url ET comme titre raccourci
+          const isUrl = s.startsWith('http://') || s.startsWith('https://');
+          if (isUrl) {
+            // Extraire un titre lisible depuis l'URL
+            try {
+              const urlObj = new URL(s);
+              const pathParts = urlObj.pathname.split('/').filter(p => p);
+              const lastPart = pathParts[pathParts.length - 1] || urlObj.hostname;
+              const cleanTitle = lastPart.replace(/-/g, ' ').replace(/_/g, ' ').substring(0, 80);
+              return { title: cleanTitle, url: s, date: new Date().toISOString() };
+            } catch {
+              return { title: s.substring(0, 80), url: s, date: new Date().toISOString() };
+            }
+          }
           return { title: s, url: '', date: new Date().toISOString() };
         }
         return {

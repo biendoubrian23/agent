@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Mail, Landmark, Briefcase, MessageCircle } from 'lucide-react'
 import AssistantCard from './AssistantCard'
 import AgentModal from './AgentModal'
+import KiaraModal from './KiaraModal'
 import './Dashboard.css'
 
 // Images des assistants
@@ -49,9 +50,9 @@ const Dashboard = ({ userName }: DashboardProps) => {
     },
     {
       name: 'Kiara',
-      role: 'CEO Assistant',
+      role: 'SEO & Blog Manager',
       image: ceoAssistant,
-      gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+      gradient: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
     },
   ]
 
@@ -119,8 +120,14 @@ const Dashboard = ({ userName }: DashboardProps) => {
         </div>
       </section>
 
-      {/* Modal Agent */}
-      {selectedAgent && (
+      {/* Modal Agent - Kiara a son propre modal */}
+      {selectedAgent && selectedAgent.name === 'Kiara' ? (
+        <KiaraModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          agent={selectedAgent}
+        />
+      ) : selectedAgent && (
         <AgentModal
           isOpen={isModalOpen}
           onClose={handleCloseModal}
