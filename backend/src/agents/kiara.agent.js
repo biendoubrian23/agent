@@ -202,7 +202,94 @@ Le ton est contemplatif et immersif, MAIS avec des touches d'humour bien placée
         { name: 'MIT AI', url: 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml', lang: 'en' },
         { name: 'Google AI Blog', url: 'https://blog.google/technology/ai/rss/', lang: 'en' },
         { name: 'OpenAI Blog', url: 'https://openai.com/blog/rss/', lang: 'en' },
-        { name: 'Towards AI', url: 'https://towardsai.net/feed', lang: 'en' }
+        { name: 'Towards AI', url: 'https://towardsai.net/feed', lang: 'en' },
+        { name: 'Hugging Face Blog', url: 'https://huggingface.co/blog/feed.xml', lang: 'en' },
+        { name: 'DeepMind Blog', url: 'https://www.deepmind.com/blog/rss.xml', lang: 'en' },
+        { name: 'NVIDIA AI Blog', url: 'https://blogs.nvidia.com/feed/', lang: 'en' }
+      ],
+      
+      // DATA SCIENCE & MACHINE LEARNING
+      datascience: [
+        { name: 'Towards Data Science', url: 'https://towardsdatascience.com/feed', lang: 'en' },
+        { name: 'KDnuggets', url: 'https://www.kdnuggets.com/feed', lang: 'en' },
+        { name: 'Analytics Vidhya', url: 'https://www.analyticsvidhya.com/feed/', lang: 'en' },
+        { name: 'Data Science Central', url: 'https://www.datasciencecentral.com/feed/', lang: 'en' },
+        { name: 'Machine Learning Mastery', url: 'https://machinelearningmastery.com/feed/', lang: 'en' },
+        { name: 'Kaggle Blog', url: 'https://medium.com/feed/kaggle-blog', lang: 'en' },
+        { name: 'R-Bloggers', url: 'https://www.r-bloggers.com/feed/', lang: 'en' },
+        { name: 'PyData', url: 'https://pydata.org/feed/', lang: 'en' },
+        { name: 'DataCamp Blog', url: 'https://www.datacamp.com/blog/rss.xml', lang: 'en' },
+        { name: 'Fast.ai', url: 'https://www.fast.ai/atom.xml', lang: 'en' },
+        { name: 'Google Cloud Data', url: 'https://cloud.google.com/blog/products/data-analytics/rss', lang: 'en' },
+        { name: 'AWS Data Blog', url: 'https://aws.amazon.com/blogs/big-data/feed/', lang: 'en' },
+        { name: 'Databricks Blog', url: 'https://www.databricks.com/blog/feed', lang: 'en' },
+        { name: 'Snowflake Blog', url: 'https://www.snowflake.com/blog/feed/', lang: 'en' }
+      ],
+      
+      // DATA ANALYTICS & BUSINESS INTELLIGENCE
+      dataanalytics: [
+        { name: 'Data School', url: 'https://www.dataschool.io/rss/', lang: 'en' },
+        { name: 'Mode Analytics Blog', url: 'https://mode.com/blog/rss.xml', lang: 'en' },
+        { name: 'Tableau Blog', url: 'https://www.tableau.com/blog/feed', lang: 'en' },
+        { name: 'Power BI Blog', url: 'https://powerbi.microsoft.com/en-us/blog/feed/', lang: 'en' },
+        { name: 'Looker Blog', url: 'https://cloud.google.com/blog/products/business-intelligence/rss', lang: 'en' },
+        { name: 'Sisense Blog', url: 'https://www.sisense.com/blog/feed/', lang: 'en' },
+        { name: 'Metabase Blog', url: 'https://www.metabase.com/blog/feed.xml', lang: 'en' },
+        { name: 'ThoughtSpot Blog', url: 'https://www.thoughtspot.com/blog/rss.xml', lang: 'en' },
+        { name: 'Amplitude Blog', url: 'https://amplitude.com/blog/feed', lang: 'en' },
+        { name: 'Mixpanel Blog', url: 'https://mixpanel.com/blog/feed/', lang: 'en' },
+        { name: 'Google Analytics Blog', url: 'https://blog.google/products/marketingplatform/analytics/rss/', lang: 'en' },
+        { name: 'Data Elixir', url: 'https://dataelixir.com/feed/', lang: 'en' }
+      ],
+      
+      // DEVOPS & CLOUD
+      devops: [
+        { name: 'DevOps.com', url: 'https://devops.com/feed/', lang: 'en' },
+        { name: 'The New Stack', url: 'https://thenewstack.io/feed/', lang: 'en' },
+        { name: 'Container Journal', url: 'https://containerjournal.com/feed/', lang: 'en' },
+        { name: 'Kubernetes Blog', url: 'https://kubernetes.io/feed.xml', lang: 'en' },
+        { name: 'Docker Blog', url: 'https://www.docker.com/blog/feed/', lang: 'en' },
+        { name: 'HashiCorp Blog', url: 'https://www.hashicorp.com/blog/feed.xml', lang: 'en' },
+        { name: 'GitLab Blog', url: 'https://about.gitlab.com/atom.xml', lang: 'en' },
+        { name: 'GitHub Blog', url: 'https://github.blog/feed/', lang: 'en' },
+        { name: 'CircleCI Blog', url: 'https://circleci.com/blog/feed.xml', lang: 'en' },
+        { name: 'Jenkins Blog', url: 'https://www.jenkins.io/node/feed/', lang: 'en' },
+        { name: 'Terraform Blog', url: 'https://www.hashicorp.com/blog/products/terraform/feed.xml', lang: 'en' },
+        { name: 'AWS DevOps Blog', url: 'https://aws.amazon.com/blogs/devops/feed/', lang: 'en' },
+        { name: 'Azure DevOps Blog', url: 'https://devblogs.microsoft.com/devops/feed/', lang: 'en' },
+        { name: 'Google Cloud DevOps', url: 'https://cloud.google.com/blog/products/devops-sre/rss', lang: 'en' },
+        { name: 'Ansible Blog', url: 'https://www.ansible.com/blog/rss.xml', lang: 'en' },
+        { name: 'Puppet Blog', url: 'https://puppet.com/blog/feed/', lang: 'en' },
+        { name: 'Chef Blog', url: 'https://www.chef.io/blog/feed', lang: 'en' },
+        { name: 'CNCF Blog', url: 'https://www.cncf.io/blog/feed/', lang: 'en' },
+        { name: 'SRE Weekly', url: 'https://sreweekly.com/feed/', lang: 'en' },
+        { name: 'DevOps Cube', url: 'https://devopscube.com/feed/', lang: 'en' }
+      ],
+      
+      // CLOUD COMPUTING
+      cloud: [
+        { name: 'AWS Blog', url: 'https://aws.amazon.com/blogs/aws/feed/', lang: 'en' },
+        { name: 'Azure Blog', url: 'https://azure.microsoft.com/en-us/blog/feed/', lang: 'en' },
+        { name: 'Google Cloud Blog', url: 'https://cloud.google.com/blog/feed/', lang: 'en' },
+        { name: 'Cloud Native News', url: 'https://www.cncf.io/feed/', lang: 'en' },
+        { name: 'InfoQ Cloud', url: 'https://feed.infoq.com/cloud-computing/', lang: 'en' },
+        { name: 'Cloudflare Blog', url: 'https://blog.cloudflare.com/rss/', lang: 'en' },
+        { name: 'DigitalOcean Blog', url: 'https://www.digitalocean.com/blog/feed', lang: 'en' },
+        { name: 'Vercel Blog', url: 'https://vercel.com/blog/rss.xml', lang: 'en' },
+        { name: 'Netlify Blog', url: 'https://www.netlify.com/blog/feed.xml', lang: 'en' },
+        { name: 'Railway Blog', url: 'https://blog.railway.app/feed.xml', lang: 'en' }
+      ],
+      
+      // CYBERSECURITE
+      cybersecurity: [
+        { name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/', lang: 'en' },
+        { name: 'The Hacker News', url: 'https://feeds.feedburner.com/TheHackersNews', lang: 'en' },
+        { name: 'Dark Reading', url: 'https://www.darkreading.com/rss.xml', lang: 'en' },
+        { name: 'Bleeping Computer', url: 'https://www.bleepingcomputer.com/feed/', lang: 'en' },
+        { name: 'Security Week', url: 'https://www.securityweek.com/feed/', lang: 'en' },
+        { name: 'Threatpost', url: 'https://threatpost.com/feed/', lang: 'en' },
+        { name: 'SANS ISC', url: 'https://isc.sans.edu/rssfeed.xml', lang: 'en' },
+        { name: 'Schneier on Security', url: 'https://www.schneier.com/feed/', lang: 'en' }
       ],
       
       // SPATIAL & ASTRONOMIE
@@ -279,10 +366,51 @@ Le ton est contemplatif et immersif, MAIS avec des touches d'humour bien placée
     
     // Alias pour les domaines (synonymes)
     this.domainAliases = {
-      'technologie': 'tech', 'informatique': 'tech', 'développement': 'tech', 'dev': 'tech', 'web': 'tech',
-      'gpu': 'hardware', 'nvidia': 'hardware', 'amd': 'hardware', 'intel': 'hardware', 'processeur': 'hardware', 'pc': 'hardware',
-      'intelligence artificielle': 'ia', 'ai': 'ia', 'machine learning': 'ia', 'ml': 'ia', 'chatgpt': 'ia', 'openai': 'ia',
-      'espace': 'spatial', 'nasa': 'spatial', 'spacex': 'spatial', 'astronomie': 'spatial', 'fusée': 'spatial', 'mars': 'spatial',
+      // Tech & Développement
+      'technologie': 'tech', 'informatique': 'tech', 'développement': 'tech', 'dev': 'tech', 'web': 'tech', 'programmation': 'tech', 'coding': 'tech', 'code': 'tech',
+      
+      // Hardware
+      'gpu': 'hardware', 'nvidia': 'hardware', 'amd': 'hardware', 'intel': 'hardware', 'processeur': 'hardware', 'pc': 'hardware', 'cpu': 'hardware', 'ram': 'hardware',
+      
+      // Intelligence Artificielle
+      'intelligence artificielle': 'ia', 'ai': 'ia', 'machine learning': 'ia', 'ml': 'ia', 'chatgpt': 'ia', 'openai': 'ia', 'gpt': 'ia', 'llm': 'ia', 'deep learning': 'ia', 'neural network': 'ia',
+      
+      // Data Science & Analytics
+      'data science': 'datascience', 'data scientist': 'datascience', 'datascience': 'datascience', 'science des données': 'datascience',
+      'python data': 'datascience', 'pandas': 'datascience', 'numpy': 'datascience', 'scikit': 'datascience', 'sklearn': 'datascience',
+      'tensorflow': 'datascience', 'pytorch': 'datascience', 'keras': 'datascience', 'jupyter': 'datascience',
+      'kaggle': 'datascience', 'modèle prédictif': 'datascience', 'régression': 'datascience', 'classification': 'datascience',
+      
+      // Data Analytics & BI
+      'data analytics': 'dataanalytics', 'data analyst': 'dataanalytics', 'dataanalytics': 'dataanalytics', 'analyse de données': 'dataanalytics',
+      'business intelligence': 'dataanalytics', 'bi': 'dataanalytics', 'tableau': 'dataanalytics', 'power bi': 'dataanalytics', 'powerbi': 'dataanalytics',
+      'looker': 'dataanalytics', 'metabase': 'dataanalytics', 'dashboard': 'dataanalytics', 'kpi': 'dataanalytics',
+      'sql': 'dataanalytics', 'excel avancé': 'dataanalytics', 'reporting': 'dataanalytics', 'visualisation': 'dataanalytics',
+      
+      // DevOps
+      'devops': 'devops', 'dev ops': 'devops', 'ci/cd': 'devops', 'cicd': 'devops', 'pipeline': 'devops',
+      'docker': 'devops', 'kubernetes': 'devops', 'k8s': 'devops', 'container': 'devops', 'conteneur': 'devops',
+      'jenkins': 'devops', 'gitlab ci': 'devops', 'github actions': 'devops', 'circleci': 'devops',
+      'terraform': 'devops', 'ansible': 'devops', 'puppet': 'devops', 'chef': 'devops',
+      'infrastructure as code': 'devops', 'iac': 'devops', 'gitops': 'devops',
+      'sre': 'devops', 'site reliability': 'devops', 'monitoring': 'devops', 'observability': 'devops',
+      'prometheus': 'devops', 'grafana': 'devops', 'datadog': 'devops', 'elk': 'devops',
+      
+      // Cloud
+      'cloud': 'cloud', 'cloud computing': 'cloud', 'aws': 'cloud', 'amazon web services': 'cloud',
+      'azure': 'cloud', 'microsoft azure': 'cloud', 'gcp': 'cloud', 'google cloud': 'cloud',
+      'serverless': 'cloud', 'lambda': 'cloud', 'functions': 'cloud', 'paas': 'cloud', 'saas': 'cloud', 'iaas': 'cloud',
+      'cloudflare': 'cloud', 'vercel': 'cloud', 'netlify': 'cloud', 'railway': 'cloud', 'heroku': 'cloud',
+      
+      // Cybersécurité
+      'cybersécurité': 'cybersecurity', 'cybersecurity': 'cybersecurity', 'sécurité informatique': 'cybersecurity',
+      'hacking': 'cybersecurity', 'hacker': 'cybersecurity', 'pentest': 'cybersecurity', 'ransomware': 'cybersecurity',
+      'malware': 'cybersecurity', 'phishing': 'cybersecurity', 'firewall': 'cybersecurity', 'vpn': 'cybersecurity',
+      
+      // Spatial
+      'espace': 'spatial', 'nasa': 'spatial', 'spacex': 'spatial', 'astronomie': 'spatial', 'fusée': 'spatial', 'mars': 'spatial', 'satellite': 'spatial',
+      
+      // Autres domaines existants
       'politique': 'politique', 'gouvernement': 'politique', 'élection': 'politique', 'macron': 'politique',
       'économie': 'economie', 'finance': 'economie', 'business': 'economie', 'bourse': 'economie', 'argent': 'economie',
       'science': 'science', 'recherche': 'science', 'scientifique': 'science', 'découverte': 'science',
@@ -621,6 +749,35 @@ ${this.writingStyles[this.activeStyle].prompt}
 2. **PAS DE "Introduction" ou "Conclusion"** - Commence directement
 3. **MARKDOWN BIEN FORMATÉ** - Contenu en Markdown pur
 4. **MOT-CLÉ DANS LE 1ER PARAGRAPHE** - SEO oblige !
+
+═══════════════════════════════════════════════════════════════
+💻 FORMATAGE DU CODE (TRÈS IMPORTANT !)
+═══════════════════════════════════════════════════════════════
+
+Quand tu inclus des exemples de code, tu DOIS utiliser les balises Markdown code block :
+
+\`\`\`javascript
+// Ton code ici
+const example = "Hello World";
+console.log(example);
+\`\`\`
+
+RÈGLES POUR LE CODE :
+- TOUJOURS utiliser les triple backticks \`\`\` pour les blocs de code
+- TOUJOURS spécifier le langage après les backticks (javascript, python, bash, html, css, etc.)
+- Indenter proprement le code
+- Ajouter des commentaires explicatifs dans le code
+- Le code doit être fonctionnel et illustratif
+
+Exemples de langages à utiliser :
+- \`\`\`javascript pour JavaScript/Node.js
+- \`\`\`python pour Python
+- \`\`\`bash pour les commandes terminal
+- \`\`\`html pour HTML
+- \`\`\`css pour CSS
+- \`\`\`typescript pour TypeScript
+- \`\`\`json pour JSON
+- \`\`\`sql pour SQL
 
 ═══════════════════════════════════════════════════════════════
 📝 FORMATAGE MARKDOWN
