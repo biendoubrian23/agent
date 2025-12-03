@@ -1402,8 +1402,9 @@ ${this.activeStyle === 'narrative' ? '5. **MÉTAPHORES**: Utilise des images po�
 
   /**
    * Récupère les vraies tendances depuis plusieurs sources RSS
+   * AMÉLIORATION: Élargit automatiquement la période si aucun résultat
    */
-  async fetchTrendsFromInternet(startDate = null, endDate = null, sources = null) {
+  async fetchTrendsFromInternet(startDate = null, endDate = null, sources = null, minResults = 10) {
     const allTrends = [];
     
     // Utiliser les sources passées en paramètre ou les sources par défaut
@@ -1415,8 +1416,8 @@ ${this.activeStyle === 'narrative' ? '5. **MÉTAPHORES**: Utilise des images po�
       try {
         const feed = await this.rssParser.parseURL(source.url);
         
-        // Prendre les 3 premiers articles de chaque source
-        const items = feed.items.slice(0, 3).map(item => ({
+        // Prendre les 5 premiers articles de chaque source (augmenté de 3 à 5)
+        const items = feed.items.slice(0, 5).map(item => ({
           title: item.title,
           description: item.contentSnippet || item.content || '',
           link: item.link,
@@ -1431,33 +1432,73 @@ ${this.activeStyle === 'narrative' ? '5. **MÉTAPHORES**: Utilise des images po�
       }
     }
     
-    // Filtrer par période si spécifiée
-    let filteredTrends = allTrends;
-    
-    if (startDate) {
-      const now = new Date();
-      // Utiliser endDate si spécifiée, sinon maintenant
-      const effectiveEndDate = endDate || now;
+    // Si pas de startDate, retourner les plus récents triés
+    if (!startDate) {
+      const sortedTrends = allTrends
+        .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
+        .slice(0, minResults);
       
-      filteredTrends = allTrends.filter(trend => {
-        if (!trend.pubDate) return false;
-        const trendDate = new Date(trend.pubDate);
-        return trendDate >= startDate && trendDate <= effectiveEndDate;
-      });
+      if (sortedTrends.length === 0) {
+        return await this.fetchTrendsFallback();
+      }
       
-      console.log(`📅 Filtrage: ${allTrends.length} → ${filteredTrends.length} (période: ${startDate.toLocaleDateString()} - ${effectiveEndDate.toLocaleDateString()})`);
+      console.log(`✅ ${sortedTrends.length} tendances trouvées (sans filtre date)`);
+      return sortedTrends;
     }
     
-    // Trier par date et limiter à 10
+    // Filtrer par période avec ÉLARGISSEMENT AUTOMATIQUE
+    const now = new Date();
+    const effectiveEndDate = endDate || now;
+    
+    // Essayer avec la période demandée d'abord
+    let filteredTrends = allTrends.filter(trend => {
+      if (!trend.pubDate) return false;
+      const trendDate = new Date(trend.pubDate);
+      return trendDate >= startDate && trendDate <= effectiveEndDate;
+    });
+    
+    console.log(`📅 Filtrage initial: ${allTrends.length} → ${filteredTrends.length} (période: ${startDate.toLocaleDateString()} - ${effectiveEndDate.toLocaleDateString()})`);
+    
+    // ÉLARGISSEMENT AUTOMATIQUE si pas assez de résultats
+    if (filteredTrends.length < minResults && allTrends.length > 0) {
+      const periodsToTry = [
+        { days: 1, label: 'hier' },
+        { days: 3, label: '3 derniers jours' },
+        { days: 7, label: 'semaine' },
+        { days: 14, label: '2 semaines' },
+        { days: 30, label: 'mois' },
+        { days: 90, label: '3 mois' }
+      ];
+      
+      for (const period of periodsToTry) {
+        const extendedStart = new Date(now.getTime() - period.days * 24 * 60 * 60 * 1000);
+        
+        // Ne pas élargir si on a déjà essayé cette période ou plus large
+        if (extendedStart <= startDate) continue;
+        
+        filteredTrends = allTrends.filter(trend => {
+          if (!trend.pubDate) return false;
+          const trendDate = new Date(trend.pubDate);
+          return trendDate >= extendedStart && trendDate <= now;
+        });
+        
+        if (filteredTrends.length >= Math.min(minResults, 3)) {
+          console.log(`📅 Période élargie à "${period.label}": ${filteredTrends.length} résultats`);
+          break;
+        }
+      }
+      
+      // Si toujours pas assez, prendre simplement les plus récents disponibles
+      if (filteredTrends.length < 3) {
+        console.log(`📅 Fallback: prendre les ${minResults} plus récents sans filtre de date`);
+        filteredTrends = allTrends;
+      }
+    }
+    
+    // Trier par date et limiter
     const sortedTrends = filteredTrends
       .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
-      .slice(0, 10);
-    
-    if (sortedTrends.length === 0 && filteredTrends.length === 0 && allTrends.length > 0) {
-      // Pas de résultats pour la période, mais on a des tendances - retourner liste vide pour afficher le message
-      console.log('📭 Aucune tendance pour cette période spécifique');
-      return [];
-    }
+      .slice(0, minResults);
     
     if (sortedTrends.length === 0) {
       // Fallback si pas de RSS disponible du tout
@@ -3559,8 +3600,10 @@ Réponds en JSON:
 
   /**
    * Recherche des sources sur un sujet spécifique
+   * AMÉLIORATION: Cherche dans TOUS les domaines, minimum 3 sources, élargit si nécessaire
    */
-  async searchSourcesForTopic(topic, count = 3) {
+  async searchSourcesForTopic(topic, count = 5) {
+    const minSources = Math.max(count, 3); // Minimum 3 sources
     const allSources = [];
     
     // Améliorer les mots-clés de recherche
@@ -3569,17 +3612,22 @@ Réponds en JSON:
     // Dictionnaire de termes associés pour élargir la recherche
     const relatedTerms = {
       'gpu': ['graphics', 'nvidia', 'amd', 'radeon', 'geforce', 'rtx', 'graphic card', 'video card'],
-      'ia': ['ai', 'artificial intelligence', 'machine learning', 'deep learning', 'chatgpt', 'openai'],
-      'intelligence artificielle': ['ai', 'machine learning', 'deep learning', 'neural network'],
+      'ia': ['ai', 'artificial intelligence', 'machine learning', 'deep learning', 'chatgpt', 'openai', 'llm'],
+      'intelligence artificielle': ['ai', 'machine learning', 'deep learning', 'neural network', 'llm'],
       'cpu': ['processor', 'intel', 'amd', 'ryzen', 'core'],
       'smartphone': ['iphone', 'android', 'samsung', 'pixel', 'mobile'],
       'cloud': ['aws', 'azure', 'google cloud', 'serverless'],
       'crypto': ['bitcoin', 'ethereum', 'blockchain', 'web3'],
-      'carte graphique': ['gpu', 'nvidia', 'amd', 'graphics', 'geforce', 'radeon', 'rtx']
+      'carte graphique': ['gpu', 'nvidia', 'amd', 'graphics', 'geforce', 'radeon', 'rtx'],
+      'robot': ['robotics', 'humanoid', 'automation', 'boston dynamics', 'tesla bot', 'optimus'],
+      'humanoide': ['humanoid', 'robot', 'boston dynamics', 'figure', 'tesla optimus', 'bipedal'],
+      'spatial': ['space', 'nasa', 'spacex', 'rocket', 'satellite', 'mars'],
+      'voiture': ['car', 'automotive', 'electric', 'ev', 'tesla', 'autonomous'],
+      'autonome': ['autonomous', 'self-driving', 'autopilot', 'adas']
     };
     
     // Construire la liste des mots-clés à chercher
-    let searchKeywords = topicLower.split(' ').filter(w => w.length >= 2);
+    let searchKeywords = topicLower.split(/[\s,]+/).filter(w => w.length >= 2);
     
     // Ajouter les termes associés si disponibles
     for (const [key, terms] of Object.entries(relatedTerms)) {
@@ -3593,22 +3641,34 @@ Réponds en JSON:
       searchKeywords.unshift(topicLower);
     }
     
+    // Supprimer les doublons
+    searchKeywords = [...new Set(searchKeywords)];
+    
     console.log(`🔍 Recherche de sources sur: ${topic}`);
     console.log(`🔑 Mots-clés: ${searchKeywords.slice(0, 10).join(', ')}`);
 
-    // Chercher dans les flux RSS
-    for (const source of this.trendSources) {
+    // Chercher dans TOUS les domaines RSS, pas juste les sources par défaut
+    const allRssSources = [];
+    for (const domain of Object.values(this.trendSourcesByDomain)) {
+      allRssSources.push(...domain);
+    }
+    
+    // Dédupliquer par URL
+    const uniqueRssSources = allRssSources.filter((source, index, self) => 
+      index === self.findIndex(s => s.url === source.url)
+    );
+    
+    console.log(`📡 Recherche dans ${uniqueRssSources.length} flux RSS...`);
+
+    for (const source of uniqueRssSources) {
       try {
         const feed = await this.rssParser.parseURL(source.url);
         
         const matchingItems = feed.items.filter(item => {
           const text = (item.title + ' ' + (item.contentSnippet || '')).toLowerCase();
           
-          // Vérifier que c'est en français ou anglais (exclure portugais, espagnol, etc.)
-          const nonLatinChars = /[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/gi;
+          // Exclure les langues non désirées
           const portugueseWords = /(desenvolvimento|projeto|trabalho|semanas|ideias|persistência|começar|também|porque|estava)/i;
-          
-          // Exclure si ça ressemble à du portugais ou autre langue
           if (portugueseWords.test(text)) {
             return false;
           }
@@ -3617,8 +3677,7 @@ Réponds en JSON:
           return searchKeywords.some(kw => text.includes(kw));
         });
 
-        matchingItems.slice(0, 2).forEach(item => {
-          // Limiter la description à 200 caractères max pour éviter les articles trop longs
+        matchingItems.slice(0, 3).forEach(item => {
           const shortDescription = (item.contentSnippet || item.content || '')
             .substring(0, 200)
             .replace(/\s+/g, ' ')
@@ -3633,22 +3692,26 @@ Réponds en JSON:
           });
         });
       } catch (error) {
-        console.log(`⚠️ Erreur RSS ${source.name}`);
+        // Silencieux pour les erreurs RSS
       }
     }
 
     console.log(`📰 Sources RSS trouvées: ${allSources.length}`);
 
     // Si pas assez de sources, utiliser l'IA pour en générer des réalistes
-    if (allSources.length < count) {
-      console.log('🤖 Génération de sources additionnelles via IA...');
+    if (allSources.length < minSources) {
+      console.log(`🤖 Génération de sources additionnelles via IA (besoin de ${minSources - allSources.length})...`);
       
-      const neededCount = count - allSources.length;
+      const neededCount = minSources - allSources.length;
       const aiSourcesPrompt = `Tu es un expert tech. Génère ${neededCount} résumés d'articles RÉCENTS et RÉALISTES sur le sujet "${topic}" (${new Date().toLocaleDateString('fr-FR')}).
 
-Ces articles doivent sembler provenir de vrais sites tech (TechCrunch, The Verge, Ars Technica, Tom's Hardware, etc.).
+Ces articles doivent sembler provenir de vrais sites tech (TechCrunch, The Verge, Ars Technica, Tom's Hardware, Wired, MIT Tech Review, etc.).
 
-IMPORTANT: Génère du contenu factuel et à jour sur ${topic}. Inclus des chiffres, des noms de produits réels, des tendances actuelles.
+IMPORTANT: 
+- Génère du contenu factuel et à jour sur ${topic}
+- Inclus des chiffres, des noms de produits/entreprises réels, des tendances actuelles
+- Les descriptions doivent être informatives (3-4 phrases)
+- Chaque source doit apporter une perspective différente
 
 Réponds UNIQUEMENT en JSON valide (pas de markdown, pas de \`\`\`):
 [
@@ -3675,21 +3738,38 @@ Réponds UNIQUEMENT en JSON valide (pas de markdown, pas de \`\`\`):
       } catch (e) {
         console.log('⚠️ Erreur génération sources IA:', e.message);
         
-        // Fallback: créer au moins une source basique
-        allSources.push({
-          title: `Les dernières tendances ${topic} en ${new Date().getFullYear()}`,
-          description: `Analyse approfondie des dernières nouveautés et innovations dans le domaine ${topic}. Les experts du secteur partagent leurs perspectives sur l'évolution du marché.`,
-          source: 'Tech Analysis',
-          link: '#',
-          pubDate: new Date().toISOString()
-        });
+        // Fallback: créer des sources basiques
+        const fallbackSources = [
+          {
+            title: `Les dernières avancées ${topic} en ${new Date().getFullYear()}`,
+            description: `Analyse approfondie des dernières nouveautés et innovations dans le domaine ${topic}. Les experts du secteur partagent leurs perspectives sur l'évolution rapide de cette technologie.`,
+            source: 'Tech Analysis',
+            link: '#',
+            pubDate: new Date().toISOString()
+          },
+          {
+            title: `${topic}: Ce que les experts prédisent pour l'avenir`,
+            description: `Tour d'horizon des prédictions des leaders du secteur concernant ${topic}. Entre innovations technologiques et défis à relever, le marché continue son évolution.`,
+            source: 'Future Tech',
+            link: '#',
+            pubDate: new Date().toISOString()
+          },
+          {
+            title: `Guide complet: Comprendre ${topic} en ${new Date().getFullYear()}`,
+            description: `Un guide exhaustif pour comprendre les tenants et aboutissants de ${topic}. De la théorie à la pratique, découvrez tout ce qu'il faut savoir sur ce sujet passionnant.`,
+            source: 'Tech Guide',
+            link: '#',
+            pubDate: new Date().toISOString()
+          }
+        ];
+        allSources.push(...fallbackSources.slice(0, neededCount));
       }
     }
 
     // Trier par date et limiter
     return allSources
       .sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0))
-      .slice(0, count);
+      .slice(0, Math.max(count, minSources));
   }
 
   /**
