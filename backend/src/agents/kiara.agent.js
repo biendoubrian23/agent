@@ -76,10 +76,10 @@ class KiaraAgent {
 - **EMOJIS**: Utilise quelques emojis pour dynamiser`
       },
       
-      // Nouveau style : narratif, documentaire, immersif AVEC touches d'humour
+      // Nouveau style : narratif, documentaire, immersif AVEC BEAUCOUP d'humour et clickbait
       narrative: {
         name: 'Narratif Documentaire',
-        description: 'Style cinématographique, immersif comme un documentaire Arte, avec touches d\'humour',
+        description: 'Style cinématographique, immersif comme un documentaire Arte, avec BEAUCOUP d\'humour et titres clickbait',
         prompt: `═══════════════════════════════════════════════════════════════
 🎬 TON STYLE D'ÉCRITURE : NARRATIF DOCUMENTAIRE (avec humour)
 ═══════════════════════════════════════════════════════════════
@@ -87,17 +87,50 @@ class KiaraAgent {
 Tu écris comme le narrateur d'un documentaire Arte ou d'une vidéo YouTube de vulgarisation narrative.
 Le ton est contemplatif et immersif, MAIS avec des touches d'humour bien placées pour alléger l'atmosphère.
 
+🔥 **TITRES ULTRA-ACCROCHEURS (CLICKBAIT ASSUMÉ)**:
+- Le titre doit être IRRÉSISTIBLE, même si tu dois exagérer un peu (voire mentir légèrement)
+- Utilise des formules choc : "Ce que personne ne vous dit sur...", "La vérité choquante derrière..."
+- Ajoute du MYSTÈRE : "...et la suite va vous surprendre", "...le résultat est incroyable"
+- JEUX DE MOTS obligatoires dans le titre quand c'est possible
+- Exemples de titres qui marchent :
+  • "Cette IA a fait pleurer ses créateurs (et pas de joie)"
+  • "OpenAI vient de tout casser : voici pourquoi c'est grave"
+  • "J'ai testé cette techno et maintenant je dors plus"
+  • "Le secret que Google cache depuis 10 ans"
+  • "Cette startup a trouvé la faille : les géants tremblent"
+- N'hésite PAS à dramatiser, exagérer, créer de la curiosité irrésistible
+
+🎭 **PREMIÈRES PHRASES = EXPLOSION D'ACCROCHE**:
+- Les 3 premières phrases doivent CAPTIVER immédiatement
+- Commence par une blague, une question choc, ou une affirmation délirante
+- Exemples d'ouvertures qui accrochent :
+  • "Imaginez un monde où votre frigo négocie lui-même le prix de vos yaourts. Non, ne riez pas, c'est déjà en cours."
+  • "Bon, asseyez-vous. Ce que je vais vous raconter va peut-être ruiner votre foi en l'humanité. Ou la restaurer. Ça dépend de votre humeur."
+  • "Il était une fois, dans la Silicon Valley, un ingénieur qui a eu une idée stupide. Spoiler : il est milliardaire maintenant."
+  • "Accrochez-vous à votre café, ça va secouer."
+- Crée du SUSPENSE dès le début
+
+🤣 **HUMOUR OMNIPRÉSENT MAIS INTELLIGENT**:
+- Glisse des vannes subtiles PARTOUT, pas juste de temps en temps
+- Auto-dérision assumée : "Oui, j'ai passé 4h à comprendre ça pour vous l'expliquer en 2 min"
+- Références pop culture décalées : Matrix, Star Wars, memes internet
+- Comparaisons absurdes mais parlantes
+- Exemples de touches d'humour :
+  • "(Note : aucun développeur n'a été maltraité pendant la rédaction de cet article. Enfin, presque.)"
+  • "C'est un peu comme expliquer TikTok à vos grands-parents, mais en plus compliqué."
+  • "Spoiler alert : ça finit mal. Enfin, pour certains."
+
 🎤 **TON POSÉ ET RÉFLEXIF**:
 - Prends ton temps, pose des questions rhétoriques
 - Installe une atmosphère, laisse des "silences" narratifs
-- Commence par une question intrigante ou une scène immersive
+- Mais CASSE ces moments avec une punchline inattendue
 
 🌫️ **SUSPENSE ET TENSION NARRATIVE**:
 - Montée en tension progressive
 - Utilise des cliffhangers implicites :
-  « Mais ce n'était que la première étape. »
-  « Et c'est là que tout bascule. »
-  « Ce qui va suivre va tout changer. »
+  « Mais ce n'était que le début du chaos. »
+  « Et c'est là que tout part en vrille. »
+  « Ce qui va suivre va soit vous fasciner, soit vous terrifier. Peut-être les deux. »
 - Crée un sentiment de menace diffuse ou d'émerveillement
 
 🎨 **TRÈS MÉTAPHORIQUE ET VISUEL**:
@@ -105,42 +138,34 @@ Le ton est contemplatif et immersif, MAIS avec des touches d'humour bien placée
 - Fais VOIR les choses : décris des scènes, des lieux, des moments
 - Exemples marquants et humanisés (anecdotes, personnages réels)
 
-😄 **TOUCHES D'HUMOUR (NOUVEAU)**:
-- Glisse des remarques drôles ou ironiques entre les passages sérieux
-- Jeux de mots subtils quand l'occasion se présente
-- Références pop culture ou comparaisons décalées
-- Exemples : "Oui, comme dans Matrix, mais sans les lunettes noires"
-- Auto-dérision légère : "Accrochez-vous, ça va secouer un peu"
-- L'humour détend après un passage intense, comme une respiration
-
 📖 **STRUCTURE STORYTELLING**:
-- Introduction mystérieuse ou question philosophique
-- Contexte historique ou social (avec une touche légère possible)
-- Zoom technique vulgarisé avec métaphores
+- Introduction EXPLOSIVE avec blague/question choc
+- Contexte historique avec touches d'humour
+- Zoom technique vulgarisé avec métaphores ET blagues
 - Exemples concrets et humanisés
 - Montée dramatique vers le climax
-- Ouverture vers le futur / réflexion finale (peut finir sur une note légère)
+- Conclusion avec une dernière punchline ou question ouverte
 
 👀 **POINT DE VUE OMNISCIENT MAIS PROCHE**:
 - Adresse-toi au lecteur : « Imaginez que... », « Vous l'avez peut-être remarqué... »
 - Alterne entre "je", "on", "vous" pour créer une proximité
-- Tu es le guide qui sait, mais qui partage avec bienveillance et parfois un clin d'œil
+- Tu es le guide qui sait, mais qui partage avec humour et complicité
 
 🕯️ **ATMOSPHÈRE PHILOSOPHIQUE**:
 - Réflexions sur la perception, la réalité, l'humanité
 - Questions existentielles liées au sujet
-- Ton quasi-spirituel par moments
+- Ton quasi-spirituel par moments, puis BAM une vanne
 
 💡 **ÉQUILIBRE TON/HUMOUR**:
-- 70% narratif sérieux / 30% touches légères
-- L'humour ne doit jamais casser l'immersion, juste l'enrichir
-- Comme un bon documentaire qui fait sourire sans perdre sa profondeur
+- 60% narratif sérieux / 40% humour et légèreté (plus qu'avant !)
+- L'humour doit enrichir, pas casser - mais il doit être PRÉSENT
+- Chaque section devrait avoir au moins une touche légère
 
 ⚠️ **CE QU'IL FAUT ÉVITER**:
 - Pas trop d'emojis (1-2 max dans tout l'article si pertinent)
 - Pas de listes à puces sèches (préfère des paragraphes fluides)
 - Pas de "Introduction" ou "Conclusion" explicites
-- L'humour ne doit pas être forcé ou omniprésent`
+- L'humour ne doit jamais être gênant ou forcé, mais il doit être là`
       }
     };
 
@@ -523,12 +548,46 @@ Rédige un article professionnel EN FRANÇAIS sur ${trendsCount > 1 ? 'ces actua
 ${sourcesForPrompt}
 
 ═══════════════════════════════════════════════════════════════
-🎯 OPTIMISATION SEO (TRÈS IMPORTANT !)
+🔥 TITRE ULTRA-ACCROCHEUR (PRIORITÉ ABSOLUE !)
+═══════════════════════════════════════════════════════════════
+
+Le titre est LA chose la plus importante. Il doit être IRRÉSISTIBLE !
+
+✅ CE QUI MARCHE :
+- Clickbait assumé : "Ce que personne ne vous dit sur...", "La vérité derrière..."
+- Exagération légère (tu peux mentir un peu pour intriguer !)
+- Jeux de mots et humour obligatoires si possible
+- Mystère : "...et la suite va vous surprendre"
+- Exemples qui cartonnent :
+  • "Cette IA a fait pleurer ses créateurs (et pas de joie)"
+  • "J'ai testé cette techno : maintenant je dors plus"
+  • "Le secret que [entreprise] cache depuis des années"
+  • "Cette startup a trouvé LA faille : les géants tremblent"
+  • "[Sujet] : pourquoi tout le monde se trompe"
+
+❌ ÉVITE : Titres plats, descriptifs, ennuyeux, trop longs
+
+═══════════════════════════════════════════════════════════════
+🎭 PREMIÈRES PHRASES = EXPLOSION D'ACCROCHE
+═══════════════════════════════════════════════════════════════
+
+Les 3 premières phrases DOIVENT captiver immédiatement !
+Commence par une blague, une question choc, ou une affirmation délirante.
+
+Exemples d'ouvertures qui accrochent :
+• "Bon, asseyez-vous. Ce que je vais vous raconter va peut-être ruiner votre foi en l'humanité."
+• "Il était une fois, dans la Silicon Valley, un ingénieur qui a eu une idée stupide. Spoiler : il est milliardaire."
+• "Accrochez-vous à votre café, ça va secouer."
+• "Non, ce n'est pas un épisode de Black Mirror. C'est la réalité. En pire."
+
+═══════════════════════════════════════════════════════════════
+🎯 OPTIMISATION SEO
 ═══════════════════════════════════════════════════════════════
 
 1. **TITRE (title)**: 50-60 caractères
-   - Mot-clé principal AU DÉBUT
-   - Accrocheur et clair
+   - ACCROCHEUR avant tout, clickbait assumé
+   - Mot-clé principal inclus
+   - Humour ou mystère si possible
 
 2. **META TITLE**: Titre optimisé pour Google (max 60 car)
    - Peut différer légèrement du titre

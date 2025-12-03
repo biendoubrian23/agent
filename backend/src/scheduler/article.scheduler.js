@@ -5,12 +5,22 @@ const whatsappService = require('../services/whatsapp.service');
 /**
  * Scheduler pour la publication automatique des articles programmés
  * Vérifie régulièrement si des articles doivent être publiés
+ * 
+ * Flux de publication:
+ * 1. Vérifie d'abord scheduled_posts (table de suivi) pour status='pending'
+ * 2. En fallback, vérifie blog_posts pour status='scheduled'
+ * 3. Publie les articles dont scheduled_at <= maintenant
+ * 4. Met à jour le status vers 'published'
+ * 5. Envoie une notification WhatsApp
  */
 class ArticleScheduler {
   constructor() {
     this.intervalId = null;
     this.checkIntervalMinutes = parseInt(process.env.ARTICLE_CHECK_INTERVAL) || 1; // Vérifier chaque minute
     this.isRunning = false;
+    this.lastCheck = null;
+    this.checksCount = 0;
+    this.publishedCount = 0;
   }
 
   /**
@@ -22,7 +32,8 @@ class ArticleScheduler {
       return;
     }
 
-    console.log(`📰 Article Scheduler démarré - Vérification toutes les ${this.checkIntervalMinutes} minutes`);
+    console.log(`📰 Article Scheduler démarré - Vérification toutes les ${this.checkIntervalMinutes} minute(s)`);
+    console.log('📰 Première vérification dans 10 secondes...');
     this.isRunning = true;
 
     // Vérifier immédiatement au démarrage (après 10 secondes)
@@ -53,19 +64,59 @@ class ArticleScheduler {
   async checkScheduledPosts() {
     try {
       const now = new Date();
-      console.log(`📰 [${now.toLocaleTimeString('fr-FR')}] Vérification des articles programmés...`);
+      this.lastCheck = now;
+      this.checksCount++;
+      
+      console.log(`📰 [${now.toLocaleTimeString('fr-FR')}] Vérification #${this.checksCount} des articles programmés...`);
 
-      // 1. Récupérer les articles en attente de publication
-      const { data: scheduledPosts, error } = await supabaseService.client
+      // 1. D'abord essayer avec scheduled_posts (table de suivi)
+      let scheduledPosts = [];
+      let useScheduledPostsTable = true;
+      
+      const { data: fromScheduledTable, error: scheduledError } = await supabaseService.client
         .from('scheduled_posts')
         .select('*')
         .eq('status', 'pending')
         .lte('scheduled_at', now.toISOString())
         .order('scheduled_at', { ascending: true });
 
-      if (error) {
-        console.error('❌ Erreur récupération scheduled_posts:', error.message);
-        return;
+      if (scheduledError) {
+        console.log('⚠️ Table scheduled_posts non disponible, fallback vers blog_posts');
+        useScheduledPostsTable = false;
+      } else {
+        scheduledPosts = fromScheduledTable || [];
+        if (scheduledPosts.length > 0) {
+          console.log(`📋 Trouvé ${scheduledPosts.length} article(s) dans scheduled_posts`);
+        }
+      }
+
+      // 2. FALLBACK: Vérifier aussi blog_posts directement si pas de résultats
+      // Cela permet de publier même si scheduled_posts n'a pas été correctement rempli
+      if (scheduledPosts.length === 0) {
+        console.log('📰 Vérification dans blog_posts (fallback)...');
+        
+        const { data: fromBlogPosts, error: blogError } = await supabaseService.client
+          .from('blog_posts')
+          .select('*')
+          .eq('status', 'scheduled')
+          .lte('scheduled_at', now.toISOString())
+          .order('scheduled_at', { ascending: true });
+
+        if (blogError) {
+          console.error('❌ Erreur récupération blog_posts:', blogError.message);
+        } else if (fromBlogPosts && fromBlogPosts.length > 0) {
+          // Transformer en format compatible avec scheduled_posts
+          scheduledPosts = fromBlogPosts.map(article => ({
+            id: null, // Pas d'entrée scheduled_posts
+            post_id: article.id,
+            title: article.title,
+            scheduled_at: article.scheduled_at,
+            status: 'pending',
+            fromFallback: true // Marquer comme venant du fallback
+          }));
+          useScheduledPostsTable = false;
+          console.log(`📝 ${scheduledPosts.length} article(s) trouvé(s) via blog_posts (fallback)`);
+        }
       }
 
       if (!scheduledPosts || scheduledPosts.length === 0) {
@@ -75,9 +126,10 @@ class ArticleScheduler {
 
       console.log(`📝 ${scheduledPosts.length} article(s) à publier !`);
 
-      // 2. Publier chaque article
+      // 3. Publier chaque article
       for (const scheduled of scheduledPosts) {
-        await this.publishArticle(scheduled);
+        const success = await this.publishArticle(scheduled, useScheduledPostsTable);
+        if (success) this.publishedCount++;
       }
 
     } catch (error) {
@@ -87,11 +139,14 @@ class ArticleScheduler {
 
   /**
    * Publier un article programmé
+   * @param {Object} scheduled - L'entrée de programmation
+   * @param {boolean} useScheduledPostsTable - Si true, met à jour scheduled_posts
+   * @returns {boolean} - true si publié avec succès
    */
-  async publishArticle(scheduled) {
-    const { id, post_id, title, scheduled_at } = scheduled;
+  async publishArticle(scheduled, useScheduledPostsTable = true) {
+    const { id, post_id, title, scheduled_at, fromFallback } = scheduled;
     
-    console.log(`🚀 Publication de "${title}"...`);
+    console.log(`🚀 Publication de "${title}"... (via ${fromFallback ? 'blog_posts fallback' : 'scheduled_posts'})`);
 
     try {
       // 1. Récupérer l'article depuis blog_posts
@@ -103,8 +158,21 @@ class ArticleScheduler {
 
       if (fetchError || !article) {
         console.error(`❌ Article ${post_id} non trouvé`);
-        await this.markAsFailed(id, 'Article non trouvé');
-        return;
+        if (id) await this.markAsFailed(id, 'Article non trouvé');
+        return false;
+      }
+
+      // Vérifier que l'article n'est pas déjà publié
+      if (article.status === 'published') {
+        console.log(`⚠️ Article "${title}" déjà publié, skip`);
+        // Nettoyer scheduled_posts si nécessaire
+        if (id && useScheduledPostsTable) {
+          await supabaseService.client
+            .from('scheduled_posts')
+            .update({ status: 'published', published_at: article.published_at || new Date().toISOString() })
+            .eq('id', id);
+        }
+        return false;
       }
 
       // 2. Mettre à jour le statut de l'article vers "published"
@@ -119,27 +187,32 @@ class ArticleScheduler {
 
       if (updateError) {
         console.error(`❌ Erreur publication article ${post_id}:`, updateError.message);
-        await this.markAsFailed(id, updateError.message);
-        return;
+        if (id) await this.markAsFailed(id, updateError.message);
+        return false;
       }
 
-      // 3. Marquer la programmation comme terminée
-      await supabaseService.client
-        .from('scheduled_posts')
-        .update({
-          status: 'published',
-          published_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      // 3. Marquer la programmation comme terminée (si on utilise scheduled_posts)
+      if (id && useScheduledPostsTable) {
+        await supabaseService.client
+          .from('scheduled_posts')
+          .update({
+            status: 'published',
+            published_at: new Date().toISOString()
+          })
+          .eq('id', id);
+      }
 
       console.log(`✅ Article "${title}" publié avec succès !`);
 
       // 4. Envoyer une notification (WhatsApp ou autre)
       await this.notifyPublication(article);
+      
+      return true; // Succès
 
     } catch (error) {
       console.error(`❌ Erreur publication "${title}":`, error.message);
-      await this.markAsFailed(id, error.message);
+      if (id) await this.markAsFailed(id, error.message);
+      return false; // Échec
     }
   }
 
@@ -204,23 +277,57 @@ class ArticleScheduler {
     return {
       running: this.isRunning,
       intervalMinutes: this.checkIntervalMinutes,
-      nextCheckIn: this.intervalId ? `${this.checkIntervalMinutes} minutes` : 'N/A'
+      nextCheckIn: this.intervalId ? `${this.checkIntervalMinutes} minute(s)` : 'N/A',
+      lastCheck: this.lastCheck ? this.lastCheck.toISOString() : null,
+      checksCount: this.checksCount,
+      publishedCount: this.publishedCount
     };
   }
 
   /**
    * Lister les articles programmés en attente
+   * Vérifie les deux sources: scheduled_posts ET blog_posts
    */
   async getPendingScheduled() {
     try {
-      const { data, error } = await supabaseService.client
+      const results = [];
+      
+      // 1. Depuis scheduled_posts
+      const { data: fromScheduled, error: err1 } = await supabaseService.client
         .from('scheduled_posts')
         .select('*')
         .eq('status', 'pending')
         .order('scheduled_at', { ascending: true });
 
-      if (error) throw error;
-      return data || [];
+      if (!err1 && fromScheduled) {
+        results.push(...fromScheduled.map(p => ({ ...p, source: 'scheduled_posts' })));
+      }
+      
+      // 2. Depuis blog_posts (fallback)
+      const { data: fromBlog, error: err2 } = await supabaseService.client
+        .from('blog_posts')
+        .select('id, title, scheduled_at, status')
+        .eq('status', 'scheduled')
+        .order('scheduled_at', { ascending: true });
+
+      if (!err2 && fromBlog) {
+        // Ajouter ceux qui ne sont pas déjà dans scheduled_posts
+        const existingPostIds = results.map(r => r.post_id);
+        for (const article of fromBlog) {
+          if (!existingPostIds.includes(article.id)) {
+            results.push({
+              id: null,
+              post_id: article.id,
+              title: article.title,
+              scheduled_at: article.scheduled_at,
+              status: 'pending',
+              source: 'blog_posts (fallback)'
+            });
+          }
+        }
+      }
+      
+      return results;
     } catch (error) {
       console.error('Erreur récupération programmations:', error.message);
       return [];
