@@ -195,13 +195,17 @@ class PrincipalAgent {
    - "programme l'article pour demain" → action: "kiara_schedule"
    - "stats du blog" → action: "kiara_global_stats"
    - "modifie le titre par..." → action: "kiara_modify"
+   - "utilise le style narratif" → action: "kiara_set_style", params: { style: "narrative" }
+   - "style documentaire" → action: "kiara_set_style", params: { style: "narrative" }
+   - "style fun" → action: "kiara_set_style", params: { style: "fun" }
+   - "liste les styles" → action: "kiara_list_styles"
    
-   🔑 MOTS-CLÉS KIARA: article, blog, tendance, trend, GPU, IA, tech, rédige, génère, publie, programme, PDF (dans contexte blog), SEO, vues, statistiques blog
+   🔑 MOTS-CLÉS KIARA: article, blog, tendance, trend, GPU, IA, tech, rédige, génère, publie, programme, PDF (dans contexte blog), SEO, vues, statistiques blog, style narratif, style documentaire
 
 RÉPONDS UNIQUEMENT EN JSON avec ce format:
 {
   "target_agent": "brian" | "james" | "kiara" | "magali",
-  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "describe_kiara" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "kiara_delete_article" | "kiara_list_articles" | "kiara_list_published" | "kiara_list_drafts" | "kiara_count_articles" | "unknown",
+  "action": "greeting" | "help" | "general_question" | "email_summary" | "email_unread" | "email_classify" | "email_reclassify" | "email_classify_with_rule" | "email_important" | "create_rule_only" | "list_rules" | "reset_config" | "send_email" | "check_status" | "create_folder" | "delete_folder" | "list_folders" | "describe_james" | "describe_kiara" | "delete_rule" | "email_search" | "contact_search" | "email_reply" | "create_reminder" | "list_reminders" | "email_cleanup" | "daily_summary" | "kiara_complete_workflow" | "kiara_generate_article" | "kiara_trends" | "kiara_publish" | "kiara_schedule" | "kiara_global_stats" | "kiara_modify" | "kiara_delete_article" | "kiara_list_articles" | "kiara_list_published" | "kiara_list_drafts" | "kiara_count_articles" | "kiara_set_style" | "kiara_list_styles" | "unknown",
   "params": {
     "count": number (OBLIGATOIRE - extrait EXACTEMENT le nombre demandé. Ex: "3 derniers mails" → count: 3),
     "filter": "today" | "yesterday" | "week" | "month" | "7days" | "14days" | "30days" | "important" | "urgent" | null,
@@ -218,6 +222,7 @@ RÉPONDS UNIQUEMENT EN JSON avec ce format:
     "title": string (optionnel, titre d'article pour Kiara - suppression/modification),
     "articleCount": number (optionnel, nombre d'articles à rechercher pour Kiara),
     "status": "published" | "draft" | null (optionnel, filtrer par statut d'article),
+    "style": string (optionnel, style d'écriture pour Kiara: "fun" ou "narrative"),
     "period": "week" | "month" | "today" | null (optionnel, filtrer par période),
     "countOnly": boolean (optionnel, true pour compter au lieu de lister),
     "name": string (optionnel, nom du contact à chercher),
@@ -582,6 +587,12 @@ DISTINCTION TRÈS IMPORTANTE:
         break;
       case 'kiara_count_articles':
         response = await this.handleKiaraCountArticles(intent.params);
+        break;
+      case 'kiara_set_style':
+        response = this.handleKiaraSetStyle(intent.params);
+        break;
+      case 'kiara_list_styles':
+        response = kiaraAgent.listWritingStyles();
         break;
       case 'describe_kiara':
         response = this.getKiaraCapabilities();
@@ -3267,6 +3278,23 @@ Agents disponibles:
     } catch (error) {
       console.error('Erreur Kiara daily stats:', error);
       return `❌ Erreur lors de la récupération des stats: ${error.message}`;
+    }
+  }
+
+  /**
+   * Changer le style d'écriture de Kiara
+   */
+  handleKiaraSetStyle(params) {
+    const styleName = params.style || params.name || 'fun';
+    console.log(`✍️ Kiara change de style d'écriture: ${styleName}`);
+    
+    const result = kiaraAgent.setWritingStyle(styleName);
+    
+    if (result.success) {
+      return `✍️ **Kiara** - ${result.message}`;
+    } else {
+      // Lister les styles disponibles
+      return `✍️ **Kiara** - ${result.message}\n\n${kiaraAgent.listWritingStyles()}`;
     }
   }
 

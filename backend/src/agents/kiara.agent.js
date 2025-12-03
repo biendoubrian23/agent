@@ -60,6 +60,80 @@ class KiaraAgent {
       'Actualités Tech'
     ];
 
+    // Styles d'écriture disponibles
+    this.writingStyles = {
+      // Style par défaut : fun, dynamique, accessible
+      fun: {
+        name: 'Fun & Dynamique',
+        description: 'Style léger avec humour et jeux de mots',
+        prompt: `═══════════════════════════════════════════════════════════════
+🎨 TON STYLE D'ÉCRITURE : FUN & DYNAMIQUE
+═══════════════════════════════════════════════════════════════
+- **HUMOUR**: Touches d'humour, jeux de mots, références fun
+- **ACCROCHEUR**: Titre percutant qui donne envie de lire
+- **DYNAMIQUE**: Écris comme à un ami passionné de tech
+- **ACCESSIBLE**: Explique les concepts simplement
+- **EMOJIS**: Utilise quelques emojis pour dynamiser`
+      },
+      
+      // Nouveau style : narratif, documentaire, immersif
+      narrative: {
+        name: 'Narratif Documentaire',
+        description: 'Style cinématographique, immersif comme un documentaire Arte',
+        prompt: `═══════════════════════════════════════════════════════════════
+🎬 TON STYLE D'ÉCRITURE : NARRATIF DOCUMENTAIRE
+═══════════════════════════════════════════════════════════════
+
+Tu écris comme le narrateur d'un documentaire Arte ou d'une vidéo YouTube de vulgarisation narrative.
+Le ton est grave, contemplatif, avec une pointe de dramatisation maîtrisée.
+
+🎤 **TON POSÉ ET RÉFLEXIF**:
+- Prends ton temps, pose des questions rhétoriques
+- Installe une atmosphère, laisse des "silences" narratifs
+- Commence par une question intrigante ou une scène immersive
+
+🌫️ **SUSPENSE ET TENSION NARRATIVE**:
+- Montée en tension progressive
+- Utilise des cliffhangers implicites :
+  « Mais ce n'était que la première étape. »
+  « Et c'est là que tout bascule. »
+  « Ce qui va suivre va tout changer. »
+- Crée un sentiment de menace diffuse ou d'émerveillement
+
+🎨 **TRÈS MÉTAPHORIQUE ET VISUEL**:
+- Utilise des métaphores poétiques : "sculpter le chaos", "une spirale vertueuse", "un brouillard de pixels"
+- Fais VOIR les choses : décris des scènes, des lieux, des moments
+- Exemples marquants et humanisés (anecdotes, personnages réels)
+
+📖 **STRUCTURE STORYTELLING**:
+- Introduction mystérieuse ou question philosophique
+- Contexte historique ou social
+- Zoom technique vulgarisé avec métaphores
+- Exemples concrets et humanisés
+- Montée dramatique vers le climax
+- Ouverture vers le futur / réflexion finale
+
+👀 **POINT DE VUE OMNISCIENT MAIS PROCHE**:
+- Adresse-toi au lecteur : « Imaginez que... », « Vous l'avez peut-être remarqué... »
+- Alterne entre "je", "on", "vous" pour créer une proximité
+- Tu es le guide qui sait, mais qui partage avec bienveillance
+
+🕯️ **ATMOSPHÈRE PHILOSOPHIQUE**:
+- Réflexions sur la perception, la réalité, l'humanité
+- Questions existentielles liées au sujet
+- Ton quasi-spirituel par moments
+
+⚠️ **CE QU'IL FAUT ÉVITER**:
+- Pas d'emojis (ou très peu, seulement si vraiment pertinent)
+- Pas de ton trop léger ou humoristique
+- Pas de listes à puces sèches (préfère des paragraphes fluides)
+- Pas de "Introduction" ou "Conclusion" explicites`
+      }
+    };
+
+    // Style actif (par défaut: fun)
+    this.activeStyle = 'fun';
+
     // Sources RSS par domaine
     this.trendSourcesByDomain = {
       // TECH & INFORMATIQUE
@@ -442,7 +516,6 @@ ${sourcesForPrompt}
 1. **TITRE (title)**: 50-60 caractères
    - Mot-clé principal AU DÉBUT
    - Accrocheur et clair
-   - Peut contenir un jeu de mots ou emoji
 
 2. **META TITLE**: Titre optimisé pour Google (max 60 car)
    - Peut différer légèrement du titre
@@ -466,15 +539,8 @@ ${sourcesForPrompt}
 6. **STRUCTURE H2/H3**: 
    - Sous-titres avec mots-clés
    - Hiérarchie logique
-   - Questions si pertinent (FAQ-style)
 
-═══════════════════════════════════════════════════════════════
-🎨 TON STYLE D'ÉCRITURE
-═══════════════════════════════════════════════════════════════
-- **HUMOUR**: Touches d'humour, jeux de mots, références fun
-- **ACCROCHEUR**: Titre percutant qui donne envie de lire
-- **DYNAMIQUE**: Écris comme à un ami passionné de tech
-- **ACCESSIBLE**: Explique les concepts simplement
+${this.writingStyles[this.activeStyle].prompt}
 
 ═══════════════════════════════════════════════════════════════
 ⚠️ RÈGLES STRICTES (OBLIGATOIRES)
@@ -488,30 +554,15 @@ ${sourcesForPrompt}
 📝 FORMATAGE MARKDOWN
 ═══════════════════════════════════════════════════════════════
 
-1. **PARAGRAPHES COURTS**: 2-3 phrases max, ligne vide entre chaque
+1. **PARAGRAPHES**: ${this.activeStyle === 'narrative' ? 'Fluides, 3-5 phrases, créent une atmosphère' : 'Courts, 2-3 phrases max, ligne vide entre chaque'}
 2. **CITATIONS**: *« Citation »* en italique + guillemets français
 3. **GRAS**: **Noms propres**, **chiffres**, **concepts clés**
 4. **SOUS-TITRES ##**: Tous les 2-3 paragraphes, avec mots-clés
-5. **LISTES**: Si approprié, max 4-5 points
-
-═══════════════════════════════════════════════════════════════
-📋 EXEMPLE DE STRUCTURE SEO-FRIENDLY
-═══════════════════════════════════════════════════════════════
-
-[Paragraphe d'accroche avec MOT-CLÉ PRINCIPAL dès les premières lignes]
-
-## [Sous-titre avec mot-clé secondaire]
-[2-3 paragraphes]
-
-## [Sous-titre sous forme de question ?]
-[2-3 paragraphes avec citations]
-
-## [Sous-titre avec variante du mot-clé]
-[2-3 paragraphes + conclusion naturelle]
+${this.activeStyle === 'narrative' ? '5. **MÉTAPHORES**: Utilise des images poétiques pour expliquer les concepts' : '5. **LISTES**: Si approprié, max 4-5 points'}
 
 ═══════════════════════════════════════════════════════════════
 
-📏 LONGUEUR: 800-1200 mots (idéal SEO)
+📏 LONGUEUR: ${this.activeStyle === 'narrative' ? '1200-1800 mots (plus long pour l\'immersion)' : '800-1200 mots (idéal SEO)'}
 
 📄 FORMAT JSON AVEC SEO COMPLET:
 {
@@ -523,7 +574,7 @@ ${sourcesForPrompt}
   "excerpt": "2-3 phrases d'accroche percutantes pour les réseaux sociaux",
   "content": "Paragraphe avec **mot-clé principal** dès le début...\\n\\n## Sous-titre avec mot-clé\\n\\nParagraphe...",
   "category": "${category}",
-  "reading_time_minutes": 5,
+  "reading_time_minutes": ${this.activeStyle === 'narrative' ? '7' : '5'},
   "tags": ["tag1", "tag2", "tag3", "tag4"],
   "sources": [${sources.map(s => `"${s.link}"`).join(', ')}]
 }`;
@@ -1746,8 +1797,28 @@ ${sourcesForPrompt}
    * Génère un article complet en fallback quand le parsing JSON échoue
    */
   async generateFallbackArticle(subject, category, relatedTrends = []) {
-    // Prompt simplifié pour obtenir un article fun en français
-    const contentPrompt = `Rédige un article de blog CAPTIVANT en FRANÇAIS sur "${subject}".
+    // Utiliser le style actif
+    const isNarrative = this.activeStyle === 'narrative';
+    
+    const contentPrompt = isNarrative 
+      ? `Rédige un article de blog IMMERSIF et NARRATIF en FRANÇAIS sur "${subject}".
+
+STYLE DOCUMENTAIRE:
+- Ton grave, contemplatif, comme un narrateur de documentaire Arte
+- Commence par une question intrigante ou une scène immersive
+- Utilise des métaphores poétiques : "sculpter le chaos", "une spirale vertueuse"
+- Crée une montée en tension narrative avec des cliffhangers
+- Adresse-toi au lecteur : "Imaginez que...", "Vous l'avez peut-être remarqué..."
+- Atmosphère quasi-philosophique, réflexions profondes
+
+RÈGLES:
+- 100% en français
+- 1200-1500 mots (pour l'immersion)
+- Structure: Accroche mystérieuse + développement narratif + ouverture philosophique
+- PAS d'emojis, ton sérieux
+
+Format: Markdown pur, commence par l'accroche (pas de titre #).`
+      : `Rédige un article de blog CAPTIVANT en FRANÇAIS sur "${subject}".
 
 STYLE:
 - Touches d'humour et jeux de mots
@@ -3825,6 +3896,56 @@ L'avenir s'annonce passionnant. Et ce n'est que le début d'une transformation p
       const response = await openaiService.chat(this.systemPrompt, message);
       return response;
     }
+  }
+
+  // ==================== GESTION DES STYLES D'ÉCRITURE ====================
+
+  /**
+   * Changer le style d'écriture des articles
+   * @param {string} styleName - 'fun' ou 'narrative'
+   */
+  setWritingStyle(styleName) {
+    if (this.writingStyles[styleName]) {
+      this.activeStyle = styleName;
+      console.log(`✍️ Kiara - Style d'écriture changé: ${this.writingStyles[styleName].name}`);
+      return {
+        success: true,
+        message: `✅ Style d'écriture changé : **${this.writingStyles[styleName].name}**\n\n${this.writingStyles[styleName].description}`
+      };
+    }
+    return {
+      success: false,
+      message: `❌ Style inconnu. Styles disponibles: ${Object.keys(this.writingStyles).join(', ')}`
+    };
+  }
+
+  /**
+   * Obtenir le style actuel
+   */
+  getWritingStyle() {
+    const style = this.writingStyles[this.activeStyle];
+    return {
+      id: this.activeStyle,
+      name: style.name,
+      description: style.description
+    };
+  }
+
+  /**
+   * Lister tous les styles disponibles
+   */
+  listWritingStyles() {
+    let message = `✍️ **Styles d'écriture disponibles**\n\n`;
+    
+    for (const [id, style] of Object.entries(this.writingStyles)) {
+      const isActive = id === this.activeStyle ? ' ✅ (actif)' : '';
+      message += `**${id}** - ${style.name}${isActive}\n`;
+      message += `   _${style.description}_\n\n`;
+    }
+    
+    message += `\n💡 Pour changer : "Kiara, utilise le style narratif" ou "style documentaire"`;
+    
+    return message;
   }
 }
 
