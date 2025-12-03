@@ -2213,16 +2213,33 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
         'publie l\'article',
         'publier l\'article',
         'publie article',
+        'publie cet article',
+        'publie cet article',
+        'publier cet article',
+        'publie ca',
         'publie ça',
+        'publier ça',
+        'publie le',
+        'publie-le',
         'publier'
       ];
       
-      const isPublishLast = publishLastPatterns.some(p => lowerMessage.includes(p)) && 
-                            !lowerMessage.match(/publie\s+["']?.{10,}["']?/i);
+      // Vérifier si c'est une demande de publication sans titre spécifique
+      const isPublishLast = publishLastPatterns.some(p => lowerMessage.includes(p)) || 
+                            lowerMessage === 'publie' || 
+                            lowerMessage === 'publier' ||
+                            /^publie\s*(l'|le|cet|ça|ca)?\s*(article)?$/i.test(lowerMessage.trim());
       
-      if (isPublishLast || lowerMessage === 'publie' || lowerMessage === 'publier') {
-        // Essayer le dernier article généré
-        if (this.lastGeneratedArticle?.id) {
+      if (isPublishLast) {
+        console.log('📝 Publication demandée sans titre spécifique, utilisation du dernier brouillon...');
+        
+        // TOUJOURS prendre le brouillon le plus récent (n°1) si disponible
+        if (allDrafts && allDrafts.length > 0) {
+          article = allDrafts[0]; // Le premier = le plus récent
+          console.log(`📝 Brouillon sélectionné: "${article.title}"`);
+        }
+        // Sinon essayer le dernier article généré en mémoire
+        else if (this.lastGeneratedArticle?.id) {
           const { data, error } = await supabaseService.client
             .from('blog_posts')
             .select('*')
@@ -2232,11 +2249,6 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
           if (!error && data) {
             article = data;
           }
-        }
-        
-        // Si pas de dernier article, prendre le brouillon le plus récent
-        if (!article && allDrafts && allDrafts.length > 0) {
-          article = allDrafts[0];
         }
         
         if (!article) {
