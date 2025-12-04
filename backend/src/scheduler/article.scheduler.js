@@ -108,7 +108,7 @@ class ArticleScheduler {
           // Transformer en format compatible avec scheduled_posts
           scheduledPosts = fromBlogPosts.map(article => ({
             id: null, // Pas d'entrée scheduled_posts
-            post_id: article.id,
+            blog_post_id: article.id,  // Utiliser blog_post_id comme dans la table Supabase
             title: article.title,
             scheduled_at: article.scheduled_at,
             status: 'pending',
@@ -144,20 +144,22 @@ class ArticleScheduler {
    * @returns {boolean} - true si publié avec succès
    */
   async publishArticle(scheduled, useScheduledPostsTable = true) {
-    const { id, post_id, title, scheduled_at, fromFallback } = scheduled;
+    // Supporter les deux noms de colonnes: blog_post_id (Supabase) ou post_id (ancien)
+    const { id, blog_post_id, post_id, title, scheduled_at, fromFallback } = scheduled;
+    const articleId = blog_post_id || post_id;  // Priorité à blog_post_id
     
-    console.log(`🚀 Publication de "${title}"... (via ${fromFallback ? 'blog_posts fallback' : 'scheduled_posts'})`);
+    console.log(`🚀 Publication de "${title || 'Article'}"... (via ${fromFallback ? 'blog_posts fallback' : 'scheduled_posts'})`);
 
     try {
       // 1. Récupérer l'article depuis blog_posts
       const { data: article, error: fetchError } = await supabaseService.client
         .from('blog_posts')
         .select('*')
-        .eq('id', post_id)
+        .eq('id', articleId)
         .single();
 
       if (fetchError || !article) {
-        console.error(`❌ Article ${post_id} non trouvé`);
+        console.error(`❌ Article ${articleId} non trouvé`);
         if (id) await this.markAsFailed(id, 'Article non trouvé');
         return false;
       }
@@ -183,10 +185,10 @@ class ArticleScheduler {
           published_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', post_id);
+        .eq('id', articleId);
 
       if (updateError) {
-        console.error(`❌ Erreur publication article ${post_id}:`, updateError.message);
+        console.error(`❌ Erreur publication article ${articleId}:`, updateError.message);
         if (id) await this.markAsFailed(id, updateError.message);
         return false;
       }

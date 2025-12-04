@@ -862,6 +862,13 @@ ${this.activeStyle === 'narrative' ? '5. **MÉTAPHORES**: Utilise des images po�
         article.content = this.insertContentImage(article.content, contentImage);
       }
 
+      // AMÉLIORATION: TOUJOURS garantir les sources (minimum = celles des tendances)
+      if (!article.sources || article.sources.length === 0) {
+        console.log(`⚠️ Article sans sources, ajout des sources des tendances...`);
+        article.sources = sources.map(s => s.link).filter(l => l && l.startsWith('http'));
+        console.log(`✅ ${article.sources.length} sources ajoutées`);
+      }
+
       const savedArticle = await this.saveArticleDraft(article);
       
       this.lastGeneratedArticle = { 
@@ -876,6 +883,7 @@ ${this.activeStyle === 'narrative' ? '5. **MÉTAPHORES**: Utilise des images po�
       result += `📂 **Catégorie:** ${article.category}\n`;
       result += `⏱️ **Temps de lecture:** ${article.reading_time_minutes} min\n`;
       result += `🏷️ **Tags:** ${article.tags?.join(', ') || 'Aucun'}\n`;
+      result += `📚 **Sources:** ${article.sources?.length || 0} source(s) citée(s)\n`;
       if (coverImage) {
         result += `🖼️ **Image:** ${coverImage.source} (${coverImage.author})\n`;
       }
@@ -1812,14 +1820,15 @@ Réponds en JSON avec ce format:
     const coverImage = images.length > 0 ? images[0] : null;
     const contentImage = images.length > 1 ? images[1] : null;
 
-    // Chercher les tendances liées au sujet pour enrichir l'article
-    console.log('🔍 Recherche de sources pour enrichir l\'article...');
-    const relatedTrends = await this.fetchRelatedContent(subject);
+    // AMÉLIORATION: Utiliser searchSourcesForTopic qui garantit MINIMUM 3 sources
+    console.log('🔍 Recherche de sources pour enrichir l\'article (minimum 3)...');
+    const relatedTrends = await this.searchSourcesForTopic(subject, 5);
+    console.log(`📚 ${relatedTrends.length} sources trouvées pour l'article`);
 
-    // Préparer les sources pour le prompt (uniquement titre + lien)
+    // Préparer les sources pour le prompt (titre + lien)
     const sourcesForPrompt = relatedTrends.length > 0 
-      ? relatedTrends.map(t => `- "${t.title}" - ${t.link}`).join('\n')
-      : 'Aucune source externe trouvée.';
+      ? relatedTrends.map(t => `- "${t.title}" (${t.source || 'Source'}) - ${t.link}`).join('\n')
+      : 'Sources à rechercher sur le sujet.';
 
     const articlePrompt = `Tu es un JOURNALISTE WEB FRANÇAIS de talent et EXPERT SEO, spécialisé en référencement naturel.
 Rédige un article de blog professionnel EN FRANÇAIS sur: "${subject}"
@@ -1958,6 +1967,30 @@ ${sourcesForPrompt}
         article.content = this.insertContentImage(article.content, contentImage);
       }
 
+      // AMÉLIORATION: TOUJOURS garantir les sources (minimum 3)
+      // Si l'article n'a pas de sources ou pas assez, utiliser celles trouvées par searchSourcesForTopic
+      if (!article.sources || article.sources.length < 3) {
+        console.log(`⚠️ Article sans sources suffisantes (${article.sources?.length || 0}), ajout des sources trouvées...`);
+        
+        // Convertir les sources trouvées en URLs ou objets formatés
+        const sourcesFromSearch = relatedTrends.map(t => {
+          if (t.link && t.link.startsWith('http')) {
+            return t.link;
+          }
+          return {
+            title: t.title,
+            url: t.link || '#',
+            source: t.source || 'Source'
+          };
+        }).filter(s => s);
+        
+        // Fusionner avec les sources existantes (si l'IA en a fourni)
+        const existingSources = article.sources || [];
+        article.sources = [...new Set([...existingSources, ...sourcesFromSearch])].slice(0, 8);
+        
+        console.log(`✅ ${article.sources.length} sources ajoutées à l'article`);
+      }
+
       // Sauvegarder en brouillon
       const savedArticle = await this.saveArticleDraft(article);
 
@@ -1974,6 +2007,7 @@ ${sourcesForPrompt}
       result += `📂 **Catégorie:** ${article.category}\n`;
       result += `⏱️ **Temps de lecture:** ${article.reading_time_minutes} min\n`;
       result += `🏷️ **Tags:** ${article.tags?.join(', ') || 'Aucun'}\n`;
+      result += `📚 **Sources:** ${article.sources?.length || 0} source(s) citée(s)\n`;
       if (coverImage) {
         result += `🖼️ **Image couverture:** ${coverImage.source} (${coverImage.author})\n`;
       }
@@ -2561,8 +2595,7 @@ ${subject}, c'est un peu comme le café : une fois qu'on y a goûté, difficile 
       const { data, error } = await supabaseService.client
         .from('scheduled_posts')
         .insert({
-          post_id: article.id,
-          title: article.title,
+          blog_post_id: article.id,  // Colonne correcte dans Supabase
           scheduled_at: scheduledDate.toISOString(),
           status: 'pending',
           created_at: new Date().toISOString()

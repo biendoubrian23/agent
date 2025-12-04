@@ -6,8 +6,7 @@
 -- Table pour stocker les programmations de publication
 CREATE TABLE IF NOT EXISTS scheduled_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL, -- Copie du titre pour affichage rapide
+    blog_post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
     scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'published', 'failed', 'cancelled')),
     outlook_event_id VARCHAR(255), -- ID de l'événement Outlook Calendar
@@ -15,17 +14,13 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
     cancelled_at TIMESTAMP WITH TIME ZONE, -- Quand la programmation a été annulée
     error_message TEXT, -- Message d'erreur si échec
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Un article ne peut être programmé qu'une seule fois en pending
-    CONSTRAINT unique_pending_post UNIQUE (post_id, status) 
-        WHERE status = 'pending'
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Index pour les requêtes fréquentes
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_status ON scheduled_posts(status);
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_scheduled_at ON scheduled_posts(scheduled_at);
-CREATE INDEX IF NOT EXISTS idx_scheduled_posts_post_id ON scheduled_posts(post_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_posts_blog_post_id ON scheduled_posts(blog_post_id);
 
 -- Vue pour les programmations en attente
 CREATE OR REPLACE VIEW pending_scheduled_posts AS
